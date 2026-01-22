@@ -46,13 +46,18 @@ function HomePage() {
                   {session.user.email}
                 </p>
               </div>
-              <Button
-                onClick={() => signOut()}
-                variant="outline"
-                className="w-full"
-              >
-                Sign out
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button asChild>
+                  <Link to="/organizations">Organizations</Link>
+                </Button>
+                <Button
+                  onClick={() => signOut()}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Sign out
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-2">

@@ -1,4 +1,4 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, Link } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -8,6 +8,18 @@ import { useState } from 'react'
 import { trpc, getTrpcClient } from '@/lib/trpc'
 
 import appCss from '../styles.css?url'
+
+function NotFound() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center">
+      <h1 className="text-4xl font-bold">404</h1>
+      <p className="mt-2 text-muted-foreground">Page not found</p>
+      <Link to="/" className="mt-4 text-primary hover:underline">
+        Go back home
+      </Link>
+    </div>
+  )
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -32,6 +44,7 @@ export const Route = createRootRoute({
   }),
 
   shellComponent: RootDocument,
+  notFoundComponent: NotFound,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {

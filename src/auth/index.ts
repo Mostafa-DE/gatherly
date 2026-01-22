@@ -12,7 +12,25 @@ export const auth = betterAuth({
     },
   }),
   plugins: [
-    organization(),
+    organization({
+      schema: {
+        organization: {
+          additionalFields: {
+            timezone: {
+              type: "string",
+              required: false,
+              input: true,
+            },
+            defaultJoinMode: {
+              type: "string",
+              required: true,
+              defaultValue: "invite",
+              input: true,
+            },
+          },
+        },
+      },
+    }),
   ],
   emailAndPassword: {
     enabled: true,

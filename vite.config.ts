@@ -15,16 +15,16 @@ const config = defineConfig({
   },
   plugins: [
     devtools(),
-    nitro(),
     tailwindcss(),
-    // this is the plugin that enables path aliases
     viteTsConfigPaths({
       projects: ['./tsconfig.json'],
     }),
-
-    tanstackStart(),
+    tanstackStart({
+      start: { entry: "global-middleware" },
+    }),
+    process.env.NODE_ENV === "production" && nitro(),
     viteReact(),
-  ],
+  ].filter(Boolean),
 })
 
 export default config
