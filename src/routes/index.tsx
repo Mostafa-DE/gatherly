@@ -1,5 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useSession, signOut } from "@/auth/client"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useEffect } from "react"
+import { useSession } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -14,7 +15,15 @@ export const Route = createFileRoute("/")({
 })
 
 function HomePage() {
+  const navigate = useNavigate()
   const { data: session, isPending } = useSession()
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (!isPending && session?.user) {
+      navigate({ to: "/dashboard" })
+    }
+  }, [isPending, session, navigate])
 
   if (isPending) {
     return (
@@ -24,62 +33,32 @@ function HomePage() {
     )
   }
 
+  // If authenticated, show loading while redirecting
+  if (session?.user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-muted-foreground">Redirecting to dashboard...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">
-            Welcome to Gatherly
-          </CardTitle>
+          <CardTitle className="text-3xl font-bold">Gatherly</CardTitle>
           <CardDescription>
-            A full-stack application built with TanStack Start, Drizzle, tRPC,
-            and Better Auth
+            Manage your group's sessions and members
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {session?.user ? (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-muted p-4">
-                <p className="text-sm text-muted-foreground">Signed in as</p>
-                <p className="font-medium">{session.user.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {session.user.email}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button asChild>
-                  <Link to="/organizations">Organizations</Link>
-                </Button>
-                <Button
-                  onClick={() => signOut()}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Sign out
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <Button asChild>
-                <Link to="/login">Sign in</Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link to="/register">Create account</Link>
-              </Button>
-            </div>
-          )}
-
-          <div className="pt-4">
-            <h3 className="mb-2 font-semibold">Tech Stack</h3>
-            <ul className="space-y-1 text-sm text-muted-foreground">
-              <li>TanStack Start (React 19)</li>
-              <li>Tailwind CSS v4 + shadcn/ui</li>
-              <li>Drizzle ORM + PostgreSQL</li>
-              <li>tRPC + React Query</li>
-              <li>Better Auth</li>
-              <li>Jotai + Zod</li>
-            </ul>
+          <div className="flex flex-col gap-2">
+            <Button asChild>
+              <Link to="/login">Sign in</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/register">Create account</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

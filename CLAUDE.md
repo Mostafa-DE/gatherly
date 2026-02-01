@@ -157,6 +157,20 @@ pnpm start            # Start production server
 
 ---
 
+## Auto-generated Files
+
+These files are auto-generated and should NOT be edited manually:
+
+| File | Generator | Regenerate with |
+|------|-----------|-----------------|
+| `src/db/auth-schema.ts` | Better Auth CLI | `pnpm auth:generate` |
+| `src/routeTree.gen.ts` | TanStack Router | Auto on dev/build |
+
+If you need to modify auth tables, update Better Auth config and regenerate.
+Add relations for custom tables in `src/db/schema.ts` instead of editing `auth-schema.ts`.
+
+---
+
 ## Environment Variables
 
 Required in `.env`:
