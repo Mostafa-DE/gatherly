@@ -3,8 +3,9 @@ import { eq, and } from "drizzle-orm"
 import { router, publicProcedure, protectedProcedure } from "@/trpc"
 import { getUserById, updateUser } from "@/data-access/users"
 import { updateProfileSchema } from "@/schemas/user"
-import { organization, member } from "@/db/auth-schema"
+import { organization, member, invitation } from "@/db/auth-schema"
 import { auth } from "@/auth"
+import { NotFoundError, BadRequestError } from "@/exceptions"
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -89,5 +90,102 @@ export const userRouter = router({
         headers: ctx.headers,
       })
       return org
+    }),
+
+  // listMyInvitations - invitations received by the user
+  listMyInvitations: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db
+      .select({
+        invitation: invitation,
+        organization: {
+          id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+          logo: organization.logo,
+        },
+      })
+      .from(invitation)
+      .innerJoin(organization, eq(invitation.organizationId, organization.id))
+      .where(
+        and(
+          eq(invitation.email, ctx.user.email),
+          eq(invitation.status, "pending")
+        )
+      )
+  }),
+
+  // acceptInvitation - accept an invitation to join an org
+  acceptInvitation: protectedProcedure
+    .input(z.object({ invitationId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Get the invitation
+      const [inv] = await ctx.db
+        .select()
+        .from(invitation)
+        .where(eq(invitation.id, input.invitationId))
+        .limit(1)
+
+      if (!inv) {
+        throw new NotFoundError("Invitation not found")
+      }
+
+      // Verify it's for this user
+      if (inv.email !== ctx.user.email) {
+        throw new NotFoundError("Invitation not found")
+      }
+
+      if (inv.status !== "pending") {
+        throw new BadRequestError("Invitation is no longer valid")
+      }
+
+      // Check if expired
+      if (inv.expiresAt < new Date()) {
+        throw new BadRequestError("Invitation has expired")
+      }
+
+      // Accept via Better Auth
+      await auth.api.acceptInvitation({
+        body: {
+          invitationId: input.invitationId,
+        },
+        headers: ctx.headers,
+      })
+
+      return { success: true }
+    }),
+
+  // rejectInvitation - reject an invitation
+  rejectInvitation: protectedProcedure
+    .input(z.object({ invitationId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Get the invitation
+      const [inv] = await ctx.db
+        .select()
+        .from(invitation)
+        .where(eq(invitation.id, input.invitationId))
+        .limit(1)
+
+      if (!inv) {
+        throw new NotFoundError("Invitation not found")
+      }
+
+      // Verify it's for this user
+      if (inv.email !== ctx.user.email) {
+        throw new NotFoundError("Invitation not found")
+      }
+
+      if (inv.status !== "pending") {
+        throw new BadRequestError("Invitation is no longer valid")
+      }
+
+      // Reject via Better Auth
+      await auth.api.rejectInvitation({
+        body: {
+          invitationId: input.invitationId,
+        },
+        headers: ctx.headers,
+      })
+
+      return { success: true }
     }),
 })

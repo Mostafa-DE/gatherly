@@ -1,4 +1,4 @@
-import { ChevronsUpDown, Plus, Building2 } from "lucide-react"
+import { ChevronsUpDown, Plus, Building2, Home } from "lucide-react"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { organization as orgClient } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
@@ -21,7 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 export function OrgSwitcher() {
   const navigate = useNavigate()
   const { orgId } = useParams({ strict: false })
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
   const utils = trpc.useUtils()
 
   const { data: orgs, isLoading } = trpc.user.myOrgs.useQuery()
@@ -31,6 +31,7 @@ export function OrgSwitcher() {
   const handleSwitchOrg = async (newOrgId: string) => {
     await orgClient.setActive({ organizationId: newOrgId })
     utils.user.whoami.invalidate()
+    setOpenMobile(false)
     navigate({ to: "/dashboard/org/$orgId", params: { orgId: newOrgId } })
   }
 
@@ -101,11 +102,11 @@ export function OrgSwitcher() {
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="gap-2 p-2">
-              <Link to="/dashboard">
+              <Link to="/dashboard" onClick={() => setOpenMobile(false)}>
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                  <Plus className="size-4" />
+                  <Home className="size-4" />
                 </div>
-                <span className="text-muted-foreground">Create Organization</span>
+                <span>All Organizations</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>

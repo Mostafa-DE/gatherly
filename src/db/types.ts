@@ -4,6 +4,7 @@ import type {
   eventSession,
   participation,
   groupMemberProfile,
+  joinRequest,
 } from "./schema";
 
 // Auth types (from Better Auth)
@@ -27,3 +28,5 @@ export type Participation = typeof participation.$inferSelect;
 export type NewParticipation = typeof participation.$inferInsert;
 export type GroupMemberProfile = typeof groupMemberProfile.$inferSelect;
 export type NewGroupMemberProfile = typeof groupMemberProfile.$inferInsert;
+export type JoinRequest = typeof joinRequest.$inferSelect;
+export type NewJoinRequest = typeof joinRequest.$inferInsert;

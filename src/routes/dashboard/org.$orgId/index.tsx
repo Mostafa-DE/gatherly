@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Users, Clock, Plus, ArrowRight } from "lucide-react"
+import { Calendar, Users, Clock, ArrowRight } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/")({
   component: OrgOverviewPage,
@@ -23,8 +23,6 @@ function OrgOverviewPage() {
   const { data: upcomingSessions, isLoading: sessionsLoading } = trpc.session.listUpcoming.useQuery({
     limit: 5,
   })
-
-  const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
 
   if (whoamiLoading) {
     return (
@@ -41,21 +39,11 @@ function OrgOverviewPage() {
 
   return (
     <div className="space-y-6 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{org?.name}</h1>
-          <p className="text-muted-foreground">
-            Organization overview and quick actions
-          </p>
-        </div>
-        {isAdmin && (
-          <Button asChild>
-            <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Session
-            </Link>
-          </Button>
-        )}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">{org?.name}</h1>
+        <p className="text-muted-foreground">
+          Organization overview
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -69,7 +57,9 @@ function OrgOverviewPage() {
               {whoami?.membership?.role}
             </div>
             <p className="text-xs text-muted-foreground">
-              {isAdmin ? "Full access to all features" : "Member access"}
+              {whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+                ? "Full access to all features"
+                : "Member access"}
             </p>
           </CardContent>
         </Card>
@@ -105,109 +95,69 @@ function OrgOverviewPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Upcoming Sessions</CardTitle>
-                <CardDescription>Sessions you can join</CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/dashboard/org/$orgId/sessions" params={{ orgId }}>
-                  View all
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Upcoming Sessions</CardTitle>
+              <CardDescription>Sessions you can join</CardDescription>
             </div>
-          </CardHeader>
-          <CardContent>
-            {sessionsLoading ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
-                  </div>
-                ))}
-              </div>
-            ) : upcomingSessions && upcomingSessions.length > 0 ? (
-              <div className="space-y-4">
-                {upcomingSessions.map((session, index) => (
-                  <div key={session.id}>
-                    {index > 0 && <Separator className="my-4" />}
-                    <Link
-                      to="/dashboard/org/$orgId/sessions/$sessionId"
-                      params={{ orgId, sessionId: session.id }}
-                      className="block space-y-1 hover:text-primary"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{session.title}</span>
-                        <Badge
-                          variant={session.status === "published" ? "default" : "secondary"}
-                        >
-                          {session.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(session.dateTime).toLocaleDateString(undefined, {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          hour: "numeric",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No upcoming sessions
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks you might want to do</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button variant="outline" className="w-full justify-start" asChild>
+            <Button variant="ghost" size="sm" asChild>
               <Link to="/dashboard/org/$orgId/sessions" params={{ orgId }}>
-                <Calendar className="mr-2 h-4 w-4" />
-                Browse Sessions
+                View all
+                <ArrowRight className="ml-1 h-4 w-4" />
               </Link>
             </Button>
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <Link to="/dashboard/org/$orgId/profile" params={{ orgId }}>
-                <Users className="mr-2 h-4 w-4" />
-                Edit My Profile
-              </Link>
-            </Button>
-            {isAdmin && (
-              <>
-                <Separator className="my-2" />
-                <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Session
+          </div>
+        </CardHeader>
+        <CardContent>
+          {sessionsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : upcomingSessions && upcomingSessions.length > 0 ? (
+            <div className="space-y-4">
+              {upcomingSessions.map((session, index) => (
+                <div key={session.id}>
+                  {index > 0 && <Separator className="my-4" />}
+                  <Link
+                    to="/dashboard/org/$orgId/sessions/$sessionId"
+                    params={{ orgId, sessionId: session.id }}
+                    className="block space-y-1 hover:text-primary"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{session.title}</span>
+                      <Badge
+                        variant={session.status === "published" ? "default" : "secondary"}
+                      >
+                        {session.status}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(session.dateTime).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </p>
                   </Link>
-                </Button>
-                <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
-                    <Users className="mr-2 h-4 w-4" />
-                    Manage Members
-                  </Link>
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No upcoming sessions
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

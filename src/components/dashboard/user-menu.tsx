@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router"
 import { ChevronsUpDown, LogOut, User } from "lucide-react"
 import { useSession, signOut } from "@/auth/client"
 import {
@@ -23,7 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export function UserMenu() {
   const { data: session, isPending } = useSession()
-  const { isMobile } = useSidebar()
+  const { isMobile, setOpenMobile } = useSidebar()
 
   const user = session?.user
 
@@ -93,6 +94,12 @@ export function UserMenu() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="gap-2">
+              <Link to="/dashboard/profile" onClick={() => setOpenMobile(false)}>
+                <User className="size-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem className="gap-2" onClick={() => signOut()}>
               <LogOut className="size-4" />
               Sign out

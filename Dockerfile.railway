@@ -1,0 +1,82 @@
+# =============================================================================
+# Railway Dockerfile for Gatherly
+# =============================================================================
+
+# =============================================================================
+# Stage 1: Install dependencies
+# =============================================================================
+FROM node:24-alpine AS deps
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN corepack install && pnpm install --frozen-lockfile
+
+# =============================================================================
+# Stage 2: Build the application
+# =============================================================================
+FROM node:24-alpine AS build
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN corepack install
+
+COPY --from=deps /app/node_modules ./node_modules
+
+COPY . .
+
+ENV NODE_ENV=production
+
+RUN pnpm build
+
+# =============================================================================
+# Stage 3: Production runtime
+# =============================================================================
+FROM node:24-alpine AS runtime
+
+WORKDIR /app
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml ./
+
+RUN corepack install
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy built output
+COPY --from=build /app/.output ./.output
+
+# Copy drizzle config and migrations for runtime migrations
+COPY drizzle.config.ts ./
+COPY --from=build /app/src/db ./src/db
+
+# Create startup script that runs migrations then starts server
+COPY <<'EOF' /app/start.sh
+#!/bin/sh
+set -e
+
+echo "Running database migrations..."
+npx drizzle-kit migrate
+
+echo "Starting server..."
+exec node .output/server/index.mjs
+EOF
+
+RUN chmod +x /app/start.sh
+
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["/app/start.sh"]

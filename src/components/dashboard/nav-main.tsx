@@ -7,6 +7,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 
 type NavItem = {
@@ -53,9 +54,14 @@ export function NavMain() {
   const { orgId } = useParams({ strict: false })
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+  const { setOpenMobile } = useSidebar()
 
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+
+  const handleNavClick = () => {
+    setOpenMobile(false)
+  }
 
   const isActive = (url: string) => {
     const resolvedUrl = url.replace("$orgId", orgId ?? "")
@@ -86,6 +92,7 @@ export function NavMain() {
                 <Link
                   to={item.url}
                   params={{ orgId }}
+                  onClick={handleNavClick}
                 >
                   <item.icon />
                   <span>{item.title}</span>
@@ -110,6 +117,7 @@ export function NavMain() {
                   <Link
                     to={item.url}
                     params={{ orgId }}
+                    onClick={handleNavClick}
                   >
                     <item.icon />
                     <span>{item.title}</span>

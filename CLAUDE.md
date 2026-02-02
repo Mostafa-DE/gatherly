@@ -147,7 +147,6 @@ pnpm dev              # Start dev server
 # Database
 pnpm db:generate      # Generate Drizzle migrations
 pnpm db:migrate       # Run migrations
-pnpm db:push          # Push schema changes (dev only)
 pnpm db:studio        # Open Drizzle Studio
 
 # Build

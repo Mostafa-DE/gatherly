@@ -22,7 +22,10 @@ const config = defineConfig({
     tanstackStart({
       start: { entry: "global-middleware" },
     }),
-    process.env.NODE_ENV === "production" && nitro(),
+    process.env.NODE_ENV === "production" && nitro({
+      // Ensure static assets are served properly in Node.js environments (Railway/Docker)
+      serveStatic: 'node',
+    }),
     viteReact(),
   ].filter(Boolean),
 })

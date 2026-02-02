@@ -15,10 +15,49 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
-import { user, organization } from "./auth-schema";
+import { user, organization, member } from "./auth-schema";
 
 // Re-export auto-generated auth schema
 export * from "./auth-schema";
+
+// =============================================================================
+// Join Request (for approval-based organization joining)
+// =============================================================================
+
+export const joinRequest = pgTable(
+  "join_request",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").default("pending").notNull(), // 'pending' | 'approved' | 'rejected'
+    message: text("message"), // Optional message from requester
+    reviewedBy: text("reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("join_request_org_idx").on(table.organizationId),
+    index("join_request_user_idx").on(table.userId),
+    index("join_request_status_idx").on(table.status),
+    // Only one pending request per user per org
+    uniqueIndex("join_request_org_user_pending_idx")
+      .on(table.organizationId, table.userId)
+      .where(sql`status = 'pending'`),
+  ]
+);
 
 // =============================================================================
 // Organization Settings (owned by us, not Better Auth)
@@ -203,6 +242,21 @@ export const groupMemberProfileRelations = relations(
   })
 );
 
+export const joinRequestRelations = relations(joinRequest, ({ one }) => ({
+  organization: one(organization, {
+    fields: [joinRequest.organizationId],
+    references: [organization.id],
+  }),
+  user: one(user, {
+    fields: [joinRequest.userId],
+    references: [user.id],
+  }),
+  reviewer: one(user, {
+    fields: [joinRequest.reviewedBy],
+    references: [user.id],
+  }),
+}));
+
 // =============================================================================
 // Type Exports
 // =============================================================================
@@ -226,5 +280,7 @@ export type {
   NewParticipation,
   GroupMemberProfile,
   NewGroupMemberProfile,
+  JoinRequest,
+  NewJoinRequest,
 } from "./types";
 

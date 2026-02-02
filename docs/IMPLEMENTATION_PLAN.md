@@ -799,7 +799,7 @@ pnpm add @paralleldrive/cuid2
 
 After implementation:
 
-1. **Database**: Run `pnpm db:generate && pnpm db:push` to apply schema
+1. **Database**: Run `pnpm db:generate && pnpm db:migrate` to apply schema
 2. **Manual test**:
    - Create a session via tRPC (use Drizzle Studio or API)
    - Verify cannot join draft session

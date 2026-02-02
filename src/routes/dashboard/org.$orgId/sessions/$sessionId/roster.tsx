@@ -9,6 +9,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
@@ -258,29 +265,37 @@ function ParticipantRow({
         </div>
       </div>
       <div className="flex gap-2">
-        <select
-          className="rounded-md border px-2 py-1 text-sm"
+        <Select
           value={participation.attendance}
-          onChange={(e) =>
-            onUpdate({ attendance: e.target.value as "pending" | "show" | "no_show" })
+          onValueChange={(value) =>
+            onUpdate({ attendance: value as "pending" | "show" | "no_show" })
           }
           disabled={isUpdating}
         >
-          <option value="pending">Pending</option>
-          <option value="show">Show</option>
-          <option value="no_show">No Show</option>
-        </select>
-        <select
-          className="rounded-md border px-2 py-1 text-sm"
+          <SelectTrigger className="w-[120px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="show">Show</SelectItem>
+            <SelectItem value="no_show">No Show</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
           value={participation.payment}
-          onChange={(e) =>
-            onUpdate({ payment: e.target.value as "unpaid" | "paid" })
+          onValueChange={(value) =>
+            onUpdate({ payment: value as "unpaid" | "paid" })
           }
           disabled={isUpdating}
         >
-          <option value="unpaid">Unpaid</option>
-          <option value="paid">Paid</option>
-        </select>
+          <SelectTrigger className="w-[100px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     </div>
   )
