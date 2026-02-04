@@ -61,7 +61,7 @@ function JoinRequestsPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can manage join requests.
+              Only group owners and admins can manage join requests.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -81,7 +81,7 @@ function JoinRequestsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Join Requests</h1>
         <p className="text-muted-foreground">
-          Review and manage pending join requests for your organization
+          Review and manage pending join requests for your group
         </p>
       </div>
 
@@ -92,7 +92,7 @@ function JoinRequestsPage() {
             Pending Requests
           </CardTitle>
           <CardDescription>
-            Users waiting for approval to join your organization.
+            Users waiting for approval to join your group.
           </CardDescription>
         </CardHeader>
         <CardContent>

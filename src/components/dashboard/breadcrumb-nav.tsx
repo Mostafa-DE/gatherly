@@ -19,14 +19,15 @@ export function BreadcrumbNav() {
   const { orgId, sessionId } = useParams({ strict: false })
   const routerState = useRouterState()
   const pathname = routerState.location.pathname
+  const isOrgRoute = pathname.includes("/dashboard/org/")
 
   const { data: whoami } = trpc.user.whoami.useQuery()
   const orgName = whoami?.activeOrganization?.name
 
   const segments: BreadcrumbSegment[] = []
 
-  // Add org breadcrumb if we're in an org context
-  if (orgId && orgName) {
+  // Add org breadcrumb if we're in an org context (check pathname, not just params)
+  if (isOrgRoute && orgId && orgName) {
     segments.push({
       label: orgName,
       href: `/dashboard/org/${orgId}`,

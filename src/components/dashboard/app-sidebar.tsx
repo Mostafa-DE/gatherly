@@ -1,4 +1,4 @@
-import { Link, useParams } from "@tanstack/react-router"
+import { Link, useRouterState } from "@tanstack/react-router"
 import { Building2, Home, Mail } from "lucide-react"
 import {
   Sidebar,
@@ -19,12 +19,14 @@ import { UserMenu } from "./user-menu"
 import { trpc } from "@/lib/trpc"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { orgId } = useParams({ strict: false })
+  // Use pathname to reliably detect if we're in an org context
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isOrgRoute = pathname.includes("/dashboard/org/")
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        {orgId ? (
+        {isOrgRoute ? (
           <OrgSwitcher />
         ) : (
           <SidebarMenu>
@@ -45,7 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </SidebarHeader>
       <SidebarContent>
-        {orgId ? (
+        {isOrgRoute ? (
           <NavMain />
         ) : (
           <DashboardNav />
@@ -72,7 +74,7 @@ function DashboardNav() {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>Organizations</SidebarGroupLabel>
+        <SidebarGroupLabel>Groups</SidebarGroupLabel>
         <SidebarMenu>
           {orgs?.map((org) => (
             <SidebarMenuItem key={org.organization.id}>

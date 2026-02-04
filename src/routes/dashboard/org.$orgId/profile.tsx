@@ -104,7 +104,7 @@ function ProfilePage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
         <p className="text-muted-foreground">
-          View and edit your profile for this organization
+          View and edit your profile for this group
         </p>
       </div>
 
@@ -115,7 +115,7 @@ function ProfilePage() {
             Profile Information
           </CardTitle>
           <CardDescription>
-            Your profile details for this organization
+            Your profile details for this group
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -135,9 +135,9 @@ function ProfilePage() {
       {formFields.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Organization Profile</CardTitle>
+            <CardTitle>Group Profile</CardTitle>
             <CardDescription>
-              Fill out additional information for this organization
+              Fill out additional information for this group
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -173,7 +173,7 @@ function ProfilePage() {
               <User className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 text-lg font-medium">No Custom Fields</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                This organization hasn't configured any custom profile fields yet.
+                This group hasn't configured any custom profile fields yet.
               </p>
             </div>
           </CardContent>
@@ -231,7 +231,7 @@ function ParticipationHistory() {
           Participation History
         </CardTitle>
         <CardDescription>
-          Your session attendance history in this organization
+          Your session attendance history in this group
         </CardDescription>
       </CardHeader>
       <CardContent>

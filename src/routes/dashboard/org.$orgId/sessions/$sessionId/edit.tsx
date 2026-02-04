@@ -126,7 +126,7 @@ function EditSessionPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can edit sessions.
+              Only group owners and admins can edit sessions.
             </CardDescription>
           </CardHeader>
           <CardFooter>

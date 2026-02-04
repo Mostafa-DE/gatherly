@@ -42,7 +42,7 @@ function OrgOverviewPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{org?.name}</h1>
         <p className="text-muted-foreground">
-          Organization overview
+          Group overview
         </p>
       </div>
 
@@ -89,7 +89,7 @@ function OrgOverviewPage() {
               {org?.timezone || "Not set"}
             </div>
             <p className="text-xs text-muted-foreground">
-              Organization timezone
+              Group timezone
             </p>
           </CardContent>
         </Card>

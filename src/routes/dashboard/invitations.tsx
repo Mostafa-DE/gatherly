@@ -39,7 +39,7 @@ function UserInvitationsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Invitations</h1>
         <p className="text-muted-foreground">
-          Invitations you've received to join organizations
+          Invitations you've received to join groups
         </p>
       </div>
 
@@ -50,7 +50,7 @@ function UserInvitationsPage() {
             Pending Invitations
           </CardTitle>
           <CardDescription>
-            Accept or decline invitations to join organizations.
+            Accept or decline invitations to join groups.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,7 +129,7 @@ function UserInvitationsPage() {
           )}
           {acceptMutation.isSuccess && (
             <p className="mt-4 text-sm text-muted-foreground text-center">
-              Invitation accepted! Check your organizations list.
+              Invitation accepted! Check your groups list.
             </p>
           )}
         </CardContent>

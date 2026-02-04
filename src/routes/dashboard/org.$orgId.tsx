@@ -89,12 +89,12 @@ function OrgLayout() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You don't have access to this organization.
+              You don't have access to this group.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              You may not be a member of this organization, or the organization
+              You may not be a member of this group, or the group
               may not exist.
             </p>
           </CardContent>

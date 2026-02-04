@@ -112,7 +112,7 @@ function UserProfilePage() {
             Profile Information
           </CardTitle>
           <CardDescription>
-            Your personal information visible across all organizations.
+            Your personal information visible across all groups.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

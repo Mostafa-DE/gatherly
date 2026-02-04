@@ -118,7 +118,7 @@ function SessionRosterPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can view the roster.
+              Only group owners and admins can view the roster.
             </CardDescription>
           </CardHeader>
           <CardFooter>

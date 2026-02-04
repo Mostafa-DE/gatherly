@@ -155,9 +155,9 @@ function PublicOrgPage() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle>Organization Not Found</CardTitle>
+            <CardTitle>Group Not Found</CardTitle>
             <CardDescription>
-              The organization you're looking for doesn't exist or has been removed.
+              The group you're looking for doesn't exist or has been removed.
             </CardDescription>
           </CardHeader>
           <CardFooter className="justify-center">
@@ -192,7 +192,7 @@ function PublicOrgPage() {
           className="w-full"
         >
           <UserPlus className="mr-2 h-4 w-4" />
-          {joinOrgMutation.isPending ? "Joining..." : "Join Organization"}
+          {joinOrgMutation.isPending ? "Joining..." : "Join Group"}
         </Button>
       )
     }
@@ -279,7 +279,7 @@ function PublicOrgPage() {
                       <div className="flex items-center gap-2 p-3 rounded-md border bg-muted/50 text-sm">
                         <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                         <span className="text-muted-foreground">
-                          {unfilledOptionalFields.length} optional field{unfilledOptionalFields.length !== 1 ? "s" : ""} remaining — helps the organization know you better.
+                          {unfilledOptionalFields.length} optional field{unfilledOptionalFields.length !== 1 ? "s" : ""} remaining — helps the group know you better.
                         </span>
                       </div>
                     )}

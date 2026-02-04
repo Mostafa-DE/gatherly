@@ -71,7 +71,7 @@ function InvitationsPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can manage invitations.
+              Only group owners and admins can manage invitations.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -91,7 +91,7 @@ function InvitationsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Invitations</h1>
         <p className="text-muted-foreground">
-          Invite new members to join your organization
+          Invite new members to join your group
         </p>
       </div>
 
@@ -103,7 +103,7 @@ function InvitationsPage() {
             Send Invitation
           </CardTitle>
           <CardDescription>
-            Invite someone to join your organization by email.
+            Invite someone to join your group by email.
           </CardDescription>
         </CardHeader>
         <CardContent>

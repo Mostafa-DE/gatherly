@@ -31,9 +31,9 @@ function DashboardHomePage() {
       <PendingJoinRequests />
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Your Organizations</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Your Groups</h1>
         <p className="text-muted-foreground">
-          Select an organization to manage or create a new one
+          Select a group to manage or create a new one
         </p>
       </div>
 
@@ -65,7 +65,7 @@ function DashboardHomePage() {
             <CardHeader>
               <CardTitle>Get Started</CardTitle>
               <CardDescription>
-                Create your first organization to start managing sessions and
+                Create your first group to start managing sessions and
                 members.
               </CardDescription>
             </CardHeader>
@@ -145,6 +145,7 @@ function CreateOrgCard() {
 
   return (
     <Card
+      id="create-org-card"
       className="flex cursor-pointer flex-col items-center justify-center border-dashed transition-colors hover:border-primary hover:bg-muted/50"
       onClick={() => setShowForm(true)}
     >
@@ -152,7 +153,7 @@ function CreateOrgCard() {
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
           <Plus className="h-5 w-5 text-muted-foreground" />
         </div>
-        <p className="text-sm font-medium">Create Organization</p>
+        <p className="text-sm font-medium">Create Group</p>
       </CardContent>
     </Card>
   )
@@ -211,9 +212,9 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Create Organization</CardTitle>
+        <CardTitle>Create Group</CardTitle>
         <CardDescription>
-          Set up a new organization for your group.
+          Set up a new group.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -224,10 +225,10 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="name">Organization Name</Label>
+            <Label htmlFor="name">Group Name</Label>
             <Input
               id="name"
-              placeholder="My Organization"
+              placeholder="My Group"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               required
@@ -237,7 +238,7 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
             <Label htmlFor="slug">URL Slug</Label>
             <Input
               id="slug"
-              placeholder="my-organization"
+              placeholder="my-group"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               pattern="^[a-z0-9-]+$"
@@ -280,7 +281,7 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
             </Button>
           )}
           <Button type="submit" disabled={createOrg.isPending} className={onCancel ? "" : "w-full"}>
-            {createOrg.isPending ? "Creating..." : "Create Organization"}
+            {createOrg.isPending ? "Creating..." : "Create Group"}
           </Button>
         </CardFooter>
       </form>
@@ -316,7 +317,7 @@ function PendingJoinRequests() {
           Pending Join Requests
         </CardTitle>
         <CardDescription>
-          Your requests to join organizations that are awaiting approval
+          Your requests to join groups that are awaiting approval
         </CardDescription>
       </CardHeader>
       <CardContent>

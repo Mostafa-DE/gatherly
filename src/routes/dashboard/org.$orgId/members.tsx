@@ -69,7 +69,7 @@ function MembersPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can view members.
+              Only group owners and admins can view members.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -111,7 +111,7 @@ function MembersPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Members</h1>
           <p className="text-muted-foreground">
-            Manage members in your organization
+            Manage members in your group
           </p>
         </div>
         <div className="flex gap-2">
@@ -132,7 +132,7 @@ function MembersPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Organization Members
+            Group Members
             {members && (
               <Badge variant="secondary" className="ml-2">
                 {members.length}
@@ -140,7 +140,7 @@ function MembersPage() {
             )}
           </CardTitle>
           <CardDescription>
-            View and manage members of your organization.
+            View and manage members of your group.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -162,7 +162,7 @@ function MembersPage() {
               <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
               <h3 className="mt-4 text-lg font-medium">No Members</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Your organization doesn't have any members yet.
+                Your group doesn't have any members yet.
               </p>
             </div>
           ) : (

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { useEffect } from "react"
+import { Loader2 } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -28,8 +29,17 @@ function DashboardLayout() {
   // Show loading while checking auth or redirecting
   if (isPending || !session?.user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+        <div className="flex items-center gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+            <span className="text-lg font-bold text-primary-foreground">G</span>
+          </div>
+          <span className="text-2xl font-semibold tracking-tight">Gatherly</span>
+        </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading...</span>
+        </div>
       </div>
     )
   }

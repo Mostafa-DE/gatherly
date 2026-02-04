@@ -169,7 +169,7 @@ function SettingsPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can access settings.
+              Only group owners and admins can access settings.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -189,7 +189,7 @@ function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your organization settings
+          Manage your group settings
         </p>
       </div>
 
@@ -201,13 +201,13 @@ function SettingsPage() {
               General Settings
             </CardTitle>
             <CardDescription>
-              Basic organization information
+              Basic group information
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1">
-                <p className="text-sm font-medium">Organization Name</p>
+                <p className="text-sm font-medium">Group Name</p>
                 <p className="text-sm text-muted-foreground">{org?.name}</p>
               </div>
               <div className="space-y-1">
@@ -316,7 +316,7 @@ function SettingsPage() {
                 <Globe className="mx-auto h-12 w-12 text-muted-foreground/50" />
                 <h3 className="mt-4 text-lg font-medium">No Custom Fields</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Add custom fields that members fill out when joining your organization.
+                  Add custom fields that members fill out when joining your group.
                 </p>
                 <Button onClick={addField} className="mt-4">
                   <Plus className="h-4 w-4 mr-2" />

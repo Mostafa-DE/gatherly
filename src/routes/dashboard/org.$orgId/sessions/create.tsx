@@ -59,7 +59,7 @@ function CreateSessionPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only organization owners and admins can create sessions.
+              Only group owners and admins can create sessions.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -118,7 +118,7 @@ function CreateSessionPage() {
             <CardHeader>
               <CardTitle>Create Session</CardTitle>
               <CardDescription>
-                Create a new session for your organization. Sessions start in
+                Create a new session for your group. Sessions start in
                 draft status.
               </CardDescription>
             </CardHeader>

@@ -76,7 +76,7 @@ export function OrgSwitcher() {
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {activeOrg?.organization.name ?? "Select Organization"}
+                  {activeOrg?.organization.name ?? "Select Group"}
                 </span>
                 {activeOrg && (
                   <span className="truncate text-xs capitalize">
@@ -94,7 +94,7 @@ export function OrgSwitcher() {
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Organizations
+              Groups
             </DropdownMenuLabel>
             {orgs?.map((item) => (
               <DropdownMenuItem
@@ -117,7 +117,7 @@ export function OrgSwitcher() {
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                   <Home className="size-4" />
                 </div>
-                <span>All Organizations</span>
+                <span>All Groups</span>
               </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
