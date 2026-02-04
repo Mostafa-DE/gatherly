@@ -1,6 +1,6 @@
 import { router, orgProcedure } from "@/trpc";
-import { ForbiddenError, NotFoundError } from "@/exceptions";
-import { getSessionById } from "@/data-access/sessions";
+import { ForbiddenError } from "@/exceptions";
+import { withOrgScope } from "@/data-access/org-scope";
 import {
   joinSession,
   cancelParticipation,
@@ -10,7 +10,6 @@ import {
   updateParticipation,
   bulkUpdateAttendance,
   getUserHistory,
-  getParticipationById,
   getWaitlistPosition,
 } from "@/data-access/participations";
 import {
@@ -25,12 +24,12 @@ import {
 } from "@/schemas/participation";
 
 // =============================================================================
-// Helper: Check if user is admin (owner or admin role)
+// Helper: Check if user is owner
 // =============================================================================
 
-function assertAdmin(role: string): void {
-  if (role !== "owner" && role !== "admin") {
-    throw new ForbiddenError("Only organization owners and admins can perform this action");
+function assertOwner(role: string): void {
+  if (role !== "owner") {
+    throw new ForbiddenError("Only organization owners can perform this action");
   }
 }
 
@@ -46,13 +45,10 @@ export const participationRouter = router({
   join: orgProcedure
     .input(joinSessionSchema)
     .mutation(async ({ ctx, input }) => {
-      // Verify session belongs to this organization
-      const session = await getSessionById(input.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new NotFoundError("Session not found");
-      }
-
-      return joinSession(input.sessionId, ctx.user.id);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSession(input.sessionId);
+        return joinSession(input.sessionId, ctx.user.id);
+      });
     }),
 
   /**
@@ -62,8 +58,10 @@ export const participationRouter = router({
   cancel: orgProcedure
     .input(cancelParticipationSchema)
     .mutation(async ({ ctx, input }) => {
-      // The cancelParticipation function verifies ownership
-      return cancelParticipation(input.participationId, ctx.user.id);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireUserParticipation(input.participationId, ctx.user.id);
+        return cancelParticipation(input.participationId, ctx.user.id);
+      });
     }),
 
   /**
@@ -72,15 +70,14 @@ export const participationRouter = router({
   myParticipation: orgProcedure
     .input(getMyParticipationSchema)
     .query(async ({ ctx, input }) => {
-      // Verify session belongs to this organization
-      const session = await getSessionById(input.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new NotFoundError("Session not found");
-      }
+      const participation = await withOrgScope(
+        ctx.activeOrganization.id,
+        async (scope) => {
+          await scope.requireSession(input.sessionId);
+          return getMyParticipation(input.sessionId, ctx.user.id);
+        }
+      );
 
-      const participation = await getMyParticipation(input.sessionId, ctx.user.id);
-
-      // If waitlisted, include position
       if (participation?.status === "waitlisted") {
         const position = await getWaitlistPosition(
           input.sessionId,
@@ -109,15 +106,12 @@ export const participationRouter = router({
   roster: orgProcedure
     .input(getRosterSchema)
     .query(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
 
-      // Verify session belongs to this organization
-      const session = await getSessionById(input.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new NotFoundError("Session not found");
-      }
-
-      return getSessionRoster(input.sessionId, input);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSession(input.sessionId);
+        return getSessionRoster(input.sessionId, input);
+      });
     }),
 
   /**
@@ -126,21 +120,13 @@ export const participationRouter = router({
   update: orgProcedure
     .input(updateParticipationSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
 
-      // Verify participation belongs to a session in this organization
-      const participation = await getParticipationById(input.participationId);
-      if (!participation) {
-        throw new NotFoundError("Participation not found");
-      }
-
-      const session = await getSessionById(participation.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Participation not found in this organization");
-      }
-
-      const { participationId, ...data } = input;
-      return updateParticipation(participationId, data);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireParticipationForMutation(input.participationId);
+        const { participationId, ...data } = input;
+        return updateParticipation(participationId, data);
+      });
     }),
 
   /**
@@ -149,16 +135,13 @@ export const participationRouter = router({
   bulkUpdateAttendance: orgProcedure
     .input(bulkUpdateAttendanceSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
 
-      // Verify session belongs to this organization
-      const session = await getSessionById(input.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new NotFoundError("Session not found");
-      }
-
-      await bulkUpdateAttendance(input.updates);
-      return { success: true, count: input.updates.length };
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSession(input.sessionId);
+        const count = await bulkUpdateAttendance(input.sessionId, input.updates);
+        return { success: true, count };
+      });
     }),
 
   /**
@@ -167,7 +150,7 @@ export const participationRouter = router({
   userHistory: orgProcedure
     .input(getUserHistorySchema)
     .query(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
       return getUserHistory(ctx.activeOrganization.id, input.userId, input);
     }),
 });

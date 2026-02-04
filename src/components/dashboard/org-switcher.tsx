@@ -29,10 +29,21 @@ export function OrgSwitcher() {
   const activeOrg = orgs?.find((o) => o.organization.id === orgId)
 
   const handleSwitchOrg = async (newOrgId: string) => {
+    if (newOrgId === orgId) {
+      setOpenMobile(false)
+      return
+    }
+
     await orgClient.setActive({ organizationId: newOrgId })
-    utils.user.whoami.invalidate()
+    await utils.invalidate()
     setOpenMobile(false)
-    navigate({ to: "/dashboard/org/$orgId", params: { orgId: newOrgId } })
+    navigate({
+      to: ".",
+      params: (previousParams) => ({
+        ...previousParams,
+        orgId: newOrgId,
+      }),
+    })
   }
 
   if (isLoading) {

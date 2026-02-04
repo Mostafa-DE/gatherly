@@ -1,0 +1,1 @@
+ALTER TABLE "join_request" ADD COLUMN "form_answers" jsonb;

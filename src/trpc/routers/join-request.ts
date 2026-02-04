@@ -1,8 +1,6 @@
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
 import { router, protectedProcedure, orgProcedure } from "@/trpc";
 import { ForbiddenError, NotFoundError, BadRequestError } from "@/exceptions";
-import { organization, member } from "@/db/auth-schema";
 import { auth } from "@/auth";
 import {
   createJoinRequest,
@@ -16,10 +14,15 @@ import {
   listMyJoinRequests,
 } from "@/data-access/join-requests";
 import {
+  getOrganizationById,
+  getOrganizationMemberByUserId,
+} from "@/data-access/organizations";
+import {
   createJoinRequestSchema,
   cancelJoinRequestSchema,
   reviewJoinRequestSchema,
 } from "@/schemas/join-request";
+import { upsertProfile } from "@/data-access/group-member-profiles";
 
 // =============================================================================
 // Helper: Check if user is admin (owner or admin role)
@@ -44,11 +47,7 @@ export const joinRequestRouter = router({
     .input(createJoinRequestSchema)
     .mutation(async ({ ctx, input }) => {
       // Get organization info
-      const [org] = await ctx.db
-        .select()
-        .from(organization)
-        .where(eq(organization.id, input.organizationId))
-        .limit(1);
+      const org = await getOrganizationById(input.organizationId);
 
       if (!org) {
         throw new NotFoundError("Organization not found");
@@ -69,23 +68,17 @@ export const joinRequestRouter = router({
       }
 
       // Check if user is already a member
-      const [existingMember] = await ctx.db
-        .select()
-        .from(member)
-        .where(
-          and(
-            eq(member.organizationId, input.organizationId),
-            eq(member.userId, ctx.user.id)
-          )
-        )
-        .limit(1);
+      const existingMember = await getOrganizationMemberByUserId(
+        input.organizationId,
+        ctx.user.id
+      );
 
       if (existingMember) {
         throw new BadRequestError("You are already a member of this organization");
       }
 
       // Create the join request
-      return createJoinRequest(input.organizationId, ctx.user.id, input.message);
+      return createJoinRequest(input.organizationId, ctx.user.id, input.message, input.formAnswers);
     }),
 
   /**
@@ -152,6 +145,16 @@ export const joinRequestRouter = router({
           organizationId: ctx.activeOrganization.id,
         },
       });
+
+      // Save form answers as profile if present
+      const formAnswers = requestData.request.formAnswers as Record<string, unknown> | null;
+      if (formAnswers && Object.keys(formAnswers).length > 0) {
+        await upsertProfile(
+          ctx.activeOrganization.id,
+          requestData.request.userId,
+          formAnswers
+        );
+      }
 
       return updatedRequest;
     }),

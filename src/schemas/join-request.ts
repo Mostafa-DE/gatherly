@@ -15,6 +15,7 @@ export type JoinRequestStatus = z.infer<typeof joinRequestStatusSchema>
 export const createJoinRequestSchema = z.object({
   organizationId: z.string(),
   message: z.string().max(500).optional(),
+  formAnswers: z.record(z.unknown()).optional(),
 })
 
 // Cancel join request input

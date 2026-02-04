@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { useSession } from "@/auth/client"
 import { AppSidebar, BreadcrumbNav, QuickActions } from "@/components/dashboard"
 import {
@@ -7,6 +7,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
+import { useEffect } from "react"
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardLayout,
@@ -15,27 +16,20 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardLayout() {
   const { data: session, isPending } = useSession()
+  const navigate = useNavigate()
 
-  // Show loading while checking auth
-  if (isPending) {
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isPending && !session?.user) {
+      navigate({ to: "/login" })
+    }
+  }, [isPending, session?.user, navigate])
+
+  // Show loading while checking auth or redirecting
+  if (isPending || !session?.user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
-      </div>
-    )
-  }
-
-  // Redirect to login if not authenticated
-  if (!session?.user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-muted-foreground">
-          Please{" "}
-          <a href="/login" className="text-primary underline">
-            sign in
-          </a>{" "}
-          to continue.
-        </p>
       </div>
     )
   }

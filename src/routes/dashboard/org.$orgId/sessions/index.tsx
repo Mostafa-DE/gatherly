@@ -1,17 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
-import { Plus, Calendar, MapPin, Users } from "lucide-react"
+import { Plus, Calendar, MapPin, Users, ChevronDown } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/")({
   component: SessionsPage,
@@ -49,10 +51,16 @@ function SessionsPage() {
   )
 }
 
+const PAGE_SIZE = 10
+
 function UpcomingSessions({ orgId }: { orgId: string }) {
-  const { data: sessions, isLoading, error } = trpc.session.listUpcoming.useQuery({
-    limit: 10,
+  const [limit, setLimit] = useState(PAGE_SIZE)
+
+  const { data: sessions, isLoading, error, isFetching } = trpc.session.listUpcoming.useQuery({
+    limit,
   })
+
+  const hasMore = sessions && sessions.length === limit
 
   return (
     <Card>
@@ -88,14 +96,31 @@ function UpcomingSessions({ orgId }: { orgId: string }) {
           </div>
         )}
       </CardContent>
+      {hasMore && (
+        <CardFooter className="border-t pt-4">
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+            disabled={isFetching}
+          >
+            <ChevronDown className="h-4 w-4 mr-2" />
+            {isFetching ? "Loading..." : "Load More"}
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   )
 }
 
 function PastSessions({ orgId }: { orgId: string }) {
-  const { data: sessions, isLoading, error } = trpc.session.listPast.useQuery({
-    limit: 10,
+  const [limit, setLimit] = useState(PAGE_SIZE)
+
+  const { data: sessions, isLoading, error, isFetching } = trpc.session.listPast.useQuery({
+    limit,
   })
+
+  const hasMore = sessions && sessions.length === limit
 
   return (
     <Card>
@@ -131,6 +156,19 @@ function PastSessions({ orgId }: { orgId: string }) {
           </div>
         )}
       </CardContent>
+      {hasMore && (
+        <CardFooter className="border-t pt-4">
+          <Button
+            variant="ghost"
+            className="w-full"
+            onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+            disabled={isFetching}
+          >
+            <ChevronDown className="h-4 w-4 mr-2" />
+            {isFetching ? "Loading..." : "Load More"}
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   )
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +20,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/roster"
@@ -30,6 +32,9 @@ export const Route = createFileRoute(
 function SessionRosterPage() {
   const { orgId, sessionId } = Route.useParams()
   const utils = trpc.useUtils()
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkAction, setBulkAction] = useState<"pending" | "show" | "no_show">("show")
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
@@ -57,6 +62,46 @@ function SessionRosterPage() {
       utils.participation.roster.invalidate({ sessionId })
     },
   })
+
+  const bulkUpdateAttendance = trpc.participation.bulkUpdateAttendance.useMutation({
+    onSuccess: () => {
+      utils.participation.roster.invalidate({ sessionId })
+      setSelectedIds(new Set())
+    },
+  })
+
+  const handleSelectAll = () => {
+    if (joinedParticipants) {
+      setSelectedIds(new Set(joinedParticipants.map((p) => p.participation.id)))
+    }
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set())
+  }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleBulkUpdate = () => {
+    if (selectedIds.size === 0) return
+    bulkUpdateAttendance.mutate({
+      sessionId,
+      updates: Array.from(selectedIds).map((participationId) => ({
+        participationId,
+        attendance: bulkAction,
+      })),
+    })
+  }
 
   if (whoamiLoading) {
     return (
@@ -123,7 +168,63 @@ function SessionRosterPage() {
               Participants registered for this session
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            {/* Bulk Actions */}
+            {joinedParticipants && joinedParticipants.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 p-3 rounded-md border bg-muted/50">
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                  >
+                    <CheckSquare className="h-4 w-4 mr-1" />
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Square className="h-4 w-4 mr-1" />
+                    Deselect All
+                  </Button>
+                </div>
+                <Separator orientation="vertical" className="h-6" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedIds.size} selected
+                  </span>
+                  <Select
+                    value={bulkAction}
+                    onValueChange={(v) => setBulkAction(v as "pending" | "show" | "no_show")}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="show">Present</SelectItem>
+                      <SelectItem value="no_show">No Show</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={handleBulkUpdate}
+                    disabled={selectedIds.size === 0 || bulkUpdateAttendance.isPending}
+                  >
+                    {bulkUpdateAttendance.isPending ? "Updating..." : "Apply"}
+                  </Button>
+                </div>
+              </div>
+            )}
+            {bulkUpdateAttendance.error && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {bulkUpdateAttendance.error.message}
+              </div>
+            )}
+
             {joinedLoading && (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
@@ -139,17 +240,26 @@ function SessionRosterPage() {
                 {joinedParticipants.map((item, index) => (
                   <div key={item.participation.id}>
                     {index > 0 && <Separator className="my-3" />}
-                    <ParticipantRow
-                      participation={item.participation}
-                      user={item.user}
-                      onUpdate={(data) =>
-                        updateParticipation.mutate({
-                          participationId: item.participation.id,
-                          ...data,
-                        })
-                      }
-                      isUpdating={updateParticipation.isPending}
-                    />
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={selectedIds.has(item.participation.id)}
+                        onCheckedChange={() => handleToggleSelect(item.participation.id)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <ParticipantRow
+                          participation={item.participation}
+                          user={item.user}
+                          onUpdate={(data) =>
+                            updateParticipation.mutate({
+                              participationId: item.participation.id,
+                              ...data,
+                            })
+                          }
+                          isUpdating={updateParticipation.isPending}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -218,7 +328,7 @@ type ParticipantRowProps = {
     email: string
     image: string | null
   }
-  onUpdate: (data: { attendance?: "pending" | "show" | "no_show"; payment?: "unpaid" | "paid" }) => void
+  onUpdate: (data: { attendance?: "pending" | "show" | "no_show"; payment?: "unpaid" | "paid"; notes?: string | null }) => void
   isUpdating: boolean
 }
 
@@ -228,6 +338,10 @@ function ParticipantRow({
   onUpdate,
   isUpdating,
 }: ParticipantRowProps) {
+  const [showNotes, setShowNotes] = useState(false)
+  const [notesValue, setNotesValue] = useState(participation.notes || "")
+  const [notesDirty, setNotesDirty] = useState(false)
+
   const attendanceVariant = (attendance: string) => {
     switch (attendance) {
       case "show":
@@ -246,6 +360,16 @@ function ParticipantRow({
       default:
         return "outline"
     }
+  }
+
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setNotesValue(e.target.value)
+    setNotesDirty(true)
+  }
+
+  const handleSaveNotes = () => {
+    onUpdate({ notes: notesValue.trim() || null })
+    setNotesDirty(false)
   }
 
   return (
@@ -296,7 +420,49 @@ function ParticipantRow({
             <SelectItem value="paid">Paid</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto"
+          onClick={() => setShowNotes(!showNotes)}
+        >
+          <MessageSquare className="h-4 w-4 mr-1" />
+          {participation.notes ? "Edit Notes" : "Add Notes"}
+          {showNotes ? (
+            <ChevronUp className="h-4 w-4 ml-1" />
+          ) : (
+            <ChevronDown className="h-4 w-4 ml-1" />
+          )}
+        </Button>
       </div>
+      {showNotes && (
+        <div className="space-y-2 pt-2">
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            placeholder="Add notes about this participant..."
+            value={notesValue}
+            onChange={handleNotesChange}
+            disabled={isUpdating}
+          />
+          {notesDirty && (
+            <Button
+              size="sm"
+              onClick={handleSaveNotes}
+              disabled={isUpdating}
+            >
+              <Save className="h-4 w-4 mr-1" />
+              {isUpdating ? "Saving..." : "Save Notes"}
+            </Button>
+          )}
+        </div>
+      )}
+      {!showNotes && participation.notes && (
+        <p className="text-sm text-muted-foreground italic pl-1">
+          {participation.notes.length > 50
+            ? participation.notes.slice(0, 50) + "..."
+            : participation.notes}
+        </p>
+      )}
     </div>
   )
 }

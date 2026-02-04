@@ -2,16 +2,17 @@ import { router, orgProcedure } from "@/trpc";
 import { ForbiddenError } from "@/exceptions";
 import {
   getProfileByOrgAndUser,
-  updateMyProfile,
-  submitJoinForm,
+  upsertProfile,
   getUserProfile,
 } from "@/data-access/group-member-profiles";
+import { getOrgSettings } from "@/data-access/organization-settings";
 import {
   getMyProfileSchema,
   updateMyProfileSchema,
   submitJoinFormSchema,
   getUserProfileSchema,
 } from "@/schemas/group-member-profile";
+import { validateAndUpsertGroupMemberProfile } from "@/use-cases/group-member-profile";
 
 // =============================================================================
 // Helper: Check if user is admin (owner role)
@@ -43,10 +44,16 @@ export const groupMemberProfileRouter = router({
   updateMyProfile: orgProcedure
     .input(updateMyProfileSchema)
     .mutation(async ({ ctx, input }) => {
-      return updateMyProfile(
-        ctx.activeOrganization.id,
-        ctx.user.id,
-        input.answers
+      return validateAndUpsertGroupMemberProfile(
+        {
+          getOrgSettings,
+          upsertProfile,
+        },
+        {
+          organizationId: ctx.activeOrganization.id,
+          userId: ctx.user.id,
+          answers: input.answers,
+        }
       );
     }),
 
@@ -57,10 +64,16 @@ export const groupMemberProfileRouter = router({
   submitJoinForm: orgProcedure
     .input(submitJoinFormSchema)
     .mutation(async ({ ctx, input }) => {
-      return submitJoinForm(
-        ctx.activeOrganization.id,
-        ctx.user.id,
-        input.answers
+      return validateAndUpsertGroupMemberProfile(
+        {
+          getOrgSettings,
+          upsertProfile,
+        },
+        {
+          organizationId: ctx.activeOrganization.id,
+          userId: ctx.user.id,
+          answers: input.answers,
+        }
       );
     }),
 

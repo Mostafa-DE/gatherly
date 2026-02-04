@@ -5,12 +5,12 @@ import {
   updateSession,
   updateSessionStatus,
   softDeleteSession,
-  getSessionById,
   getSessionWithCounts,
   listSessions,
   listUpcomingSessions,
   listPastSessions,
 } from "@/data-access/sessions";
+import { withOrgScope } from "@/data-access/org-scope";
 import {
   createSessionSchema,
   updateSessionSchema,
@@ -22,12 +22,12 @@ import {
 } from "@/schemas/session";
 
 // =============================================================================
-// Helper: Check if user is admin (owner or admin role)
+// Helper: Check if user is owner
 // =============================================================================
 
-function assertAdmin(role: string): void {
-  if (role !== "owner" && role !== "admin") {
-    throw new ForbiddenError("Only organization owners and admins can perform this action");
+function assertOwner(role: string): void {
+  if (role !== "owner") {
+    throw new ForbiddenError("Only organization owners can perform this action");
   }
 }
 
@@ -43,7 +43,7 @@ export const sessionRouter = router({
   create: orgProcedure
     .input(createSessionSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
       return createSession(
         ctx.activeOrganization.id,
         ctx.user.id,
@@ -58,16 +58,13 @@ export const sessionRouter = router({
   update: orgProcedure
     .input(updateSessionSchema.extend({ sessionId: getSessionByIdSchema.shape.sessionId }))
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
       const { sessionId, ...data } = input;
 
-      // Verify session belongs to this organization
-      const session = await getSessionById(sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Session not found in this organization");
-      }
-
-      return updateSession(sessionId, data);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSessionForMutation(sessionId);
+        return updateSession(sessionId, data);
+      });
     }),
 
   /**
@@ -76,14 +73,9 @@ export const sessionRouter = router({
   getById: orgProcedure
     .input(getSessionByIdSchema)
     .query(async ({ ctx, input }) => {
-      const session = await getSessionById(input.sessionId);
-
-      // Verify session belongs to this organization
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        return null;
-      }
-
-      return session;
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        return scope.getSessionById(input.sessionId);
+      });
     }),
 
   /**
@@ -92,14 +84,14 @@ export const sessionRouter = router({
   getWithCounts: orgProcedure
     .input(getSessionByIdSchema)
     .query(async ({ ctx, input }) => {
-      const session = await getSessionWithCounts(input.sessionId);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        const session = await scope.getSessionById(input.sessionId);
+        if (!session) {
+          return null;
+        }
 
-      // Verify session belongs to this organization
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        return null;
-      }
-
-      return session;
+        return getSessionWithCounts(input.sessionId);
+      });
     }),
 
   /**
@@ -139,15 +131,12 @@ export const sessionRouter = router({
   updateStatus: orgProcedure
     .input(updateSessionStatusSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
 
-      // Verify session belongs to this organization
-      const session = await getSessionById(input.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Session not found in this organization");
-      }
-
-      return updateSessionStatus(input.sessionId, input.status);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSessionForMutation(input.sessionId);
+        return updateSessionStatus(input.sessionId, input.status);
+      });
     }),
 
   /**
@@ -157,14 +146,11 @@ export const sessionRouter = router({
   delete: orgProcedure
     .input(getSessionByIdSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwner(ctx.membership.role);
 
-      // Verify session belongs to this organization
-      const session = await getSessionById(input.sessionId);
-      if (!session || session.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Session not found in this organization");
-      }
-
-      return softDeleteSession(input.sessionId);
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSessionForMutation(input.sessionId);
+        return softDeleteSession(input.sessionId);
+      });
     }),
 });

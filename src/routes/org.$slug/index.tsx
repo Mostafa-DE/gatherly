@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { useSession } from "@/auth/client"
 import { Button } from "@/components/ui/button"
@@ -13,7 +14,19 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Users, Lock, UserPlus, Clock, CheckCircle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
+import { Users, Lock, UserPlus, Clock, CheckCircle, AlertCircle } from "lucide-react"
+import type { FormField } from "@/types/form"
 
 export const Route = createFileRoute("/org/$slug/")({
   component: PublicOrgPage,
@@ -25,8 +38,18 @@ function PublicOrgPage() {
   const { data: session } = useSession()
   const utils = trpc.useUtils()
 
+  // Form state
+  const [formAnswers, setFormAnswers] = useState<Record<string, unknown>>({})
+  const [formError, setFormError] = useState("")
+
   // Get public org info
   const { data: org, isLoading: orgLoading, error: orgError } = trpc.organization.getPublicInfo.useQuery({ slug })
+
+  // Get join form schema (only if org is loaded)
+  const { data: formSchemaData } = trpc.organization.getJoinFormSchema.useQuery(
+    { organizationId: org?.id ?? "" },
+    { enabled: !!org?.id }
+  )
 
   // Check if user has a pending join request (only if authenticated)
   const { data: pendingRequest } = trpc.joinRequest.myPendingRequest.useQuery(
@@ -54,6 +77,61 @@ function PublicOrgPage() {
       utils.joinRequest.myPendingRequest.invalidate()
     },
   })
+
+  const formFields = (formSchemaData?.joinFormSchema as { fields?: FormField[] } | null)?.fields || []
+  const hasRequiredFields = formFields.some((f) => f.required)
+
+  // Check for unanswered optional fields to show reminder banner
+  const unfilledOptionalFields = formFields.filter((f) => {
+    if (f.required) return false
+    const value = formAnswers[f.id]
+    return value === undefined || value === null || value === "" ||
+           (Array.isArray(value) && value.length === 0)
+  })
+  const hasUnfilledOptionalFields = unfilledOptionalFields.length > 0
+
+  // Check if user can join (show form)
+  const canJoin = session?.user && !isMember && !pendingRequest &&
+    (org?.defaultJoinMode === "open" || org?.defaultJoinMode === "approval")
+
+  const handleAnswerChange = (fieldId: string, value: unknown) => {
+    setFormAnswers((prev) => ({ ...prev, [fieldId]: value }))
+  }
+
+  const validateForm = (): boolean => {
+    setFormError("")
+
+    for (const field of formFields) {
+      if (field.required) {
+        const value = formAnswers[field.id]
+        if (value === undefined || value === null || value === "" ||
+            (Array.isArray(value) && value.length === 0)) {
+          setFormError(`"${field.label}" is required`)
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  const handleJoin = () => {
+    if (!session?.user) {
+      navigate({ to: "/login" })
+      return
+    }
+
+    if (!validateForm()) {
+      return
+    }
+
+    const answers = Object.keys(formAnswers).length > 0 ? formAnswers : undefined
+
+    if (org?.defaultJoinMode === "open") {
+      joinOrgMutation.mutate({ organizationId: org.id, formAnswers: answers })
+    } else if (org?.defaultJoinMode === "approval") {
+      requestJoinMutation.mutate({ organizationId: org.id, formAnswers: answers })
+    }
+  }
 
   if (orgLoading) {
     return (
@@ -92,84 +170,6 @@ function PublicOrgPage() {
     )
   }
 
-  const handleJoin = () => {
-    if (!session?.user) {
-      navigate({ to: "/login" })
-      return
-    }
-
-    if (org.defaultJoinMode === "open") {
-      joinOrgMutation.mutate({ organizationId: org.id })
-    } else if (org.defaultJoinMode === "approval") {
-      requestJoinMutation.mutate({ organizationId: org.id })
-    }
-  }
-
-  const getJoinButton = () => {
-    if (!session?.user) {
-      return (
-        <Button onClick={() => navigate({ to: "/login" })} className="w-full">
-          <UserPlus className="mr-2 h-4 w-4" />
-          Sign in to Join
-        </Button>
-      )
-    }
-
-    if (isMember) {
-      return (
-        <Button asChild className="w-full">
-          <Link to="/dashboard">
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Go to Dashboard
-          </Link>
-        </Button>
-      )
-    }
-
-    if (pendingRequest) {
-      return (
-        <Button disabled className="w-full">
-          <Clock className="mr-2 h-4 w-4" />
-          Request Pending
-        </Button>
-      )
-    }
-
-    switch (org.defaultJoinMode) {
-      case "open":
-        return (
-          <Button
-            onClick={handleJoin}
-            disabled={joinOrgMutation.isPending}
-            className="w-full"
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            {joinOrgMutation.isPending ? "Joining..." : "Join Organization"}
-          </Button>
-        )
-      case "approval":
-        return (
-          <Button
-            onClick={handleJoin}
-            disabled={requestJoinMutation.isPending}
-            className="w-full"
-          >
-            <UserPlus className="mr-2 h-4 w-4" />
-            {requestJoinMutation.isPending ? "Requesting..." : "Request to Join"}
-          </Button>
-        )
-      case "invite":
-        return (
-          <Button disabled className="w-full">
-            <Lock className="mr-2 h-4 w-4" />
-            Invite Only
-          </Button>
-        )
-      default:
-        return null
-    }
-  }
-
   const getJoinModeLabel = () => {
     switch (org.defaultJoinMode) {
       case "open":
@@ -181,6 +181,34 @@ function PublicOrgPage() {
       default:
         return null
     }
+  }
+
+  const renderJoinButton = () => {
+    if (org.defaultJoinMode === "open") {
+      return (
+        <Button
+          onClick={handleJoin}
+          disabled={joinOrgMutation.isPending}
+          className="w-full"
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
+          {joinOrgMutation.isPending ? "Joining..." : "Join Organization"}
+        </Button>
+      )
+    }
+    if (org.defaultJoinMode === "approval") {
+      return (
+        <Button
+          onClick={handleJoin}
+          disabled={requestJoinMutation.isPending}
+          className="w-full"
+        >
+          <UserPlus className="mr-2 h-4 w-4" />
+          {requestJoinMutation.isPending ? "Requesting..." : "Request to Join"}
+        </Button>
+      )
+    }
+    return null
   }
 
   return (
@@ -200,9 +228,86 @@ function PublicOrgPage() {
           </CardDescription>
           <div className="mt-2">{getJoinModeLabel()}</div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {getJoinButton()}
 
+        <CardContent className="space-y-4">
+          {/* Not authenticated */}
+          {!session?.user && (
+            <Button onClick={() => navigate({ to: "/login" })} className="w-full">
+              <UserPlus className="mr-2 h-4 w-4" />
+              Sign in to Join
+            </Button>
+          )}
+
+          {/* Already a member */}
+          {session?.user && isMember && (
+            <Button asChild className="w-full">
+              <Link to="/dashboard">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Go to Dashboard
+              </Link>
+            </Button>
+          )}
+
+          {/* Pending request */}
+          {session?.user && !isMember && pendingRequest && (
+            <Button disabled className="w-full">
+              <Clock className="mr-2 h-4 w-4" />
+              Request Pending
+            </Button>
+          )}
+
+          {/* Invite only */}
+          {session?.user && !isMember && !pendingRequest && org.defaultJoinMode === "invite" && (
+            <Button disabled className="w-full">
+              <Lock className="mr-2 h-4 w-4" />
+              Invite Only
+            </Button>
+          )}
+
+          {/* Can join - show form if exists */}
+          {canJoin && (
+            <>
+              {formFields.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="space-y-4">
+                    <p className="text-sm font-medium text-center">
+                      Complete your profile to join
+                    </p>
+
+                    {hasUnfilledOptionalFields && (
+                      <div className="flex items-center gap-2 p-3 rounded-md border bg-muted/50 text-sm">
+                        <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground">
+                          {unfilledOptionalFields.length} optional field{unfilledOptionalFields.length !== 1 ? "s" : ""} remaining — helps the organization know you better.
+                        </span>
+                      </div>
+                    )}
+
+                    {formError && (
+                      <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                        {formError}
+                      </div>
+                    )}
+
+                    {formFields.map((field) => (
+                      <JoinFormField
+                        key={field.id}
+                        field={field}
+                        value={formAnswers[field.id]}
+                        onChange={(value) => handleAnswerChange(field.id, value)}
+                      />
+                    ))}
+                  </div>
+                  <Separator />
+                </>
+              )}
+
+              {renderJoinButton()}
+            </>
+          )}
+
+          {/* Error messages */}
           {joinOrgMutation.error && (
             <p className="text-sm text-destructive text-center">
               {joinOrgMutation.error.message}
@@ -219,12 +324,142 @@ function PublicOrgPage() {
             </p>
           )}
         </CardContent>
+
         <CardFooter className="justify-center">
           <Button variant="ghost" asChild>
             <Link to="/">Back to Home</Link>
           </Button>
         </CardFooter>
       </Card>
+    </div>
+  )
+}
+
+// =============================================================================
+// Form Field Component
+// =============================================================================
+
+type JoinFormFieldProps = {
+  field: FormField
+  value: unknown
+  onChange: (value: unknown) => void
+}
+
+function JoinFormField({ field, value, onChange }: JoinFormFieldProps) {
+  const renderInput = () => {
+    switch (field.type) {
+      case "text":
+      case "email":
+      case "phone":
+        return (
+          <Input
+            type={field.type === "email" ? "email" : field.type === "phone" ? "tel" : "text"}
+            value={(value as string) || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.placeholder}
+          />
+        )
+
+      case "number":
+        return (
+          <Input
+            type="number"
+            value={(value as number) || ""}
+            onChange={(e) => onChange(e.target.value ? Number(e.target.value) : "")}
+            placeholder={field.placeholder}
+          />
+        )
+
+      case "textarea":
+        return (
+          <textarea
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={(value as string) || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.placeholder}
+          />
+        )
+
+      case "date":
+        return (
+          <Input
+            type="date"
+            value={(value as string) || ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        )
+
+      case "checkbox":
+        return (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={(value as boolean) || false}
+              onCheckedChange={(checked) => onChange(checked === true)}
+            />
+            <span className="text-sm text-muted-foreground">
+              {field.placeholder || "Yes"}
+            </span>
+          </div>
+        )
+
+      case "select":
+        return (
+          <Select
+            value={(value as string) || ""}
+            onValueChange={(v) => onChange(v)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={field.placeholder || "Select..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options?.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )
+
+      case "multiselect":
+        const selectedValues = (value as string[]) || []
+        return (
+          <div className="space-y-2">
+            {field.options?.map((option) => (
+              <div key={option} className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedValues.includes(option)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      onChange([...selectedValues, option])
+                    } else {
+                      onChange(selectedValues.filter((v) => v !== option))
+                    }
+                  }}
+                />
+                <span className="text-sm">{option}</span>
+              </div>
+            ))}
+          </div>
+        )
+
+      default:
+        return (
+          <Input
+            value={(value as string) || ""}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        )
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label>
+        {field.label}
+        {field.required && <span className="text-destructive ml-1">*</span>}
+      </Label>
+      {renderInput()}
     </div>
   )
 }

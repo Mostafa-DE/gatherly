@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, MapPin, Users } from "lucide-react"
+import { Calendar, MapPin, Users, Pencil, Trash2 } from "lucide-react"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/"
@@ -22,7 +23,10 @@ export const Route = createFileRoute(
 
 function SessionDetailPage() {
   const { orgId, sessionId } = Route.useParams()
+  const navigate = useNavigate()
   const utils = trpc.useUtils()
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
@@ -55,6 +59,15 @@ function SessionDetailPage() {
       utils.session.getWithCounts.invalidate({ sessionId })
       utils.session.listUpcoming.invalidate()
       utils.session.listPast.invalidate()
+    },
+  })
+
+  const deleteMutation = trpc.session.delete.useMutation({
+    onSuccess: () => {
+      utils.session.list.invalidate()
+      utils.session.listUpcoming.invalidate()
+      utils.session.listPast.invalidate()
+      navigate({ to: "/dashboard/org/$orgId/sessions", params: { orgId } })
     },
   })
 
@@ -341,7 +354,64 @@ function SessionDetailPage() {
                   View Roster
                 </Link>
               </Button>
+              {(sessionData.status === "draft" ||
+                sessionData.status === "published") && (
+                <Button variant="outline" asChild>
+                  <Link
+                    to="/dashboard/org/$orgId/sessions/$sessionId/edit"
+                    params={{ orgId, sessionId }}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Link>
+                </Button>
+              )}
             </div>
+
+            {/* Delete Section with Inline Confirmation */}
+            <div className="w-full border-t pt-4 mt-2">
+              <h4 className="text-sm font-medium text-muted-foreground mb-3">
+                Danger Zone
+              </h4>
+              {!showDeleteConfirm ? (
+                <Button
+                  variant="outline"
+                  className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Session
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-md border border-destructive bg-destructive/10">
+                  <span className="text-sm text-destructive">
+                    Are you sure? This action cannot be undone.
+                  </span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteMutation.mutate({ sessionId })}
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleteMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+              {deleteMutation.error && (
+                <p className="text-sm text-destructive mt-2">
+                  {deleteMutation.error.message}
+                </p>
+              )}
+            </div>
+
             {updateStatusMutation.error && (
               <p className="text-sm text-destructive">
                 {updateStatusMutation.error.message}

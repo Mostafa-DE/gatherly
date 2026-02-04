@@ -38,6 +38,7 @@ export const joinRequest = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     status: text("status").default("pending").notNull(), // 'pending' | 'approved' | 'rejected'
     message: text("message"), // Optional message from requester
+    formAnswers: jsonb("form_answers"), // Form answers submitted during join request
     reviewedBy: text("reviewed_by").references(() => user.id, {
       onDelete: "set null",
     }),

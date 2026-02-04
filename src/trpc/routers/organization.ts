@@ -1,15 +1,36 @@
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { router, publicProcedure, protectedProcedure, orgProcedure } from "@/trpc";
-import { ForbiddenError, NotFoundError, BadRequestError } from "@/exceptions";
+import { ForbiddenError, NotFoundError } from "@/exceptions";
 import { organization, member, invitation, user } from "@/db/auth-schema";
 import { auth } from "@/auth";
+import {
+  getInvitationById,
+  getMemberById,
+  getOrganizationById,
+  getOrganizationMemberByUserId,
+  getPendingInvitationByEmail,
+  updateOrganizationById,
+  getUserByEmail,
+} from "@/data-access/organizations";
+import {
+  cancelOrganizationInvitation,
+  inviteMemberToOrganization,
+} from "@/use-cases/organization-invitations";
+import {
+  joinOrganization,
+  removeOrganizationMember,
+  updateOrganizationMemberRole,
+  updateOrganizationSettings,
+} from "@/use-cases/organization-membership";
+import { getOrgSettings } from "@/data-access/organization-settings";
+import { upsertProfile } from "@/data-access/group-member-profiles";
 
 // =============================================================================
 // Helper: Check if user is admin (owner or admin role)
 // =============================================================================
 
-function assertAdmin(role: string): void {
+function assertOwnerOrAdmin(role: string): void {
   if (role !== "owner" && role !== "admin") {
     throw new ForbiddenError("Only organization admins can perform this action");
   }
@@ -61,62 +82,53 @@ export const organizationRouter = router({
     }),
 
   /**
+   * Get join form schema for an organization (Public)
+   * Returns the form fields users need to fill when joining
+   */
+  getJoinFormSchema: publicProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ input }) => {
+      const settings = await getOrgSettings(input.organizationId);
+      return {
+        joinFormSchema: settings?.joinFormSchema ?? null,
+      };
+    }),
+
+  /**
    * Join an organization directly (for open mode orgs)
    */
   joinOrg: protectedProcedure
-    .input(z.object({ organizationId: z.string() }))
+    .input(z.object({
+      organizationId: z.string(),
+      formAnswers: z.record(z.unknown()).optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
-      // Get organization info
-      const [org] = await ctx.db
-        .select()
-        .from(organization)
-        .where(eq(organization.id, input.organizationId))
-        .limit(1);
-
-      if (!org) {
-        throw new NotFoundError("Organization not found");
-      }
-
-      // Check join mode
-      if (org.defaultJoinMode !== "open") {
-        if (org.defaultJoinMode === "approval") {
-          throw new BadRequestError(
-            "This organization requires approval to join. Please submit a join request."
-          );
-        }
-        if (org.defaultJoinMode === "invite") {
-          throw new BadRequestError(
-            "This organization is invite-only. You need an invitation to join."
-          );
-        }
-      }
-
-      // Check if user is already a member
-      const [existingMember] = await ctx.db
-        .select()
-        .from(member)
-        .where(
-          and(
-            eq(member.organizationId, input.organizationId),
-            eq(member.userId, ctx.user.id)
-          )
-        )
-        .limit(1);
-
-      if (existingMember) {
-        throw new BadRequestError("You are already a member of this organization");
-      }
-
-      // Add user as member via Better Auth
-      await auth.api.addMember({
-        body: {
-          userId: ctx.user.id,
-          role: "member",
-          organizationId: input.organizationId,
+      const result = await joinOrganization(
+        {
+          getOrganizationById,
+          getOrganizationMemberByUserId,
+          addMember: async ({ organizationId, userId, role }) => {
+            await auth.api.addMember({
+              body: {
+                userId,
+                role,
+                organizationId,
+              },
+            });
+          },
         },
-      });
+        {
+          organizationId: input.organizationId,
+          userId: ctx.user.id,
+        }
+      );
 
-      return { success: true };
+      // Save form answers as profile if provided
+      if (input.formAnswers && Object.keys(input.formAnswers).length > 0) {
+        await upsertProfile(input.organizationId, ctx.user.id, input.formAnswers);
+      }
+
+      return result;
     }),
 
   /**
@@ -149,67 +161,37 @@ export const organizationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwnerOrAdmin(ctx.membership.role);
 
-      // Check if user is already a member by email
-      const [existingUser] = await ctx.db
-        .select()
-        .from(user)
-        .where(eq(user.email, input.email))
-        .limit(1);
-
-      if (existingUser) {
-        const [existingMember] = await ctx.db
-          .select()
-          .from(member)
-          .where(
-            and(
-              eq(member.organizationId, ctx.activeOrganization.id),
-              eq(member.userId, existingUser.id)
-            )
-          )
-          .limit(1);
-
-        if (existingMember) {
-          throw new BadRequestError("This user is already a member of the organization");
-        }
-      }
-
-      // Check for existing pending invitation
-      const [existingInvitation] = await ctx.db
-        .select()
-        .from(invitation)
-        .where(
-          and(
-            eq(invitation.organizationId, ctx.activeOrganization.id),
-            eq(invitation.email, input.email),
-            eq(invitation.status, "pending")
-          )
-        )
-        .limit(1);
-
-      if (existingInvitation) {
-        throw new BadRequestError("An invitation has already been sent to this email");
-      }
-
-      // Send invitation via Better Auth
-      await auth.api.createInvitation({
-        body: {
+      return inviteMemberToOrganization(
+        {
+          getUserByEmail,
+          getOrganizationMemberByUserId,
+          getPendingInvitationByEmail,
+          createInvitation: async ({ organizationId, email, role }) => {
+            await auth.api.createInvitation({
+              body: {
+                email,
+                role,
+                organizationId,
+              },
+              headers: ctx.headers,
+            });
+          },
+        },
+        {
+          organizationId: ctx.activeOrganization.id,
           email: input.email,
           role: input.role,
-          organizationId: ctx.activeOrganization.id,
-        },
-        headers: ctx.headers,
-      });
-
-      return { success: true };
+        }
+      );
     }),
 
   /**
    * List pending invitations (Admin only)
    */
   listInvitations: orgProcedure.query(async ({ ctx }) => {
-    assertAdmin(ctx.membership.role);
+    assertOwnerOrAdmin(ctx.membership.role);
 
     return ctx.db
       .select({
@@ -236,36 +218,25 @@ export const organizationRouter = router({
   cancelInvitation: orgProcedure
     .input(z.object({ invitationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwnerOrAdmin(ctx.membership.role);
 
-      // Get the invitation
-      const [inv] = await ctx.db
-        .select()
-        .from(invitation)
-        .where(eq(invitation.id, input.invitationId))
-        .limit(1);
-
-      if (!inv) {
-        throw new NotFoundError("Invitation not found");
-      }
-
-      if (inv.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Invitation does not belong to this organization");
-      }
-
-      if (inv.status !== "pending") {
-        throw new BadRequestError("Only pending invitations can be cancelled");
-      }
-
-      // Cancel via Better Auth
-      await auth.api.cancelInvitation({
-        body: {
-          invitationId: input.invitationId,
+      return cancelOrganizationInvitation(
+        {
+          getInvitationById,
+          cancelInvitation: async (invitationId) => {
+            await auth.api.cancelInvitation({
+              body: {
+                invitationId,
+              },
+              headers: ctx.headers,
+            });
+          },
         },
-        headers: ctx.headers,
-      });
-
-      return { success: true };
+        {
+          organizationId: ctx.activeOrganization.id,
+          invitationId: input.invitationId,
+        }
+      );
     }),
 
   /**
@@ -274,43 +245,27 @@ export const organizationRouter = router({
   removeMember: orgProcedure
     .input(z.object({ memberId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertOwnerOrAdmin(ctx.membership.role);
 
-      // Get the member
-      const [targetMember] = await ctx.db
-        .select()
-        .from(member)
-        .where(eq(member.id, input.memberId))
-        .limit(1);
-
-      if (!targetMember) {
-        throw new NotFoundError("Member not found");
-      }
-
-      if (targetMember.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Member does not belong to this organization");
-      }
-
-      // Cannot remove owner
-      if (targetMember.role === "owner") {
-        throw new ForbiddenError("Cannot remove the organization owner");
-      }
-
-      // Cannot remove yourself
-      if (targetMember.userId === ctx.user.id) {
-        throw new BadRequestError("Cannot remove yourself. Leave the organization instead.");
-      }
-
-      // Remove via Better Auth
-      await auth.api.removeMember({
-        body: {
-          memberIdOrEmail: targetMember.id,
-          organizationId: ctx.activeOrganization.id,
+      return removeOrganizationMember(
+        {
+          getMemberById,
+          removeMember: async ({ memberIdOrEmail, organizationId }) => {
+            await auth.api.removeMember({
+              body: {
+                memberIdOrEmail,
+                organizationId,
+              },
+              headers: ctx.headers,
+            });
+          },
         },
-        headers: ctx.headers,
-      });
-
-      return { success: true };
+        {
+          organizationId: ctx.activeOrganization.id,
+          memberId: input.memberId,
+          actorUserId: ctx.user.id,
+        }
+      );
     }),
 
   /**
@@ -326,36 +281,50 @@ export const organizationRouter = router({
     .mutation(async ({ ctx, input }) => {
       assertOwner(ctx.membership.role);
 
-      // Get the member
-      const [targetMember] = await ctx.db
-        .select()
-        .from(member)
-        .where(eq(member.id, input.memberId))
-        .limit(1);
-
-      if (!targetMember) {
-        throw new NotFoundError("Member not found");
-      }
-
-      if (targetMember.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Member does not belong to this organization");
-      }
-
-      // Cannot change owner role
-      if (targetMember.role === "owner") {
-        throw new ForbiddenError("Cannot change the role of the organization owner");
-      }
-
-      // Update via Better Auth
-      await auth.api.updateMemberRole({
-        body: {
+      return updateOrganizationMemberRole(
+        {
+          getMemberById,
+          updateMemberRole: async ({ memberId, role, organizationId }) => {
+            await auth.api.updateMemberRole({
+              body: {
+                memberId,
+                role,
+                organizationId,
+              },
+              headers: ctx.headers,
+            })
+          },
+        },
+        {
+          organizationId: ctx.activeOrganization.id,
           memberId: input.memberId,
           role: input.role,
-          organizationId: ctx.activeOrganization.id,
-        },
-        headers: ctx.headers,
-      });
-
-      return { success: true };
+        }
+      )
     }),
-});
+
+  /**
+   * Update organization settings (Owner only)
+   * Simple CRUD - direct DB access
+   */
+  updateSettings: orgProcedure
+    .input(
+      z.object({
+        timezone: z.string().max(100).nullable().optional(),
+        defaultJoinMode: z.enum(["open", "invite", "approval"]).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      assertOwner(ctx.membership.role)
+      return updateOrganizationSettings(
+        {
+          updateOrganizationById,
+        },
+        {
+          organizationId: ctx.activeOrganization.id,
+          timezone: input.timezone ?? undefined,
+          defaultJoinMode: input.defaultJoinMode,
+        }
+      )
+    }),
+})

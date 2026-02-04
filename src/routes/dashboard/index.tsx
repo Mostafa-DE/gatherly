@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { organization as orgClient } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Plus, ArrowRight } from "lucide-react"
+import { Building2, Plus, ArrowRight, Clock, X } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHomePage,
@@ -27,6 +28,8 @@ function DashboardHomePage() {
 
   return (
     <div className="space-y-6 py-4">
+      <PendingJoinRequests />
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Your Organizations</h1>
         <p className="text-muted-foreground">
@@ -98,7 +101,7 @@ function OrgCard({ item }: OrgCardProps) {
 
   const handleClick = async () => {
     await orgClient.setActive({ organizationId: item.organization.id })
-    utils.user.whoami.invalidate()
+    await utils.invalidate()
     navigate({ to: "/dashboard/org/$orgId", params: { orgId: item.organization.id } })
   }
 
@@ -179,8 +182,8 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
       setError("")
       await utils.user.myOrgs.invalidate()
       await orgClient.setActive({ organizationId: data.id })
-      await utils.user.whoami.invalidate()
-      navigate({ to: "/org/$orgId", params: { orgId: data.id } })
+      await utils.invalidate()
+      navigate({ to: "/dashboard/org/$orgId", params: { orgId: data.id } })
     },
     onError: (err) => {
       setError(err.message)
@@ -281,6 +284,80 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
           </Button>
         </CardFooter>
       </form>
+    </Card>
+  )
+}
+
+function PendingJoinRequests() {
+  const utils = trpc.useUtils()
+  const { data: requests, isLoading } = trpc.joinRequest.myRequests.useQuery()
+
+  const cancelRequest = trpc.joinRequest.cancel.useMutation({
+    onSuccess: () => {
+      utils.joinRequest.myRequests.invalidate()
+    },
+  })
+
+  const pendingRequests = requests?.filter((r) => r.request.status === "pending") || []
+
+  if (isLoading) {
+    return null
+  }
+
+  if (pendingRequests.length === 0) {
+    return null
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="h-5 w-5" />
+          Pending Join Requests
+        </CardTitle>
+        <CardDescription>
+          Your requests to join organizations that are awaiting approval
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {pendingRequests.map((item, index) => (
+            <div key={item.request.id}>
+              {index > 0 && <Separator className="my-3" />}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                    <Building2 className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{item.organization?.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Requested {new Date(item.request.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">Pending</Badge>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => cancelRequest.mutate({ requestId: item.request.id })}
+                    disabled={cancelRequest.isPending}
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Cancel request</span>
+                  </Button>
+                </div>
+              </div>
+              {item.request.message && (
+                <p className="mt-2 text-sm text-muted-foreground pl-13">
+                  "{item.request.message}"
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
     </Card>
   )
 }

@@ -111,7 +111,8 @@ export async function listMyJoinRequests(userId: string) {
 export async function createJoinRequest(
   organizationId: string,
   userId: string,
-  message?: string
+  message?: string,
+  formAnswers?: Record<string, unknown>
 ): Promise<JoinRequest> {
   try {
     const [result] = await db
@@ -120,6 +121,7 @@ export async function createJoinRequest(
         organizationId,
         userId,
         message,
+        formAnswers,
         status: "pending",
       })
       .returning();

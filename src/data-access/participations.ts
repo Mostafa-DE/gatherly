@@ -388,17 +388,32 @@ export async function updateParticipation(
  * Bulk update attendance (admin)
  */
 export async function bulkUpdateAttendance(
+  sessionId: string,
   updates: Array<{ participationId: string; attendance: AttendanceStatus }>
-): Promise<void> {
+): Promise<number> {
   await db.transaction(async (tx) => {
     for (const update of updates) {
-      await tx
+      const updated = await tx
         .update(participation)
         .set({
           attendance: update.attendance,
           updatedAt: new Date(),
         })
-        .where(eq(participation.id, update.participationId));
+        .where(
+          and(
+            eq(participation.id, update.participationId),
+            eq(participation.sessionId, sessionId)
+          )
+        )
+        .returning({ id: participation.id });
+
+      if (updated.length === 0) {
+        throw new NotFoundError(
+          `Participation '${update.participationId}' not found in session`
+        );
+      }
     }
   });
+
+  return updates.length;
 }

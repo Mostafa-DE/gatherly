@@ -32,6 +32,7 @@ import { Route as DashboardOrgOrgIdSessionsCreateRouteImport } from './routes/da
 import { Route as DashboardOrgOrgIdSessionsSessionIdRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId'
 import { Route as DashboardOrgOrgIdSessionsSessionIdIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/index'
 import { Route as DashboardOrgOrgIdSessionsSessionIdRosterRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/roster'
+import { Route as DashboardOrgOrgIdSessionsSessionIdEditRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/edit'
 
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
@@ -158,6 +159,12 @@ const DashboardOrgOrgIdSessionsSessionIdRosterRoute =
     path: '/roster',
     getParentRoute: () => DashboardOrgOrgIdSessionsSessionIdRoute,
   } as any)
+const DashboardOrgOrgIdSessionsSessionIdEditRoute =
+  DashboardOrgOrgIdSessionsSessionIdEditRouteImport.update({
+    id: '/edit',
+    path: '/edit',
+    getParentRoute: () => DashboardOrgOrgIdSessionsSessionIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
   '/dashboard/org/$orgId/sessions/': typeof DashboardOrgOrgIdSessionsIndexRoute
+  '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   '/dashboard/org/$orgId/sessions/$sessionId/roster': typeof DashboardOrgOrgIdSessionsSessionIdRosterRoute
   '/dashboard/org/$orgId/sessions/$sessionId/': typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
 }
@@ -203,6 +211,7 @@ export interface FileRoutesByTo {
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdIndexRoute
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
   '/dashboard/org/$orgId/sessions': typeof DashboardOrgOrgIdSessionsIndexRoute
+  '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   '/dashboard/org/$orgId/sessions/$sessionId/roster': typeof DashboardOrgOrgIdSessionsSessionIdRosterRoute
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
 }
@@ -229,6 +238,7 @@ export interface FileRoutesById {
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
   '/dashboard/org/$orgId/sessions/': typeof DashboardOrgOrgIdSessionsIndexRoute
+  '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   '/dashboard/org/$orgId/sessions/$sessionId/roster': typeof DashboardOrgOrgIdSessionsSessionIdRosterRoute
   '/dashboard/org/$orgId/sessions/$sessionId/': typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
 }
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/sessions/$sessionId'
     | '/dashboard/org/$orgId/sessions/create'
     | '/dashboard/org/$orgId/sessions/'
+    | '/dashboard/org/$orgId/sessions/$sessionId/edit'
     | '/dashboard/org/$orgId/sessions/$sessionId/roster'
     | '/dashboard/org/$orgId/sessions/$sessionId/'
   fileRoutesByTo: FileRoutesByTo
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId'
     | '/dashboard/org/$orgId/sessions/create'
     | '/dashboard/org/$orgId/sessions'
+    | '/dashboard/org/$orgId/sessions/$sessionId/edit'
     | '/dashboard/org/$orgId/sessions/$sessionId/roster'
     | '/dashboard/org/$orgId/sessions/$sessionId'
   id:
@@ -303,6 +315,7 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/sessions/$sessionId'
     | '/dashboard/org/$orgId/sessions/create'
     | '/dashboard/org/$orgId/sessions/'
+    | '/dashboard/org/$orgId/sessions/$sessionId/edit'
     | '/dashboard/org/$orgId/sessions/$sessionId/roster'
     | '/dashboard/org/$orgId/sessions/$sessionId/'
   fileRoutesById: FileRoutesById
@@ -481,16 +494,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdSessionsSessionIdRosterRouteImport
       parentRoute: typeof DashboardOrgOrgIdSessionsSessionIdRoute
     }
+    '/dashboard/org/$orgId/sessions/$sessionId/edit': {
+      id: '/dashboard/org/$orgId/sessions/$sessionId/edit'
+      path: '/edit'
+      fullPath: '/dashboard/org/$orgId/sessions/$sessionId/edit'
+      preLoaderRoute: typeof DashboardOrgOrgIdSessionsSessionIdEditRouteImport
+      parentRoute: typeof DashboardOrgOrgIdSessionsSessionIdRoute
+    }
   }
 }
 
 interface DashboardOrgOrgIdSessionsSessionIdRouteChildren {
+  DashboardOrgOrgIdSessionsSessionIdEditRoute: typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   DashboardOrgOrgIdSessionsSessionIdRosterRoute: typeof DashboardOrgOrgIdSessionsSessionIdRosterRoute
   DashboardOrgOrgIdSessionsSessionIdIndexRoute: typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
 }
 
 const DashboardOrgOrgIdSessionsSessionIdRouteChildren: DashboardOrgOrgIdSessionsSessionIdRouteChildren =
   {
+    DashboardOrgOrgIdSessionsSessionIdEditRoute:
+      DashboardOrgOrgIdSessionsSessionIdEditRoute,
     DashboardOrgOrgIdSessionsSessionIdRosterRoute:
       DashboardOrgOrgIdSessionsSessionIdRosterRoute,
     DashboardOrgOrgIdSessionsSessionIdIndexRoute:

@@ -1,11 +1,10 @@
 import { Link, useParams } from "@tanstack/react-router"
-import { Plus, Calendar, User, Users, MoreVertical } from "lucide-react"
+import { Plus, Calendar, User, Users, MoreVertical, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -23,49 +22,66 @@ export function QuickActions() {
 
   return (
     <div className="ml-auto flex items-center gap-1 sm:gap-2">
-      {/* Mobile: icon only, Desktop: icon + text */}
-      <Button variant="default" size="sm" asChild className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-3">
-        <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
-          <Plus className="size-4 sm:mr-1" />
-          <span className="hidden sm:inline">Create Session</span>
-        </Link>
-      </Button>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:h-8 sm:w-auto sm:px-3">
-            <MoreVertical className="size-4 sm:hidden" />
-            <span className="hidden sm:inline">Quick Actions</span>
+      {/* Desktop/Tablet: Show buttons inline */}
+      <div className="hidden sm:flex items-center gap-2">
+        {isAdmin && (
+          <Button variant="default" size="sm" asChild>
+            <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
+              <Plus className="size-4 mr-1" />
+              Create Session
+            </Link>
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuLabel>Navigation</DropdownMenuLabel>
-          <DropdownMenuItem asChild>
-            <Link to="/dashboard/org/$orgId/sessions" params={{ orgId }}>
-              <Calendar className="mr-2 size-4" />
-              Browse Sessions
+        )}
+        {isAdmin && (
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
+              <Users className="size-4 mr-1" />
+              Members
             </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to="/dashboard/org/$orgId/profile" params={{ orgId }}>
-              <User className="mr-2 size-4" />
-              Edit My Profile
+          </Button>
+        )}
+        {isAdmin && (
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/dashboard/org/$orgId/settings" params={{ orgId }}>
+              <Settings className="size-4 mr-1" />
+              Settings
             </Link>
-          </DropdownMenuItem>
-          {isAdmin && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Admin</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
-                  <Users className="mr-2 size-4" />
-                  Manage Members
-                </Link>
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </Button>
+        )}
+      </div>
+
+      {/* Mobile: Dropdown menu (admin only) */}
+      {isAdmin && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 w-8 p-0 sm:hidden">
+              <MoreVertical className="size-4" />
+              <span className="sr-only">Actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem asChild>
+              <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
+                <Plus className="mr-2 size-4" />
+                Create Session
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
+                <Users className="mr-2 size-4" />
+                Members
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to="/dashboard/org/$orgId/settings" params={{ orgId }}>
+                <Settings className="mr-2 size-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   )
 }
