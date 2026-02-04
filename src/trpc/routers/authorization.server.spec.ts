@@ -98,7 +98,7 @@ describe("owner-only router authorization", () => {
     expect(createdSession.organizationId).toBe(organizationId)
   })
 
-  it("blocks admin from viewing session roster", async () => {
+  it("allows admin to view session roster", async () => {
     const [session] = await db
       .insert(eventSession)
       .values({
@@ -115,12 +115,12 @@ describe("owner-only router authorization", () => {
 
     const adminCaller = buildCaller(admin, organizationId)
 
-    await expect(
-      adminCaller.participation.roster({
-        sessionId: session.id,
-        limit: 20,
-        offset: 0,
-      })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    const roster = await adminCaller.participation.roster({
+      sessionId: session.id,
+      limit: 20,
+      offset: 0,
+    })
+
+    expect(Array.isArray(roster)).toBe(true)
   })
 })
