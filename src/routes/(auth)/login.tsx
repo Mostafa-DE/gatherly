@@ -4,14 +4,7 @@ import { signIn } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Calendar, LogIn } from "lucide-react"
 
 export const Route = createFileRoute("/(auth)/login")({
   component: LoginPage,
@@ -36,9 +29,9 @@ function LoginPage() {
       })
 
       if (result.error) {
-        setError(result.error.message || "Failed to sign in")
+        setError("Invalid email or password")
       } else {
-        navigate({ to: "/" })
+        navigate({ to: "/dashboard" })
       }
     } catch {
       setError("An unexpected error occurred")
@@ -48,59 +41,93 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-          <CardDescription>
-            Enter your email and password to access your account
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+    <div className="relative flex min-h-screen items-center justify-center p-4">
+      {/* Background gradient */}
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 via-background to-background" />
+
+      {/* Grid pattern */}
+      <div className="absolute inset-0 -z-10 opacity-[0.02]">
+        <div className="h-full w-full bg-[linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+      </div>
+
+      <div className="w-full max-w-md space-y-8">
+        {/* Logo */}
+        <div className="flex flex-col items-center">
+          <Link to="/" className="flex items-center gap-2 mb-6">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+              <Calendar className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="text-2xl font-semibold tracking-tight">Gatherly</span>
+          </Link>
+
+          <div className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary mb-4">
+            <LogIn className="mr-2 h-3.5 w-3.5" />
+            Welcome back
+          </div>
+
+          <h1 className="text-3xl font-bold tracking-tight text-center">
+            Sign in to{" "}
+            <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Gatherly
+            </span>
+          </h1>
+          <p className="mt-2 text-center text-muted-foreground">
+            Enter your credentials to access your account
+          </p>
+        </div>
+
+        {/* Form Card */}
+        <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="m@example.com"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="bg-background/50"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="bg-background/50"
               />
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
+
+            <Button type="submit" className="w-full" size="lg" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
-            <p className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link
-                to="/register"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <p className="text-center text-sm text-muted-foreground">
+          Don't have an account?{" "}
+          <Link
+            to="/register"
+            className="font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Create one
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

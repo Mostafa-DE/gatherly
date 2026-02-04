@@ -1,16 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
@@ -19,7 +10,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Users, MoreVertical, Shield, UserMinus, Crown } from "lucide-react"
+import {
+  Users,
+  MoreVertical,
+  Shield,
+  UserMinus,
+  Crown,
+  UserPlus,
+  XCircle,
+  Mail,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/members")({
   component: MembersPage,
@@ -52,34 +53,32 @@ function MembersPage() {
 
   if (whoamiLoading) {
     return (
-      <div className="space-y-6 py-4">
+      <div className="space-y-8 py-6">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-5 w-96" />
         </div>
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     )
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              Only group owners and admins can view members.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button asChild>
-              <Link to="/dashboard/org/$orgId" params={{ orgId }}>
-                Back to Overview
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center py-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mb-4">
+          <XCircle className="h-8 w-8 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Only group owners and admins can view members.
+        </p>
+        <Button asChild>
+          <Link to="/dashboard/org/$orgId" params={{ orgId }}>
+            Back to Overview
+          </Link>
+        </Button>
       </div>
     )
   }
@@ -87,94 +86,109 @@ function MembersPage() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "owner":
-        return (
-          <Badge variant="default" className="gap-1">
-            <Crown className="h-3 w-3" />
-            Owner
-          </Badge>
-        )
+        return {
+          icon: Crown,
+          text: "Owner",
+          className: "bg-primary/10 text-primary",
+        }
       case "admin":
-        return (
-          <Badge variant="secondary" className="gap-1">
-            <Shield className="h-3 w-3" />
-            Admin
-          </Badge>
-        )
+        return {
+          icon: Shield,
+          text: "Admin",
+          className: "bg-yellow-500/10 text-yellow-600",
+        }
       default:
-        return <Badge variant="outline">Member</Badge>
+        return {
+          icon: Users,
+          text: "Member",
+          className: "bg-muted text-muted-foreground",
+        }
     }
   }
 
   return (
-    <div className="space-y-6 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Members</h1>
-          <p className="text-muted-foreground">
-            Manage members in your group
-          </p>
+    <div className="space-y-10 py-6">
+      {/* Hero Section */}
+      <div>
+        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
+          <Users className="mr-2 h-3.5 w-3.5" />
+          Members
         </div>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }}>
-              Join Requests
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link to="/dashboard/org/$orgId/invitations" params={{ orgId }}>
-              Invite Members
-            </Link>
-          </Button>
+
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Manage{" "}
+              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Members
+              </span>
+            </h1>
+            <p className="mt-2 text-lg text-muted-foreground">
+              {members?.length || 0} member{members?.length !== 1 ? "s" : ""} in your group
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button asChild variant="outline">
+              <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }}>
+                <Mail className="mr-2 h-4 w-4" />
+                Join Requests
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link to="/dashboard/org/$orgId/invitations" params={{ orgId }}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Group Members
-            {members && (
-              <Badge variant="secondary" className="ml-2">
-                {members.length}
-              </Badge>
-            )}
-          </CardTitle>
-          <CardDescription>
-            View and manage members of your group.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {membersLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <Skeleton className="h-10 w-10 rounded-full" />
-                  <div className="flex-1 space-y-2">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-48" />
-                  </div>
-                  <Skeleton className="h-6 w-20" />
+      {/* Members List */}
+      <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+        {membersLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex items-center gap-4 rounded-lg border border-border/50 bg-background/50 p-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
                 </div>
-              ))}
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+            ))}
+          </div>
+        ) : members?.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Users className="h-6 w-6 text-primary" />
             </div>
-          ) : members?.length === 0 ? (
-            <div className="rounded-lg border p-8 text-center">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
-              <h3 className="mt-4 text-lg font-medium">No Members</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Your group doesn't have any members yet.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {members?.map(({ member, user }) => (
+            <h3 className="font-medium">No Members</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your group doesn't have any members yet.
+            </p>
+            <Button asChild className="mt-4">
+              <Link to="/dashboard/org/$orgId/invitations" params={{ orgId }}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Invite Members
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {members?.map(({ member, user }) => {
+              const role = getRoleBadge(member.role)
+              const RoleIcon = role.icon
+
+              return (
                 <div
                   key={member.id}
-                  className="flex items-center gap-4 rounded-lg border p-4"
+                  className="flex items-center gap-4 rounded-lg border border-border/50 bg-background/50 p-4 transition-all hover:border-primary/30"
                 >
-                  <Avatar>
+                  <Avatar className="h-12 w-12">
                     <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                    <AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary">
                       {user.name.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
@@ -190,11 +204,17 @@ function MembersPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {getRoleBadge(member.role)}
+                    <span className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                      role.className
+                    )}>
+                      <RoleIcon className="h-3 w-3" />
+                      {role.text}
+                    </span>
                     {isOwner && member.role !== "owner" && user.id !== whoami?.user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -241,7 +261,7 @@ function MembersPage() {
                     {isAdmin && !isOwner && member.role !== "owner" && user.id !== whoami?.user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -260,17 +280,17 @@ function MembersPage() {
                     )}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              )
+            })}
+          </div>
+        )}
 
-          {(removeMutation.error || updateRoleMutation.error) && (
-            <p className="mt-4 text-sm text-destructive text-center">
-              {removeMutation.error?.message || updateRoleMutation.error?.message}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+        {(removeMutation.error || updateRoleMutation.error) && (
+          <p className="mt-4 text-sm text-destructive text-center">
+            {removeMutation.error?.message || updateRoleMutation.error?.message}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

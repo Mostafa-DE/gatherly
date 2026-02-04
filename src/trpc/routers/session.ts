@@ -9,6 +9,8 @@ import {
   listSessions,
   listUpcomingSessions,
   listPastSessions,
+  listUpcomingSessionsWithCounts,
+  listPastSessionsWithCounts,
 } from "@/data-access/sessions";
 import { withOrgScope } from "@/data-access/org-scope";
 import {
@@ -122,6 +124,24 @@ export const sessionRouter = router({
     .input(listPastSessionsSchema)
     .query(async ({ ctx, input }) => {
       return listPastSessions(ctx.activeOrganization.id, input);
+    }),
+
+  /**
+   * List upcoming sessions with participant counts and preview (Member)
+   */
+  listUpcomingWithCounts: orgProcedure
+    .input(listUpcomingSessionsSchema)
+    .query(async ({ ctx, input }) => {
+      return listUpcomingSessionsWithCounts(ctx.activeOrganization.id, input);
+    }),
+
+  /**
+   * List past sessions with participant counts and preview (Member)
+   */
+  listPastWithCounts: orgProcedure
+    .input(listPastSessionsSchema)
+    .query(async ({ ctx, input }) => {
+      return listPastSessionsWithCounts(ctx.activeOrganization.id, input);
     }),
 
   /**

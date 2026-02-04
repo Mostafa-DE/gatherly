@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router"
-import { Building2, Home, Mail } from "lucide-react"
+import { Building2, Mail, Calendar } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -24,8 +24,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const isOrgRoute = pathname.includes("/dashboard/org/")
 
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+    <Sidebar collapsible="icon" className="border-r border-border/50" {...props}>
+      <SidebarHeader className="border-b border-border/50">
         {isOrgRoute ? (
           <OrgSwitcher />
         ) : (
@@ -34,7 +34,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenuButton size="lg" asChild tooltip="Dashboard">
                 <Link to="/dashboard">
                   <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                    <Home className="size-4" />
+                    <Calendar className="size-4" />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">Gatherly</span>
@@ -53,7 +53,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <DashboardNav />
         )}
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="border-t border-border/50">
         <UserMenu />
       </SidebarFooter>
       <SidebarRail />
@@ -74,11 +74,17 @@ function DashboardNav() {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>Groups</SidebarGroupLabel>
+        <SidebarGroupLabel className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+          Groups
+        </SidebarGroupLabel>
         <SidebarMenu>
           {orgs?.map((org) => (
             <SidebarMenuItem key={org.organization.id}>
-              <SidebarMenuButton asChild tooltip={org.organization.name}>
+              <SidebarMenuButton
+                asChild
+                tooltip={org.organization.name}
+                className="transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+              >
                 <Link
                   to="/dashboard/org/$orgId"
                   params={{ orgId: org.organization.id }}
@@ -94,16 +100,22 @@ function DashboardNav() {
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>Account</SidebarGroupLabel>
+        <SidebarGroupLabel className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+          Account
+        </SidebarGroupLabel>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="My Invitations">
+            <SidebarMenuButton
+              asChild
+              tooltip="My Invitations"
+              className="transition-all duration-200 hover:bg-primary/10 hover:text-primary"
+            >
               <Link to="/dashboard/invitations" onClick={handleNavClick}>
                 <Mail className="size-4" />
-                <span>
+                <span className="flex items-center gap-2">
                   Invitations
                   {hasInvitations && (
-                    <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
                       {invitations.length}
                     </span>
                   )}

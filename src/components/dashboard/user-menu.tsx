@@ -62,45 +62,45 @@ export function UserMenu() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-primary/10 data-[state=open]:text-primary transition-all duration-200"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="h-8 w-8 rounded-lg ring-2 ring-primary/20">
                 <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg bg-primary/10 text-primary">{initials}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
+                <span className="truncate text-xs text-muted-foreground">{user.email}</span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl border-border/50"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
           >
             <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
+              <div className="flex items-center gap-2 px-2 py-2 text-left text-sm">
+                <Avatar className="h-8 w-8 rounded-lg ring-2 ring-primary/20">
                   <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg bg-primary/10 text-primary">{initials}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="gap-2">
+            <DropdownMenuSeparator className="bg-border/50" />
+            <DropdownMenuItem asChild className="gap-2 cursor-pointer">
               <Link to="/dashboard/profile" onClick={() => setOpenMobile(false)}>
                 <User className="size-4" />
                 Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2" onClick={() => signOut()}>
+            <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive" onClick={() => signOut()}>
               <LogOut className="size-4" />
               Sign out
             </DropdownMenuItem>

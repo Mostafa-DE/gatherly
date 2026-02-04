@@ -2,17 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState, useEffect } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -23,7 +13,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Settings, Globe, Users, Clock, Plus, Trash2, ChevronUp, ChevronDown, Save } from "lucide-react"
+import {
+  Settings,
+  Globe,
+  Users,
+  Clock,
+  Plus,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  Save,
+  XCircle,
+} from "lucide-react"
 import { FORM_FIELD_TYPES, type FormField, type FormFieldType } from "@/types/form"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
@@ -47,7 +48,6 @@ function SettingsPage() {
   const [formError, setFormError] = useState("")
   const [formDirty, setFormDirty] = useState(false)
 
-  // General settings state (owner only)
   const org = whoami?.activeOrganization
   const [timezone, setTimezone] = useState(org?.timezone || "")
   const [joinMode, setJoinMode] = useState<"open" | "invite" | "approval">(
@@ -77,7 +77,6 @@ function SettingsPage() {
     })
   }
 
-  // Initialize fields from settings
   useEffect(() => {
     const joinFormSchema = settings?.joinFormSchema as { fields?: FormField[] } | null
     if (joinFormSchema?.fields) {
@@ -122,7 +121,6 @@ function SettingsPage() {
   const moveField = (index: number, direction: "up" | "down") => {
     const newIndex = direction === "up" ? index - 1 : index + 1
     if (newIndex < 0 || newIndex >= fields.length) return
-
     const newFields = [...fields]
     const [removed] = newFields.splice(index, 1)
     newFields.splice(newIndex, 0, removed)
@@ -132,8 +130,6 @@ function SettingsPage() {
 
   const handleSaveForm = () => {
     setFormError("")
-
-    // Validate fields
     for (const field of fields) {
       if (!field.label.trim()) {
         setFormError("All fields must have a label")
@@ -144,7 +140,6 @@ function SettingsPage() {
         return
       }
     }
-
     updateJoinForm.mutate({
       joinFormSchema: fields.length > 0 ? { fields } : null,
     })
@@ -152,137 +147,125 @@ function SettingsPage() {
 
   if (whoamiLoading || settingsLoading) {
     return (
-      <div className="space-y-6 py-4">
+      <div className="space-y-8 py-6">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-5 w-96" />
         </div>
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     )
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              Only group owners and admins can access settings.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <Button asChild>
-              <Link to="/dashboard/org/$orgId" params={{ orgId }}>
-                Back to Overview
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
+      <div className="flex min-h-[60vh] flex-col items-center justify-center text-center py-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10 mb-4">
+          <XCircle className="h-8 w-8 text-destructive" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Only group owners and admins can access settings.
+        </p>
+        <Button asChild>
+          <Link to="/dashboard/org/$orgId" params={{ orgId }}>
+            Back to Overview
+          </Link>
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-10 py-6">
+      {/* Hero Section */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your group settings
+        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
+          <Settings className="mr-2 h-3.5 w-3.5" />
+          Settings
+        </div>
+
+        <h1 className="text-3xl font-bold tracking-tight">
+          Group{" "}
+          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Settings
+          </span>
+        </h1>
+        <p className="mt-2 text-lg text-muted-foreground">
+          Configure your group preferences and join form
         </p>
       </div>
 
-      <div className="grid gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              General Settings
-            </CardTitle>
-            <CardDescription>
-              Basic group information
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      {/* General Settings */}
+      <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <Settings className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold">General Settings</h2>
+            <p className="text-sm text-muted-foreground">Basic group information</p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 mb-6">
+          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+            <p className="text-sm font-medium text-muted-foreground">Group Name</p>
+            <p className="mt-1 font-medium">{org?.name}</p>
+          </div>
+          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+            <p className="text-sm font-medium text-muted-foreground">URL Slug</p>
+            <p className="mt-1 font-medium">/{org?.slug}</p>
+          </div>
+        </div>
+
+        {generalError && (
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            {generalError}
+          </div>
+        )}
+
+        {isOwner ? (
+          <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Group Name</p>
-                <p className="text-sm text-muted-foreground">{org?.name}</p>
+              <div className="space-y-2">
+                <Label htmlFor="timezone" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Timezone
+                </Label>
+                <Input
+                  id="timezone"
+                  placeholder="America/New_York"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="bg-background/50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  e.g. America/New_York, Europe/London
+                </p>
               </div>
-              <div className="space-y-1">
-                <p className="text-sm font-medium">URL Slug</p>
-                <p className="text-sm text-muted-foreground">/{org?.slug}</p>
+              <div className="space-y-2">
+                <Label htmlFor="joinMode" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  Default Join Mode
+                </Label>
+                <Select
+                  value={joinMode}
+                  onValueChange={(v) => setJoinMode(v as "open" | "invite" | "approval")}
+                >
+                  <SelectTrigger id="joinMode" className="bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="invite">Invite Only</SelectItem>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="approval">Approval Required</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <Separator />
-            {generalError && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {generalError}
-              </div>
-            )}
-            {isOwner ? (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="timezone" className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Timezone
-                  </Label>
-                  <Input
-                    id="timezone"
-                    placeholder="America/New_York"
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    e.g. America/New_York, Europe/London
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="joinMode" className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Default Join Mode
-                  </Label>
-                  <Select
-                    value={joinMode}
-                    onValueChange={(v) => setJoinMode(v as "open" | "invite" | "approval")}
-                  >
-                    <SelectTrigger id="joinMode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="invite">Invite Only</SelectItem>
-                      <SelectItem value="open">Open</SelectItem>
-                      <SelectItem value="approval">Approval Required</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Timezone
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {org?.timezone || "Not set"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Default Join Mode
-                  </p>
-                  <Badge variant="secondary" className="capitalize">
-                    {org?.defaultJoinMode || "Invite"}
-                  </Badge>
-                </div>
-              </div>
-            )}
-          </CardContent>
-          {isOwner && (
-            <CardFooter className="border-t pt-6">
+            <div className="mt-6 border-t border-border/50 pt-6">
               <Button
                 onClick={handleSaveGeneralSettings}
                 disabled={!generalDirty || updateOrgSettings.isPending}
@@ -290,83 +273,101 @@ function SettingsPage() {
                 <Save className="h-4 w-4 mr-2" />
                 {updateOrgSettings.isPending ? "Saving..." : "Save Settings"}
               </Button>
-            </CardFooter>
-          )}
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" />
-              Join Form Configuration
-            </CardTitle>
-            <CardDescription>
-              Configure the profile fields members fill out when joining
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {formError && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {formError}
-              </div>
-            )}
-
-            {fields.length === 0 ? (
-              <div className="rounded-lg border p-8 text-center">
-                <Globe className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                <h3 className="mt-4 text-lg font-medium">No Custom Fields</h3>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Add custom fields that members fill out when joining your group.
-                </p>
-                <Button onClick={addField} className="mt-4">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add First Field
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <FormFieldEditor
-                    key={field.id}
-                    field={field}
-                    index={index}
-                    totalFields={fields.length}
-                    onUpdate={(updates) => updateField(field.id, updates)}
-                    onRemove={() => removeField(field.id)}
-                    onMoveUp={() => moveField(index, "up")}
-                    onMoveDown={() => moveField(index, "down")}
-                  />
-                ))}
-                <Button variant="outline" onClick={addField} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Field
-                </Button>
-              </div>
-            )}
-          </CardContent>
-          {fields.length > 0 && (
-            <CardFooter className="flex justify-between border-t pt-6">
-              <p className="text-sm text-muted-foreground">
-                {fields.length} field{fields.length !== 1 ? "s" : ""} configured
+            </div>
+          </>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+              <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Timezone
               </p>
-              <Button
-                onClick={handleSaveForm}
-                disabled={!formDirty || updateJoinForm.isPending}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {updateJoinForm.isPending ? "Saving..." : "Save Form"}
-              </Button>
-            </CardFooter>
-          )}
-        </Card>
+              <p className="mt-1 font-medium">{org?.timezone || "Not set"}</p>
+            </div>
+            <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+              <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Default Join Mode
+              </p>
+              <p className="mt-1 font-medium capitalize">{org?.defaultJoinMode || "Invite"}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Join Form Configuration */}
+      <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <Globe className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold">Join Form Configuration</h2>
+            <p className="text-sm text-muted-foreground">
+              Configure the profile fields members fill out when joining
+            </p>
+          </div>
+        </div>
+
+        {formError && (
+          <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            {formError}
+          </div>
+        )}
+
+        {fields.length === 0 ? (
+          <div className="py-12 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Globe className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-medium">No Custom Fields</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add custom fields that members fill out when joining your group.
+            </p>
+            <Button onClick={addField} className="mt-4">
+              <Plus className="h-4 w-4 mr-2" />
+              Add First Field
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {fields.map((field, index) => (
+              <FormFieldEditor
+                key={field.id}
+                field={field}
+                index={index}
+                totalFields={fields.length}
+                onUpdate={(updates) => updateField(field.id, updates)}
+                onRemove={() => removeField(field.id)}
+                onMoveUp={() => moveField(index, "up")}
+                onMoveDown={() => moveField(index, "down")}
+              />
+            ))}
+            <Button variant="outline" onClick={addField} className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Field
+            </Button>
+          </div>
+        )}
+
+        {fields.length > 0 && (
+          <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-6">
+            <p className="text-sm text-muted-foreground">
+              {fields.length} field{fields.length !== 1 ? "s" : ""} configured
+            </p>
+            <Button
+              onClick={handleSaveForm}
+              disabled={!formDirty || updateJoinForm.isPending}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {updateJoinForm.isPending ? "Saving..." : "Save Form"}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-
-// =============================================================================
-// Form Field Editor Component
-// =============================================================================
 
 type FormFieldEditorProps = {
   field: FormField
@@ -413,10 +414,10 @@ function FormFieldEditor({
   const needsOptions = field.type === "select" || field.type === "multiselect"
 
   return (
-    <div className="rounded-lg border p-4 space-y-3">
+    <div className="rounded-lg border border-border/50 bg-background/50 p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary">
             {index + 1}
           </span>
           <span className="font-medium">{field.label || "New Field"}</span>
@@ -459,16 +460,16 @@ function FormFieldEditor({
             value={field.label}
             onChange={(e) => onUpdate({ label: e.target.value })}
             placeholder="Field label"
+            className="bg-background"
           />
         </div>
-
         <div className="space-y-2">
           <Label htmlFor={`${field.id}-type`}>Type</Label>
           <Select
             value={field.type}
             onValueChange={(v) => onUpdate({ type: v as FormFieldType })}
           >
-            <SelectTrigger id={`${field.id}-type`}>
+            <SelectTrigger id={`${field.id}-type`} className="bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

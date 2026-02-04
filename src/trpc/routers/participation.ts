@@ -24,12 +24,12 @@ import {
 } from "@/schemas/participation";
 
 // =============================================================================
-// Helper: Check if user is owner
+// Helper: Check if user is owner or admin
 // =============================================================================
 
-function assertOwner(role: string): void {
-  if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action");
+function assertAdmin(role: string): void {
+  if (role !== "owner" && role !== "admin") {
+    throw new ForbiddenError("Only organization owners and admins can perform this action");
   }
 }
 
@@ -101,13 +101,11 @@ export const participationRouter = router({
     }),
 
   /**
-   * Get full roster for a session (Admin)
+   * Get roster for a session (All members can view participants)
    */
   roster: orgProcedure
     .input(getRosterSchema)
     .query(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
-
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSession(input.sessionId);
         return getSessionRoster(input.sessionId, input);
@@ -120,7 +118,7 @@ export const participationRouter = router({
   update: orgProcedure
     .input(updateParticipationSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertAdmin(ctx.membership.role);
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireParticipationForMutation(input.participationId);
@@ -135,7 +133,7 @@ export const participationRouter = router({
   bulkUpdateAttendance: orgProcedure
     .input(bulkUpdateAttendanceSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertAdmin(ctx.membership.role);
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSession(input.sessionId);
@@ -150,7 +148,7 @@ export const participationRouter = router({
   userHistory: orgProcedure
     .input(getUserHistorySchema)
     .query(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertAdmin(ctx.membership.role);
       return getUserHistory(ctx.activeOrganization.id, input.userId, input);
     }),
 });

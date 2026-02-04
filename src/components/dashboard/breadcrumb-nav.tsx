@@ -80,20 +80,22 @@ export function BreadcrumbNav() {
       <BreadcrumbList>
         {segments.map((segment, index) => {
           const isFirst = index === 0
-          const isLast = index === segments.length - 1
 
           return (
             <React.Fragment key={index}>
-              {index > 0 && <BreadcrumbSeparator className={isFirst ? "" : "hidden sm:block"} />}
+              {index > 0 && <BreadcrumbSeparator className={isFirst ? "" : "hidden sm:block text-muted-foreground/50"} />}
               <BreadcrumbItem className={isFirst && segments.length > 1 ? "hidden sm:block" : ""}>
                 {segment.href ? (
                   <BreadcrumbLink asChild>
-                    <Link to={segment.href} className="max-w-[120px] truncate sm:max-w-none">
+                    <Link
+                      to={segment.href}
+                      className="max-w-[120px] truncate sm:max-w-none text-muted-foreground hover:text-primary transition-colors"
+                    >
                       {segment.label}
                     </Link>
                   </BreadcrumbLink>
                 ) : (
-                  <BreadcrumbPage className="max-w-[150px] truncate sm:max-w-none">
+                  <BreadcrumbPage className="max-w-[150px] truncate sm:max-w-none font-medium text-foreground">
                     {segment.label}
                   </BreadcrumbPage>
                 )}

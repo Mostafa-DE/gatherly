@@ -1,5 +1,5 @@
 import { Link, useParams, useRouterState } from "@tanstack/react-router"
-import { LayoutDashboard, Calendar, User, Users, Settings } from "lucide-react"
+import { LayoutDashboard, Calendar, User, Users, Settings, Shield } from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import {
   SidebarGroup,
@@ -9,6 +9,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
 type NavItem = {
   title: string
@@ -80,51 +81,76 @@ export function NavMain() {
   return (
     <>
       <SidebarGroup>
-        <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+        <SidebarGroupLabel className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider">
+          Navigation
+        </SidebarGroupLabel>
         <SidebarMenu>
-          {mainNavItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                asChild
-                isActive={isActive(item.url)}
-                tooltip={item.title}
-              >
-                <Link
-                  to={item.url}
-                  params={{ orgId }}
-                  onClick={handleNavClick}
-                >
-                  <item.icon />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroup>
-
-      {isAdmin && (
-        <SidebarGroup>
-          <SidebarGroupLabel>Admin</SidebarGroupLabel>
-          <SidebarMenu>
-            {adminNavItems.map((item) => (
+          {mainNavItems.map((item) => {
+            const active = isActive(item.url)
+            return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                   asChild
-                  isActive={isActive(item.url)}
+                  isActive={active}
                   tooltip={item.title}
+                  className={cn(
+                    "transition-all duration-200",
+                    active && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                  )}
                 >
                   <Link
                     to={item.url}
                     params={{ orgId }}
                     onClick={handleNavClick}
                   >
-                    <item.icon />
+                    <item.icon className={cn(
+                      "size-4",
+                      active && "text-primary"
+                    )} />
                     <span>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-            ))}
+            )
+          })}
+        </SidebarMenu>
+      </SidebarGroup>
+
+      {isAdmin && (
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1.5">
+            <Shield className="size-3" />
+            Admin
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            {adminNavItems.map((item) => {
+              const active = isActive(item.url)
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={active}
+                    tooltip={item.title}
+                    className={cn(
+                      "transition-all duration-200",
+                      active && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                    )}
+                  >
+                    <Link
+                      to={item.url}
+                      params={{ orgId }}
+                      onClick={handleNavClick}
+                    >
+                      <item.icon className={cn(
+                        "size-4",
+                        active && "text-primary"
+                      )} />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
       )}

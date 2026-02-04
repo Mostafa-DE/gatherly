@@ -4,16 +4,9 @@ import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { User, Save } from "lucide-react"
+import { User, Save, Mail, Calendar, CheckCircle2, XCircle, Pencil } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/profile")({
   component: UserProfilePage,
@@ -66,21 +59,13 @@ function UserProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 py-4">
-        <div>
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="mt-2 h-4 w-64" />
+      <div className="space-y-8 py-6">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-5 w-96" />
         </div>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-32" />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Skeleton className="h-20 w-20 rounded-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
+        <Skeleton className="h-64 w-full rounded-xl" />
       </div>
     )
   }
@@ -97,44 +82,60 @@ function UserProfilePage() {
     .slice(0, 2) ?? "?"
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-10 py-6">
+      {/* Hero Section */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">My Profile</h1>
-        <p className="text-muted-foreground">
+        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
+          <User className="mr-2 h-3.5 w-3.5" />
+          Account
+        </div>
+
+        <h1 className="text-3xl font-bold tracking-tight">
+          My{" "}
+          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            Profile
+          </span>
+        </h1>
+        <p className="mt-2 text-lg text-muted-foreground">
           Manage your account settings and preferences
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Profile Information
-          </CardTitle>
-          <CardDescription>
-            Your personal information visible across all groups.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      {/* Profile Card */}
+      <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 mb-6">
           <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20">
+            <Avatar className="h-20 w-20 ring-4 ring-primary/20">
               <AvatarImage
                 src={isEditing ? image || undefined : user.image ?? undefined}
                 alt={user.name}
               />
-              <AvatarFallback className="text-lg">{initials}</AvatarFallback>
+              <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                {initials}
+              </AvatarFallback>
             </Avatar>
             <div>
-              <p className="font-medium">{user.name}</p>
-              <p className="text-sm text-muted-foreground">{user.email}</p>
-              <p className="text-xs text-muted-foreground">
-                Member since {new Date(user.createdAt).toLocaleDateString()}
+              <h2 className="text-xl font-semibold">{user.name}</h2>
+              <p className="text-muted-foreground">{user.email}</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Member since {new Date(user.createdAt).toLocaleDateString(undefined, {
+                  month: "long",
+                  year: "numeric",
+                })}
               </p>
             </div>
           </div>
+          {!isEditing && (
+            <Button variant="outline" onClick={handleStartEdit} className="border-border/50">
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Profile
+            </Button>
+          )}
+        </div>
 
-          {isEditing ? (
-            <div className="space-y-4">
+        {isEditing && (
+          <div className="space-y-4 border-t border-border/50 pt-6">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -142,6 +143,7 @@ function UserProfilePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
+                  className="bg-background/50"
                 />
               </div>
               <div className="space-y-2">
@@ -151,66 +153,87 @@ function UserProfilePage() {
                   value={image}
                   onChange={(e) => setImage(e.target.value)}
                   placeholder="https://example.com/avatar.jpg"
+                  className="bg-background/50"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleSave}
-                  disabled={updateMutation.isPending}
-                >
-                  <Save className="mr-2 h-4 w-4" />
-                  {updateMutation.isPending ? "Saving..." : "Save Changes"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCancel}
-                  disabled={updateMutation.isPending}
-                >
-                  Cancel
-                </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={updateMutation.isPending}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={updateMutation.isPending}
+              >
+                Cancel
+              </Button>
+            </div>
+            {updateMutation.error && (
+              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                {updateMutation.error.message}
               </div>
-              {updateMutation.error && (
-                <p className="text-sm text-destructive">
-                  {updateMutation.error.message}
-                </p>
-              )}
-            </div>
-          ) : (
-            <Button variant="outline" onClick={handleStartEdit}>
-              Edit Profile
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </div>
+        )}
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Account Details</CardTitle>
-          <CardDescription>
-            Information about your account status.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="space-y-4">
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Email</dt>
-              <dd className="font-medium">{user.email}</dd>
+      {/* Account Details */}
+      <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <Mail className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold">Account Details</h2>
+            <p className="text-sm text-muted-foreground">
+              Information about your account status
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Mail className="h-4 w-4" />
+              Email
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Email Verified</dt>
-              <dd className="font-medium">
-                {user.emailVerified ? "Yes" : "No"}
-              </dd>
+            <p className="font-medium truncate">{user.email}</p>
+          </div>
+
+          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              {user.emailVerified ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <XCircle className="h-4 w-4 text-destructive" />
+              )}
+              Email Status
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted-foreground">Account Created</dt>
-              <dd className="font-medium">
-                {new Date(user.createdAt).toLocaleDateString()}
-              </dd>
+            <p className={`font-medium ${user.emailVerified ? "text-green-500" : "text-destructive"}`}>
+              {user.emailVerified ? "Verified" : "Not Verified"}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Calendar className="h-4 w-4" />
+              Account Created
             </div>
-          </dl>
-        </CardContent>
-      </Card>
+            <p className="font-medium">
+              {new Date(user.createdAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

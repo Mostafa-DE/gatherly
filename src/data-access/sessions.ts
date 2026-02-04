@@ -1,6 +1,6 @@
 import { and, count, eq, gt, isNull, lt, or, sql, desc, asc } from "drizzle-orm";
 import { db } from "@/db";
-import { eventSession, participation } from "@/db/schema";
+import { eventSession, participation, user } from "@/db/schema";
 import type { EventSession } from "@/db/types";
 import { NotFoundError, BadRequestError } from "@/exceptions";
 import {
@@ -106,6 +106,42 @@ export async function listUpcomingSessions(
     .offset(options.offset);
 }
 
+export async function listUpcomingSessionsWithCounts(
+  organizationId: string,
+  options: { limit: number; offset: number }
+) {
+  const now = new Date();
+  const sessions = await db
+    .select()
+    .from(eventSession)
+    .where(
+      and(
+        eq(eventSession.organizationId, organizationId),
+        isNull(eventSession.deletedAt),
+        eq(eventSession.status, "published"),
+        gt(eventSession.dateTime, now)
+      )
+    )
+    .orderBy(asc(eventSession.dateTime))
+    .limit(options.limit)
+    .offset(options.offset);
+
+  // Get counts and participant preview for each session
+  const sessionsWithCounts = await Promise.all(
+    sessions.map(async (session) => {
+      const counts = await getSessionCounts(session.id);
+      const participants = await getSessionParticipantPreview(session.id);
+      return {
+        ...session,
+        ...counts,
+        participants,
+      };
+    })
+  );
+
+  return sessionsWithCounts;
+}
+
 export async function listPastSessions(
   organizationId: string,
   options: { limit: number; offset: number }
@@ -128,6 +164,87 @@ export async function listPastSessions(
     .orderBy(desc(eventSession.dateTime))
     .limit(options.limit)
     .offset(options.offset);
+}
+
+export async function listPastSessionsWithCounts(
+  organizationId: string,
+  options: { limit: number; offset: number }
+) {
+  const now = new Date();
+  const sessions = await db
+    .select()
+    .from(eventSession)
+    .where(
+      and(
+        eq(eventSession.organizationId, organizationId),
+        isNull(eventSession.deletedAt),
+        or(
+          lt(eventSession.dateTime, now),
+          eq(eventSession.status, "completed"),
+          eq(eventSession.status, "cancelled")
+        )
+      )
+    )
+    .orderBy(desc(eventSession.dateTime))
+    .limit(options.limit)
+    .offset(options.offset);
+
+  // Get counts and participant preview for each session
+  const sessionsWithCounts = await Promise.all(
+    sessions.map(async (session) => {
+      const counts = await getSessionCounts(session.id);
+      const participants = await getSessionParticipantPreview(session.id);
+      return {
+        ...session,
+        ...counts,
+        participants,
+      };
+    })
+  );
+
+  return sessionsWithCounts;
+}
+
+// Helper: Get joined/waitlisted counts for a session
+async function getSessionCounts(sessionId: string) {
+  const [counts] = await db
+    .select({
+      joinedCount: count(
+        sql`CASE WHEN ${participation.status} = 'joined' THEN 1 END`
+      ),
+      waitlistCount: count(
+        sql`CASE WHEN ${participation.status} = 'waitlisted' THEN 1 END`
+      ),
+    })
+    .from(participation)
+    .where(eq(participation.sessionId, sessionId));
+
+  return {
+    joinedCount: counts?.joinedCount ?? 0,
+    waitlistCount: counts?.waitlistCount ?? 0,
+  };
+}
+
+// Helper: Get first 4 joined participants for preview avatars
+async function getSessionParticipantPreview(sessionId: string) {
+  const participants = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      image: user.image,
+    })
+    .from(participation)
+    .innerJoin(user, eq(participation.userId, user.id))
+    .where(
+      and(
+        eq(participation.sessionId, sessionId),
+        eq(participation.status, "joined")
+      )
+    )
+    .orderBy(asc(participation.joinedAt))
+    .limit(4);
+
+  return participants;
 }
 
 // =============================================================================
