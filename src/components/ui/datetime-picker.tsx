@@ -112,12 +112,7 @@ export function DateTimePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent
-        className="w-auto p-0"
-        align="start"
-        onFocusOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-      >
+      <PopoverContent className="w-auto p-0" align="start">
         <div className="flex flex-col sm:flex-row">
           <Calendar
             mode="single"
@@ -192,6 +187,17 @@ export function DateTimePicker({
               </div>
             </div>
           </div>
+        </div>
+        {/* Done button */}
+        <div className="border-t p-2">
+          <Button
+            type="button"
+            size="sm"
+            className="w-full"
+            onClick={() => setIsOpen(false)}
+          >
+            Done
+          </Button>
         </div>
       </PopoverContent>
     </Popover>

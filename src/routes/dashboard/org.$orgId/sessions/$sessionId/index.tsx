@@ -4,6 +4,13 @@ import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Calendar,
   MapPin,
   Users,
@@ -16,6 +23,9 @@ import {
   XCircle,
   ArrowLeft,
   Tag,
+  MoreHorizontal,
+  Send,
+  ClipboardList,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
@@ -140,7 +150,6 @@ function SessionDetailPage() {
   const isPast = dateObj < new Date() || sessionData.status === "completed" || sessionData.status === "cancelled"
   const isDraft = sessionData.status === "draft"
   const showParticipants = !isDraft || isAdmin
-  const showActions = sessionData.status === "published" && !isPast
 
   const canJoin =
     sessionData.status === "published" &&
@@ -150,6 +159,7 @@ function SessionDetailPage() {
 
   const isJoined = myParticipation?.status === "joined"
   const isWaitlisted = myParticipation?.status === "waitlisted"
+  const canCancel = (isJoined || isWaitlisted) && sessionData.status === "published" && !isPast
 
   // Status badge styling
   const getStatusBadge = () => {
@@ -195,58 +205,187 @@ function SessionDetailPage() {
       .slice(0, 2)
   }
 
+  const canEdit = isAdmin && (sessionData.status === "draft" || sessionData.status === "published")
+  const canPublish = isAdmin && sessionData.status === "draft"
+  const canComplete = isAdmin && sessionData.status === "published"
+  const canCancelSession = isAdmin && (sessionData.status === "draft" || sessionData.status === "published")
+
   return (
     <div className="py-6 space-y-6">
-      {/* Back Link */}
-      <Link
-        to="/dashboard/org/$orgId/sessions"
-        params={{ orgId }}
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="mr-1 h-4 w-4" />
-        Back to Sessions
-      </Link>
+      {/* Header with Back Link and Admin Actions */}
+      <div className="flex items-center justify-between">
+        <Link
+          to="/dashboard/org/$orgId/sessions"
+          params={{ orgId }}
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" />
+          Back to Sessions
+        </Link>
 
-      {/* Hero Section */}
+        {/* Admin Actions Dropdown - Always visible in header for admins */}
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            {/* Primary admin action based on status */}
+            {canPublish && (
+              <Button
+                size="sm"
+                onClick={() =>
+                  updateStatusMutation.mutate({
+                    sessionId,
+                    status: "published",
+                  })
+                }
+                disabled={updateStatusMutation.isPending}
+                className="gap-2"
+              >
+                <Send className="h-4 w-4" />
+                <span className="hidden sm:inline">Publish</span>
+              </Button>
+            )}
+
+            {/* More actions dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">More actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {canEdit && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      to="/dashboard/org/$orgId/sessions/$sessionId/edit"
+                      params={{ orgId, sessionId }}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit Session
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                    params={{ orgId, sessionId }}
+                  >
+                    <ClipboardList className="mr-2 h-4 w-4" />
+                    View Roster
+                  </Link>
+                </DropdownMenuItem>
+                {canComplete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() =>
+                        updateStatusMutation.mutate({
+                          sessionId,
+                          status: "completed",
+                        })
+                      }
+                      disabled={updateStatusMutation.isPending}
+                    >
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Mark Completed
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {canCancelSession && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() =>
+                        updateStatusMutation.mutate({
+                          sessionId,
+                          status: "cancelled",
+                        })
+                      }
+                      disabled={updateStatusMutation.isPending}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Cancel Session
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Session
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Banner */}
+      {showDeleteConfirm && (
+        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-destructive/50 bg-destructive/5">
+          <span className="text-sm font-medium">
+            Are you sure you want to delete this session? This cannot be undone.
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => deleteMutation.mutate({ sessionId })}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Error messages */}
+      {(updateStatusMutation.error || deleteMutation.error) && (
+        <div className="p-4 rounded-xl border border-destructive/50 bg-destructive/5">
+          <p className="text-sm text-destructive">
+            {updateStatusMutation.error?.message || deleteMutation.error?.message}
+          </p>
+        </div>
+      )}
+
+      {/* Hero Section - More compact */}
       <div className="rounded-xl border bg-card p-6">
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-          {/* Left: Date & Title */}
+        <div className="flex flex-col gap-4">
+          {/* Title and badges */}
           <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10">
-              <Calendar className="h-8 w-8 text-primary" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
+              <Calendar className="h-7 w-7 text-primary" />
             </div>
-            <div>
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <h1 className="text-2xl font-bold">{sessionData.title}</h1>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <h1 className="text-2xl font-bold truncate">{sessionData.title}</h1>
                 <span
                   className={cn(
-                    "rounded-full px-3 py-1 text-sm font-medium",
+                    "rounded-full px-2.5 py-0.5 text-xs font-medium shrink-0",
                     statusBadge.className
                   )}
                 >
                   {statusBadge.text}
                 </span>
-                <span
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
-                    hasPrice(sessionData.price)
-                      ? "bg-primary/10 text-primary"
-                      : "bg-green-500/10 text-green-600"
-                  )}
-                >
-                  <Tag className="h-3.5 w-3.5" />
-                  {formatPrice(sessionData.price, orgCurrency)}
-                </span>
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-4 w-4" />
                   {dateObj.toLocaleDateString(undefined, {
-                    weekday: "long",
-                    month: "long",
+                    weekday: "short",
+                    month: "short",
                     day: "numeric",
                   })}
-                  {" at "}
+                  {" · "}
                   {dateObj.toLocaleTimeString(undefined, {
                     hour: "numeric",
                     minute: "2-digit",
@@ -258,342 +397,222 @@ function SessionDetailPage() {
                     {sessionData.location}
                   </span>
                 )}
+                <span className="flex items-center gap-1.5">
+                  <Users className="h-4 w-4" />
+                  {sessionData.joinedCount}/{sessionData.maxCapacity}
+                </span>
+                <span
+                  className={cn(
+                    "flex items-center gap-1",
+                    hasPrice(sessionData.price)
+                      ? "text-primary"
+                      : "text-green-600"
+                  )}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  {formatPrice(sessionData.price, orgCurrency)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Right: Admin Edit Button */}
-          {isAdmin && (sessionData.status === "draft" || sessionData.status === "published") && (
-            <Button variant="outline" size="sm" asChild>
-              <Link
-                to="/dashboard/org/$orgId/sessions/$sessionId/edit"
-                params={{ orgId, sessionId }}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit Session
-              </Link>
-            </Button>
+          {/* Description */}
+          {sessionData.description && (
+            <p className="text-muted-foreground text-sm">{sessionData.description}</p>
           )}
-        </div>
 
-        {/* Description */}
-        {sessionData.description && (
-          <p className="mt-4 text-muted-foreground">{sessionData.description}</p>
-        )}
-      </div>
-
-      {/* Stats Grid */}
-      <div
-        className={cn(
-          "grid gap-4",
-          isDraft ? "sm:grid-cols-2" : "sm:grid-cols-3"
-        )}
-      >
-        {/* Capacity Card */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-muted-foreground">Capacity</span>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex items-baseline gap-1 mb-3">
-            <span className="text-3xl font-bold">{sessionData.joinedCount}</span>
-            <span className="text-muted-foreground">/ {sessionData.maxCapacity}</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all",
-                isPast ? "bg-muted-foreground/50" : "bg-primary"
-              )}
-              style={{ width: `${Math.min(capacityPercent, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Waitlist Card */}
-        {sessionData.maxWaitlist > 0 && (
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-muted-foreground">Waitlist</span>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold">{sessionData.waitlistCount}</span>
-              <span className="text-muted-foreground">/ {sessionData.maxWaitlist}</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {sessionData.waitlistCount === 0
-                ? "No one waiting"
-                : `${sessionData.waitlistCount} waiting for a spot`}
-            </p>
-          </div>
-        )}
-
-        {!isDraft && (
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-muted-foreground">Your Status</span>
-              {isJoined ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : isWaitlisted ? (
-                <Clock className="h-4 w-4 text-yellow-500" />
-              ) : (
-                <UserPlus className="h-4 w-4 text-muted-foreground" />
-              )}
-            </div>
-            {participationLoading ? (
-              <Skeleton className="h-8 w-24" />
-            ) : isJoined ? (
-              <div>
-                <span className="text-xl font-bold text-green-500">Joined</span>
-                <p className="text-xs text-muted-foreground mt-1">You're in!</p>
-              </div>
-            ) : isWaitlisted ? (
-              <div>
-                <span className="text-xl font-bold text-yellow-500">Waitlisted</span>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Position #{(myParticipation as { waitlistPosition?: number }).waitlistPosition || "—"}
-                </p>
-              </div>
-            ) : myParticipation?.status === "cancelled" ? (
-              <div>
-                <span className="text-xl font-bold text-muted-foreground">Cancelled</span>
-                <p className="text-xs text-muted-foreground mt-1">Registration cancelled</p>
-              </div>
-            ) : (
-              <div>
-                <span className="text-xl font-bold text-muted-foreground">Not Joined</span>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {canJoin ? "Spots available" : "Session full"}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Participants Preview */}
-      {showParticipants && (
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-medium">Participants</h3>
-            {isAdmin && (
-              <Button variant="ghost" size="sm" asChild>
-                <Link
-                  to="/dashboard/org/$orgId/sessions/$sessionId/roster"
-                  params={{ orgId, sessionId }}
+          {/* User Actions - Prominent CTA */}
+          {!isDraft && (
+            <div className="flex items-center gap-3 pt-2 border-t">
+              {participationLoading ? (
+                <Skeleton className="h-10 w-32" />
+              ) : canJoin ? (
+                <Button
+                  size="lg"
+                  onClick={() => joinMutation.mutate({ sessionId })}
+                  disabled={joinMutation.isPending}
+                  className="gap-2"
                 >
-                  View full roster →
-                </Link>
-              </Button>
-            )}
-          </div>
-          {roster && roster.length > 0 ? (
-            <div className="space-y-3">
-              {roster.slice(0, 8).map((p, i) => (
-                <div
-                  key={p.participation.id}
-                  className="flex items-center gap-3"
-                >
-                  <div
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium shrink-0",
-                      p.user.image
-                        ? ""
-                        : `${avatarColors[i % avatarColors.length]} text-white`
-                    )}
-                  >
-                    {p.user.image ? (
-                      <img
-                        src={p.user.image}
-                        alt={p.user.name ?? ""}
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    ) : (
-                      getInitials(p.user.name)
-                    )}
+                  <UserPlus className="h-4 w-4" />
+                  {joinMutation.isPending
+                    ? "Joining..."
+                    : sessionData.joinedCount < sessionData.maxCapacity
+                      ? "Join Session"
+                      : "Join Waitlist"}
+                </Button>
+              ) : isJoined ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 text-green-600">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="font-medium">You're joined!</span>
                   </div>
-                  <p className="font-medium truncate">{p.user.name}</p>
+                  {canCancel && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        cancelMutation.mutate({
+                          participationId: myParticipation!.id,
+                        })
+                      }
+                      disabled={cancelMutation.isPending}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <UserMinus className="h-4 w-4 mr-1" />
+                      {cancelMutation.isPending ? "Cancelling..." : "Cancel"}
+                    </Button>
+                  )}
                 </div>
-              ))}
-              {sessionData.joinedCount > 8 && (
+              ) : isWaitlisted ? (
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 text-yellow-600">
+                    <Clock className="h-4 w-4" />
+                    <span className="font-medium">
+                      Waitlist #{(myParticipation as { waitlistPosition?: number }).waitlistPosition || "—"}
+                    </span>
+                  </div>
+                  {canCancel && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        cancelMutation.mutate({
+                          participationId: myParticipation!.id,
+                        })
+                      }
+                      disabled={cancelMutation.isPending}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <UserMinus className="h-4 w-4 mr-1" />
+                      {cancelMutation.isPending ? "Cancelling..." : "Leave Waitlist"}
+                    </Button>
+                  )}
+                </div>
+              ) : myParticipation?.status === "cancelled" ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted text-muted-foreground">
+                  <XCircle className="h-4 w-4" />
+                  <span className="font-medium">Registration cancelled</span>
+                </div>
+              ) : sessionData.status === "published" && !isPast ? (
                 <p className="text-sm text-muted-foreground">
-                  +{sessionData.joinedCount - 8} more participant{sessionData.joinedCount - 8 !== 1 ? "s" : ""}
+                  Session is full and waitlist is at capacity.
+                </p>
+              ) : null}
+
+              {(joinMutation.error || cancelMutation.error) && (
+                <p className="text-sm text-destructive">
+                  {joinMutation.error?.message || cancelMutation.error?.message}
                 </p>
               )}
             </div>
-          ) : (
-            <p className="text-muted-foreground">No participants yet</p>
           )}
         </div>
-      )}
+      </div>
 
-      {/* Action Section */}
-      {showActions && (
-        <div className="rounded-xl border bg-card p-5">
-          {canJoin ? (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h3 className="font-medium mb-1">Ready to join?</h3>
-                <p className="text-sm text-muted-foreground">
-                  {sessionData.joinedCount < sessionData.maxCapacity
-                    ? `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} remaining`
-                    : "You will be added to the waitlist"}
-                </p>
-              </div>
-              <Button
-                size="lg"
-                onClick={() => joinMutation.mutate({ sessionId })}
-                disabled={joinMutation.isPending}
-                className="gap-2"
-              >
-                <UserPlus className="h-4 w-4" />
-                {joinMutation.isPending
-                  ? "Joining..."
-                  : sessionData.joinedCount < sessionData.maxCapacity
-                    ? "Join Session"
-                    : "Join Waitlist"}
-              </Button>
+      {/* Two Column Layout for Stats and Participants */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* Main Content - Stats */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Capacity Card */}
+          <div className="rounded-xl border bg-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-medium">Capacity</span>
+              <Users className="h-4 w-4 text-muted-foreground" />
             </div>
-          ) : (isJoined || isWaitlisted) && sessionData.status !== "completed" && sessionData.status !== "cancelled" ? (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <h3 className="font-medium mb-1">Change your mind?</h3>
-                <p className="text-sm text-muted-foreground">
-                  You can cancel your registration anytime
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() =>
-                  cancelMutation.mutate({
-                    participationId: myParticipation!.id,
-                  })
-                }
-                disabled={cancelMutation.isPending}
-                className="gap-2"
-              >
-                <UserMinus className="h-4 w-4" />
-                {cancelMutation.isPending ? "Cancelling..." : "Cancel Registration"}
-              </Button>
+            <div className="flex items-baseline gap-1 mb-3">
+              <span className="text-3xl font-bold">{sessionData.joinedCount}</span>
+              <span className="text-muted-foreground">/ {sessionData.maxCapacity}</span>
+              <span className="text-sm text-muted-foreground ml-2">
+                ({spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left)
+              </span>
             </div>
-          ) : sessionData.status === "published" && !myParticipation ? (
-            <div className="text-center py-2">
-              <p className="text-muted-foreground">
-                This session is full and the waitlist is at capacity.
-              </p>
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all",
+                  isPast ? "bg-muted-foreground/50" : capacityPercent >= 100 ? "bg-destructive" : capacityPercent >= 80 ? "bg-yellow-500" : "bg-primary"
+                )}
+                style={{ width: `${Math.min(capacityPercent, 100)}%` }}
+              />
             </div>
-          ) : null}
-          {(joinMutation.error || cancelMutation.error) && (
-            <p className="text-sm text-destructive mt-3">
-              {joinMutation.error?.message || cancelMutation.error?.message}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Admin Actions */}
-      {isAdmin && (
-        <div className="rounded-xl border bg-card p-5 space-y-4">
-          <h3 className="font-medium">Admin Actions</h3>
-          <div className="flex flex-wrap gap-2">
-            {sessionData.status === "draft" && (
-              <Button
-                onClick={() =>
-                  updateStatusMutation.mutate({
-                    sessionId,
-                    status: "published",
-                  })
-                }
-                disabled={updateStatusMutation.isPending}
-                className="gap-2"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Publish Session
-              </Button>
-            )}
-            {sessionData.status === "published" && (
-              <Button
-                variant="outline"
-                onClick={() =>
-                  updateStatusMutation.mutate({
-                    sessionId,
-                    status: "completed",
-                  })
-                }
-                disabled={updateStatusMutation.isPending}
-                className="gap-2"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Mark Completed
-              </Button>
-            )}
-            {(sessionData.status === "draft" || sessionData.status === "published") && (
-              <Button
-                variant="outline"
-                onClick={() =>
-                  updateStatusMutation.mutate({
-                    sessionId,
-                    status: "cancelled",
-                  })
-                }
-                disabled={updateStatusMutation.isPending}
-                className="gap-2 text-destructive hover:text-destructive"
-              >
-                <XCircle className="h-4 w-4" />
-                Cancel Session
-              </Button>
-            )}
           </div>
 
-          {updateStatusMutation.error && (
-            <p className="text-sm text-destructive">
-              {updateStatusMutation.error.message}
-            </p>
+          {/* Waitlist Card - Only if enabled */}
+          {sessionData.maxWaitlist > 0 && (
+            <div className="rounded-xl border bg-card p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">Waitlist</span>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-3xl font-bold">{sessionData.waitlistCount}</span>
+                <span className="text-muted-foreground">/ {sessionData.maxWaitlist}</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                {sessionData.waitlistCount === 0
+                  ? "No one on the waitlist"
+                  : `${sessionData.waitlistCount} ${sessionData.waitlistCount === 1 ? "person" : "people"} waiting for a spot`}
+              </p>
+            </div>
           )}
+        </div>
 
-          {/* Danger Zone */}
-          <div className="border-t pt-4 mt-4">
-            <p className="text-sm text-muted-foreground mb-3">Danger Zone</p>
-            {!showDeleteConfirm ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-destructive border-destructive/50 hover:bg-destructive hover:text-destructive-foreground"
-                onClick={() => setShowDeleteConfirm(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Session
-              </Button>
+        {/* Sidebar - Participants */}
+        {showParticipants && (
+          <div className="rounded-xl border bg-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-medium">Participants</h3>
+              {isAdmin && (
+                <Button variant="ghost" size="sm" asChild className="text-xs">
+                  <Link
+                    to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                    params={{ orgId, sessionId }}
+                  >
+                    View all →
+                  </Link>
+                </Button>
+              )}
+            </div>
+            {roster && roster.length > 0 ? (
+              <div className="space-y-2">
+                {roster.slice(0, 6).map((p, i) => (
+                  <div
+                    key={p.participation.id}
+                    className="flex items-center gap-2.5"
+                  >
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium shrink-0",
+                        p.user.image
+                          ? ""
+                          : `${avatarColors[i % avatarColors.length]} text-white`
+                      )}
+                    >
+                      {p.user.image ? (
+                        <img
+                          src={p.user.image}
+                          alt={p.user.name ?? ""}
+                          className="h-full w-full rounded-full object-cover"
+                        />
+                      ) : (
+                        getInitials(p.user.name)
+                      )}
+                    </div>
+                    <p className="text-sm font-medium truncate">{p.user.name}</p>
+                  </div>
+                ))}
+                {sessionData.joinedCount > 6 && (
+                  <p className="text-xs text-muted-foreground pt-2">
+                    +{sessionData.joinedCount - 6} more
+                  </p>
+                )}
+              </div>
             ) : (
-              <div className="flex items-center gap-2 p-3 rounded-lg border border-destructive/50 bg-destructive/5">
-                <span className="text-sm">Are you sure? This cannot be undone.</span>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => deleteMutation.mutate({ sessionId })}
-                  disabled={deleteMutation.isPending}
-                >
-                  {deleteMutation.isPending ? "Deleting..." : "Yes, Delete"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  disabled={deleteMutation.isPending}
-                >
-                  Cancel
-                </Button>
-              </div>
-            )}
-            {deleteMutation.error && (
-              <p className="text-sm text-destructive mt-2">
-                {deleteMutation.error.message}
-              </p>
+              <p className="text-sm text-muted-foreground">No participants yet</p>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -601,31 +620,37 @@ function SessionDetailPage() {
 function SessionDetailSkeleton() {
   return (
     <div className="space-y-6">
-      <Skeleton className="h-4 w-32" />
+      <div className="flex justify-between">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-8 w-24" />
+      </div>
       <div className="rounded-xl border bg-card p-6">
         <div className="flex items-start gap-4">
-          <Skeleton className="h-16 w-16 rounded-xl" />
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-14 w-14 rounded-xl" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-7 w-48" />
             <Skeleton className="h-4 w-64" />
           </div>
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="rounded-xl border bg-card p-5">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="rounded-xl border bg-card p-5">
             <Skeleton className="h-4 w-20 mb-3" />
-            <Skeleton className="h-8 w-16 mb-2" />
+            <Skeleton className="h-8 w-24 mb-3" />
             <Skeleton className="h-2 w-full rounded-full" />
           </div>
-        ))}
-      </div>
-      <div className="rounded-xl border bg-card p-5">
-        <Skeleton className="h-5 w-24 mb-4" />
-        <div className="flex -space-x-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-10 w-10 rounded-full" />
-          ))}
+        </div>
+        <div className="rounded-xl border bg-card p-5">
+          <Skeleton className="h-5 w-24 mb-4" />
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-2.5">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { and, count, eq, ne, sql, desc, asc } from "drizzle-orm";
+import { and, count, eq, ne, sql, desc, asc, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { eventSession, participation, user } from "@/db/schema";
 import type { Participation } from "@/db/types";
@@ -7,6 +7,7 @@ import type {
   AttendanceStatus,
   PaymentStatus,
 } from "@/lib/sessions/state-machine";
+import type { PgTransaction } from "drizzle-orm/pg-core";
 
 // =============================================================================
 // Helper: Check if error is a unique constraint violation
@@ -14,6 +15,46 @@ import type {
 
 function isUniqueConstraintError(error: unknown): boolean {
   return (error as { code?: string })?.code === "23505";
+}
+
+/**
+ * Check if user has an active participation in another session at the same date/time
+ * Used to prevent double-booking a person
+ */
+async function assertNoConflictingParticipation(
+  tx: PgTransaction<any, any, any>,
+  userId: string,
+  sessionDateTime: Date | string,
+  excludeSessionId: string
+): Promise<void> {
+  // Ensure we have a proper Date object (raw SQL returns string)
+  const dateTime = sessionDateTime instanceof Date
+    ? sessionDateTime
+    : new Date(sessionDateTime);
+
+  const [conflict] = await tx
+    .select({
+      sessionId: eventSession.id,
+      sessionTitle: eventSession.title,
+    })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        eq(participation.userId, userId),
+        ne(participation.status, "cancelled"),
+        eq(eventSession.dateTime, dateTime),
+        ne(eventSession.id, excludeSessionId),
+        isNull(eventSession.deletedAt)
+      )
+    )
+    .limit(1);
+
+  if (conflict) {
+    throw new ConflictError(
+      `User is already registered for another session "${conflict.sessionTitle}" at this time`
+    );
+  }
 }
 
 // =============================================================================
@@ -176,8 +217,9 @@ export async function joinSession(
       join_mode: string;
       max_capacity: number;
       max_waitlist: number;
+      date_time: Date;
     }>(sql`
-      SELECT id, deleted_at, status, join_mode, max_capacity, max_waitlist
+      SELECT id, deleted_at, status, join_mode, max_capacity, max_waitlist, date_time
       FROM event_session
       WHERE id = ${sessionId}
       FOR UPDATE
@@ -219,7 +261,10 @@ export async function joinSession(
       return existing; // Idempotent: return existing
     }
 
-    // 5. Count current participants (inside lock = accurate)
+    // 5. Check for conflicting participation at same date/time
+    await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId);
+
+    // 6. Count current participants (inside lock = accurate)
     const [counts] = await tx
       .select({
         joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
@@ -231,7 +276,7 @@ export async function joinSession(
     const joinedCount = counts?.joined ?? 0;
     const waitlistedCount = counts?.waitlisted ?? 0;
 
-    // 6. Determine status
+    // 7. Determine status
     let status: "joined" | "waitlisted";
 
     if (joinedCount < session.max_capacity) {
@@ -423,7 +468,7 @@ export async function bulkUpdateAttendance(
  * Admin add participant (bypasses join_mode restrictions)
  *
  * Adds a user to a session. If the session is at capacity, adds to waitlist.
- * Returns existing participation if already participating (idempotent).
+ * Throws error if user is already in session or has conflicting participation.
  */
 export async function adminAddParticipant(
   sessionId: string,
@@ -437,8 +482,9 @@ export async function adminAddParticipant(
       status: string;
       max_capacity: number;
       max_waitlist: number;
+      date_time: Date;
     }>(sql`
-      SELECT id, deleted_at, status, max_capacity, max_waitlist
+      SELECT id, deleted_at, status, max_capacity, max_waitlist, date_time
       FROM event_session
       WHERE id = ${sessionId}
       FOR UPDATE
@@ -461,7 +507,7 @@ export async function adminAddParticipant(
       throw new BadRequestError("Cannot add participant to a completed session");
     }
 
-    // 4. Check for existing active participation (idempotent)
+    // 4. Check for existing active participation - throw error if already exists
     const [existing] = await tx
       .select()
       .from(participation)
@@ -474,10 +520,13 @@ export async function adminAddParticipant(
       );
 
     if (existing) {
-      return existing; // Idempotent: return existing
+      throw new ConflictError("Participant is already in this session");
     }
 
-    // 5. Count current participants
+    // 5. Check for conflicting participation at same date/time
+    await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId);
+
+    // 6. Count current participants
     const [counts] = await tx
       .select({
         joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
@@ -489,7 +538,7 @@ export async function adminAddParticipant(
     const joinedCount = counts?.joined ?? 0;
     const waitlistedCount = counts?.waitlisted ?? 0;
 
-    // 6. Determine status
+    // 7. Determine status
     let status: "joined" | "waitlisted";
 
     if (joinedCount < session.max_capacity) {
@@ -500,7 +549,7 @@ export async function adminAddParticipant(
       throw new ConflictError("Session and waitlist are full");
     }
 
-    // 7. Insert new participation
+    // 8. Insert new participation
     try {
       const [newParticipation] = await tx
         .insert(participation)

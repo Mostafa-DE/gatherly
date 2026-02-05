@@ -58,48 +58,49 @@
 }
 
 /* Dark mode - applied via .dark class on html */
+/* Reduced contrast between background and cards for a more subtle look */
 .dark {
-  --color-background: hsl(246 22% 9%);
+  --color-background: hsl(240 6% 10%);
   --color-foreground: hsl(0 0% 95%);
-  --color-card: hsl(246 20% 13%);
+  --color-card: hsl(240 6% 12%);
   --color-card-foreground: hsl(0 0% 95%);
-  --color-popover: hsl(246 20% 13%);
+  --color-popover: hsl(240 6% 12%);
   --color-popover-foreground: hsl(0 0% 95%);
   --color-primary: hsl(175 50% 45%);
-  --color-primary-foreground: hsl(246 22% 9%);
-  --color-secondary: hsl(246 18% 18%);
+  --color-primary-foreground: hsl(240 6% 10%);
+  --color-secondary: hsl(240 5% 16%);
   --color-secondary-foreground: hsl(0 0% 95%);
-  --color-muted: hsl(246 18% 18%);
-  --color-muted-foreground: hsl(240 5% 72%);
-  --color-accent: hsl(246 18% 18%);
+  --color-muted: hsl(240 5% 16%);
+  --color-muted-foreground: hsl(240 5% 65%);
+  --color-accent: hsl(240 5% 16%);
   --color-accent-foreground: hsl(0 0% 95%);
   --color-destructive: hsl(0 70% 50%);
   --color-destructive-foreground: hsl(0 0% 95%);
-  --color-border: hsl(246 15% 32%);
-  --color-input: hsl(246 15% 32%);
+  --color-border: hsl(240 5% 20%);
+  --color-input: hsl(240 5% 20%);
   --color-ring: hsl(175 50% 45%);
   --color-chart-1: hsl(175 50% 45%);
   --color-chart-2: hsl(200 70% 50%);
   --color-chart-3: hsl(30 80% 55%);
   --color-chart-4: hsl(280 65% 60%);
   --color-chart-5: hsl(340 75% 55%);
-  --color-sidebar: hsl(246 22% 9%);
+  --color-sidebar: hsl(240 6% 9%);
   --color-sidebar-foreground: hsl(0 0% 95%);
   --color-sidebar-primary: hsl(175 50% 45%);
-  --color-sidebar-primary-foreground: hsl(246 22% 9%);
-  --color-sidebar-accent: hsl(246 18% 18%);
+  --color-sidebar-primary-foreground: hsl(240 6% 10%);
+  --color-sidebar-accent: hsl(240 5% 15%);
   --color-sidebar-accent-foreground: hsl(0 0% 95%);
-  --color-sidebar-border: hsl(246 15% 28%);
+  --color-sidebar-border: hsl(240 5% 18%);
   --color-sidebar-ring: hsl(175 50% 45%);
 
   /* Sidebar variables */
-  --sidebar: hsl(246 22% 9%);
+  --sidebar: hsl(240 6% 9%);
   --sidebar-foreground: hsl(0 0% 95%);
   --sidebar-primary: hsl(175 50% 45%);
-  --sidebar-primary-foreground: hsl(246 22% 9%);
-  --sidebar-accent: hsl(246 18% 18%);
+  --sidebar-primary-foreground: hsl(240 6% 10%);
+  --sidebar-accent: hsl(240 5% 15%);
   --sidebar-accent-foreground: hsl(0 0% 95%);
-  --sidebar-border: hsl(246 15% 28%);
+  --sidebar-border: hsl(240 5% 18%);
   --sidebar-ring: hsl(175 50% 45%);
 }
 
