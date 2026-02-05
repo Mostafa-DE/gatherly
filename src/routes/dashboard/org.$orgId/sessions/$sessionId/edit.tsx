@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DateTimePicker } from "@/components/ui/datetime-picker"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/edit"
@@ -27,14 +28,18 @@ function EditSessionPage() {
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
-  const [dateTime, setDateTime] = useState("")
+  const [dateTime, setDateTime] = useState<Date | undefined>(undefined)
   const [location, setLocation] = useState("")
   const [maxCapacity, setMaxCapacity] = useState("")
   const [maxWaitlist, setMaxWaitlist] = useState("")
+  const [price, setPrice] = useState("")
   const [error, setError] = useState("")
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+
+  const { data: orgSettings } = trpc.organizationSettings.get.useQuery({}, { enabled: isAdmin })
+  const orgCurrency = orgSettings?.currency
 
   const {
     data: sessionData,
@@ -47,15 +52,11 @@ function EditSessionPage() {
     if (sessionData) {
       setTitle(sessionData.title)
       setDescription(sessionData.description || "")
-      // Format datetime for datetime-local input
-      const dt = new Date(sessionData.dateTime)
-      const localDateTime = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-      setDateTime(localDateTime)
+      setDateTime(new Date(sessionData.dateTime))
       setLocation(sessionData.location || "")
       setMaxCapacity(String(sessionData.maxCapacity))
       setMaxWaitlist(String(sessionData.maxWaitlist))
+      setPrice(sessionData.price || "")
     }
   }, [sessionData])
 
@@ -66,6 +67,7 @@ function EditSessionPage() {
       utils.session.list.invalidate()
       utils.session.listUpcoming.invalidate()
       utils.session.listPast.invalidate()
+      utils.session.listDraftsWithCounts.invalidate()
       navigate({
         to: "/dashboard/org/$orgId/sessions/$sessionId",
         params: { orgId, sessionId },
@@ -195,16 +197,33 @@ function EditSessionPage() {
       return
     }
 
+    // Validate price format if provided
+    const trimmedPrice = price.trim()
+    if (trimmedPrice && !/^\d+(\.\d{1,2})?$/.test(trimmedPrice)) {
+      setError("Invalid price format. Use a number like 25 or 25.00")
+      return
+    }
+    if (trimmedPrice && !orgCurrency) {
+      setError("Please set a currency in group settings before adding a price")
+      return
+    }
+
     updateSession.mutate({
       sessionId,
       title: title.trim(),
       description: description.trim() || null,
-      dateTime: new Date(dateTime),
+      dateTime,
       location: location.trim() || null,
       maxCapacity: capacity,
       maxWaitlist: waitlist,
+      price: trimmedPrice || null,
     })
   }
+
+  const timezoneLabel =
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : "Local time"
 
   return (
     <div className="py-4">
@@ -249,13 +268,16 @@ function EditSessionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="dateTime">Date & Time *</Label>
-                <Input
-                  id="dateTime"
-                  type="datetime-local"
+                <div>
+                  <Label>Date & Time *</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Timezone: {timezoneLabel}
+                  </p>
+                </div>
+                <DateTimePicker
                   value={dateTime}
-                  onChange={(e) => setDateTime(e.target.value)}
-                  required
+                  onChange={setDateTime}
+                  placeholder="Pick date and time"
                 />
               </div>
 
@@ -299,6 +321,42 @@ function EditSessionPage() {
                     Set to 0 to disable waitlist
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="price">
+                  Price {orgCurrency && `(${orgCurrency})`}
+                </Label>
+                {orgCurrency ? (
+                  <>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave empty for free sessions
+                    </p>
+                  </>
+                ) : (
+                  <div className="rounded-md border bg-muted/50 p-3">
+                    <p className="text-sm text-muted-foreground">
+                      No currency configured.{" "}
+                      <Link
+                        to="/dashboard/org/$orgId/settings"
+                        params={{ orgId }}
+                        className="text-primary font-medium hover:underline"
+                      >
+                        Set currency in settings
+                      </Link>{" "}
+                      to enable pricing.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
 

@@ -1,10 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router"
 import { organization as orgClient } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,7 +14,6 @@ import {
   Users,
   Sparkles,
 } from "lucide-react"
-import { getTimezones } from "@/lib/timezones"
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHomePage,
@@ -38,17 +34,26 @@ function DashboardHomePage() {
           Your Dashboard
         </div>
 
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Welcome to{" "}
-          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Gatherly
-          </span>
-        </h1>
-
-        <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
-          Select a group to manage or create a new one to start organizing your
-          sessions.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Welcome to{" "}
+              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Gatherly
+              </span>
+            </h1>
+            <p className="mt-3 max-w-2xl text-lg text-muted-foreground">
+              Select a group to manage or create a new one to start organizing your
+              sessions.
+            </p>
+          </div>
+          <Button asChild>
+            <Link to="/dashboard/groups/create">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Group
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Groups Grid */}
@@ -74,40 +79,36 @@ function DashboardHomePage() {
           {orgs.map((item) => (
             <OrgCard key={item.organization.id} item={item} />
           ))}
-          <CreateOrgCard />
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <CreateOrgForm />
-          <div className="rounded-xl border border-border/50 bg-card/50 p-8 backdrop-blur-sm">
-            <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-              <Calendar className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold">Get Started</h3>
-            <p className="mt-2 text-muted-foreground">
-              Create your first group to start managing sessions and members.
-            </p>
-            <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-              <li className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Calendar className="h-3 w-3" />
-                </div>
-                Create sessions for your group
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Users className="h-3 w-3" />
-                </div>
-                Manage member registrations
-              </li>
-              <li className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Sparkles className="h-3 w-3" />
-                </div>
-                Track attendance and participation
-              </li>
-            </ul>
+        <div className="rounded-xl border border-border/50 bg-card/50 p-8 backdrop-blur-sm text-center">
+          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <Building2 className="h-8 w-8 text-primary" />
           </div>
+          <h3 className="text-xl font-semibold">No Groups Yet</h3>
+          <p className="mt-2 text-muted-foreground max-w-md mx-auto">
+            Create your first group to start managing sessions and members.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              Create sessions
+            </div>
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-primary" />
+              Manage members
+            </div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Track attendance
+            </div>
+          </div>
+          <Button asChild className="mt-6">
+            <Link to="/dashboard/groups/create">
+              <Plus className="mr-2 h-4 w-4" />
+              Create Your First Group
+            </Link>
+          </Button>
         </div>
       )}
     </div>
@@ -170,181 +171,6 @@ function OrgCard({ item }: OrgCardProps) {
         </span>
       </div>
     </button>
-  )
-}
-
-function CreateOrgCard() {
-  const [showForm, setShowForm] = useState(false)
-
-  if (showForm) {
-    return <CreateOrgForm onCancel={() => setShowForm(false)} />
-  }
-
-  return (
-    <button
-      id="create-org-card"
-      onClick={() => setShowForm(true)}
-      className="group flex flex-col items-center justify-center rounded-xl border border-dashed border-border/50 bg-card/30 p-6 backdrop-blur-sm transition-all hover:border-primary/50 hover:bg-card/50"
-    >
-      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted transition-colors group-hover:bg-primary/10">
-        <Plus className="h-6 w-6 text-muted-foreground transition-colors group-hover:text-primary" />
-      </div>
-      <p className="mt-3 font-medium">Create Group</p>
-      <p className="text-sm text-muted-foreground">Add a new group</p>
-    </button>
-  )
-}
-
-const JOIN_MODES = [
-  {
-    value: "invite",
-    label: "Invite Only",
-    description: "Members must be invited",
-  },
-  { value: "open", label: "Open", description: "Anyone can join" },
-  {
-    value: "approval",
-    label: "Approval Required",
-    description: "Join requests need approval",
-  },
-] as const
-
-function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
-  const navigate = useNavigate()
-  const [name, setName] = useState("")
-  const [slug, setSlug] = useState("")
-  const [timezone, setTimezone] = useState("")
-  const [defaultJoinMode, setDefaultJoinMode] = useState<
-    "open" | "invite" | "approval"
-  >("invite")
-  const [error, setError] = useState("")
-  const timezones = useMemo(() => getTimezones(), [])
-
-  const utils = trpc.useUtils()
-  const createOrg = trpc.user.createOrg.useMutation({
-    onSuccess: async (data) => {
-      setName("")
-      setSlug("")
-      setTimezone("")
-      setDefaultJoinMode("invite")
-      setError("")
-      await utils.user.myOrgs.invalidate()
-      await orgClient.setActive({ organizationId: data.id })
-      await utils.invalidate()
-      navigate({ to: "/dashboard/org/$orgId", params: { orgId: data.id } })
-    },
-    onError: (err) => {
-      setError(err.message)
-    },
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    createOrg.mutate({
-      name,
-      slug,
-      timezone: timezone || undefined,
-      defaultJoinMode,
-    })
-  }
-
-  const handleNameChange = (value: string) => {
-    setName(value)
-    if (!slug || slug === generateSlug(name)) {
-      setSlug(generateSlug(value))
-    }
-  }
-
-  return (
-    <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-      <h3 className="text-lg font-semibold">Create Group</h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Set up a new group to get started.
-      </p>
-
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        {error && (
-          <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
-        <div className="space-y-2">
-          <Label htmlFor="name">Group Name</Label>
-          <Input
-            id="name"
-            placeholder="My Group"
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            required
-            className="bg-background/50"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="slug">URL Slug</Label>
-          <Input
-            id="slug"
-            placeholder="my-group"
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            pattern="^[a-z0-9-]+$"
-            title="Lowercase letters, numbers, and hyphens only"
-            required
-            className="bg-background/50"
-          />
-          <p className="text-xs text-muted-foreground">
-            Lowercase letters, numbers, and hyphens only.
-          </p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="timezone">Timezone (optional)</Label>
-          <select
-            id="timezone"
-            value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="">Not set</option>
-            {timezones.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="joinMode">Default Join Mode</Label>
-          <select
-            id="joinMode"
-            value={defaultJoinMode}
-            onChange={(e) =>
-              setDefaultJoinMode(e.target.value as "open" | "invite" | "approval")
-            }
-            className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            {JOIN_MODES.map((mode) => (
-              <option key={mode.value} value={mode.value}>
-                {mode.label} - {mode.description}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex gap-2 pt-2">
-          {onCancel && (
-            <Button type="button" variant="outline" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={createOrg.isPending}
-            className={onCancel ? "" : "w-full"}
-          >
-            {createOrg.isPending ? "Creating..." : "Create Group"}
-          </Button>
-        </div>
-      </form>
-    </div>
   )
 }
 
@@ -417,13 +243,4 @@ function PendingJoinRequests() {
       </div>
     </div>
   )
-}
-
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
 }

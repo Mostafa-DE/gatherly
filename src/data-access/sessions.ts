@@ -1,8 +1,8 @@
-import { and, count, eq, gt, isNull, lt, or, sql, desc, asc } from "drizzle-orm";
+import { and, count, eq, gt, isNull, lt, or, sql, desc, asc, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { eventSession, participation, user } from "@/db/schema";
 import type { EventSession } from "@/db/types";
-import { NotFoundError, BadRequestError } from "@/exceptions";
+import { NotFoundError, BadRequestError, ConflictError } from "@/exceptions";
 import {
   assertSessionTransition,
   type SessionStatus,
@@ -142,6 +142,39 @@ export async function listUpcomingSessionsWithCounts(
   return sessionsWithCounts;
 }
 
+export async function listDraftSessionsWithCounts(
+  organizationId: string,
+  options: { limit: number; offset: number }
+) {
+  const sessions = await db
+    .select()
+    .from(eventSession)
+    .where(
+      and(
+        eq(eventSession.organizationId, organizationId),
+        isNull(eventSession.deletedAt),
+        eq(eventSession.status, "draft")
+      )
+    )
+    .orderBy(desc(eventSession.dateTime))
+    .limit(options.limit)
+    .offset(options.offset);
+
+  const sessionsWithCounts = await Promise.all(
+    sessions.map(async (session) => {
+      const counts = await getSessionCounts(session.id);
+      const participants = await getSessionParticipantPreview(session.id);
+      return {
+        ...session,
+        ...counts,
+        participants,
+      };
+    })
+  );
+
+  return sessionsWithCounts;
+}
+
 export async function listPastSessions(
   organizationId: string,
   options: { limit: number; offset: number }
@@ -247,6 +280,32 @@ async function getSessionParticipantPreview(sessionId: string) {
   return participants;
 }
 
+async function assertNoSessionAtDateTime(
+  organizationId: string,
+  dateTime: Date,
+  excludeSessionId?: string
+) {
+  const conditions = [
+    eq(eventSession.organizationId, organizationId),
+    isNull(eventSession.deletedAt),
+    eq(eventSession.dateTime, dateTime),
+  ];
+
+  if (excludeSessionId) {
+    conditions.push(ne(eventSession.id, excludeSessionId));
+  }
+
+  const [existing] = await db
+    .select({ id: eventSession.id })
+    .from(eventSession)
+    .where(and(...conditions))
+    .limit(1);
+
+  if (existing) {
+    throw new ConflictError("A session already exists at this date and time.");
+  }
+}
+
 // =============================================================================
 // Mutations
 // =============================================================================
@@ -256,6 +315,8 @@ export async function createSession(
   createdBy: string,
   data: CreateSessionInput
 ): Promise<EventSession> {
+  await assertNoSessionAtDateTime(organizationId, data.dateTime);
+
   const [session] = await db
     .insert(eventSession)
     .values({
@@ -289,6 +350,10 @@ export async function updateSession(
     throw new BadRequestError(
       `Cannot modify session with status '${session.status}'`
     );
+  }
+
+  if (data.dateTime && data.dateTime.getTime() !== session.dateTime.getTime()) {
+    await assertNoSessionAtDateTime(session.organizationId, data.dateTime, sessionId);
   }
 
   const [updated] = await db

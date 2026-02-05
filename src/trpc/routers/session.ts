@@ -8,6 +8,7 @@ import {
   getSessionWithCounts,
   listSessions,
   listUpcomingSessions,
+  listDraftSessionsWithCounts,
   listPastSessions,
   listUpcomingSessionsWithCounts,
   listPastSessionsWithCounts,
@@ -133,6 +134,16 @@ export const sessionRouter = router({
     .input(listUpcomingSessionsSchema)
     .query(async ({ ctx, input }) => {
       return listUpcomingSessionsWithCounts(ctx.activeOrganization.id, input);
+    }),
+
+  /**
+   * List draft sessions with participant counts and preview (Owner only)
+   */
+  listDraftsWithCounts: orgProcedure
+    .input(listUpcomingSessionsSchema)
+    .query(async ({ ctx, input }) => {
+      assertOwner(ctx.membership.role);
+      return listDraftSessionsWithCounts(ctx.activeOrganization.id, input);
     }),
 
   /**

@@ -13,10 +13,16 @@ export const userCreateSchema = userInsertSchema.omit({
   emailVerified: true,
 })
 
+// E.164 format: +[country][number], 8-15 digits total
+export const phoneNumberSchema = z
+  .string()
+  .regex(/^\+[1-9]\d{7,14}$/, "Please enter a valid phone number")
+
 // Update profile input
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   image: z.string().url().optional(),
+  phoneNumber: phoneNumberSchema.optional(),
 })
 
 // Auth schemas
@@ -29,6 +35,7 @@ export const registerSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(8),
+  phoneNumber: phoneNumberSchema,
 })
 
 // Types

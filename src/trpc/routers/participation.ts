@@ -1,5 +1,5 @@
 import { router, orgProcedure } from "@/trpc";
-import { ForbiddenError } from "@/exceptions";
+import { ForbiddenError, NotFoundError } from "@/exceptions";
 import { withOrgScope } from "@/data-access/org-scope";
 import {
   joinSession,
@@ -11,6 +11,8 @@ import {
   bulkUpdateAttendance,
   getUserHistory,
   getWaitlistPosition,
+  adminAddParticipant,
+  moveParticipant,
 } from "@/data-access/participations";
 import {
   joinSessionSchema,
@@ -21,7 +23,11 @@ import {
   updateParticipationSchema,
   bulkUpdateAttendanceSchema,
   getUserHistorySchema,
+  adminAddParticipantSchema,
+  moveParticipantSchema,
 } from "@/schemas/participation";
+import { getUserByEmailOrPhone } from "@/data-access/users";
+import { getOrganizationMemberByUserId } from "@/data-access/organizations";
 
 // =============================================================================
 // Helper: Check if user is owner or admin
@@ -150,5 +156,56 @@ export const participationRouter = router({
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role);
       return getUserHistory(ctx.activeOrganization.id, input.userId, input);
+    }),
+
+  /**
+   * Admin add participant by email or phone (Admin)
+   * Bypasses join_mode restrictions. User must be an org member.
+   */
+  adminAdd: orgProcedure
+    .input(adminAddParticipantSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role);
+
+      // Look up user by email or phone
+      const targetUser = await getUserByEmailOrPhone(input.identifier);
+      if (!targetUser) {
+        throw new NotFoundError("No user found with that email or phone");
+      }
+
+      // Verify user is an org member
+      const membership = await getOrganizationMemberByUserId(
+        ctx.activeOrganization.id,
+        targetUser.id
+      );
+      if (!membership) {
+        throw new ForbiddenError("User is not a member of this organization");
+      }
+
+      // Verify session is in this org
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSession(input.sessionId);
+      });
+
+      return adminAddParticipant(input.sessionId, targetUser.id);
+    }),
+
+  /**
+   * Move participant to another session (Admin)
+   * Both sessions must be in the same organization.
+   * Does NOT auto-promote on source session.
+   */
+  move: orgProcedure
+    .input(moveParticipantSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role);
+
+      // Verify source participation is in this org
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireParticipationForMutation(input.participationId);
+        await scope.requireSession(input.targetSessionId);
+      });
+
+      return moveParticipant(input.participationId, input.targetSessionId);
     }),
 });

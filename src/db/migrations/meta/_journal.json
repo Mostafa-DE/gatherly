@@ -36,6 +36,20 @@
       "when": 1770225092844,
       "tag": "0004_simple_molten_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770301530835,
+      "tag": "0005_talented_lionheart",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770306065618,
+      "tag": "0006_aberrant_champions",
+      "breakpoints": true
     }
   ]
 }

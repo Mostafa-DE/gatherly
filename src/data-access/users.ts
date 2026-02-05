@@ -11,9 +11,34 @@ export async function getUserById(id: string) {
   return result[0] ?? null
 }
 
+export async function getUserByPhone(phoneNumber: string) {
+  const result = await db
+    .select()
+    .from(user)
+    .where(eq(user.phoneNumber, phoneNumber))
+    .limit(1)
+  return result[0] ?? null
+}
+
+export async function getUserByEmailOrPhone(identifier: string) {
+  // If contains @, treat as email; otherwise treat as phone
+  const isEmail = identifier.includes("@")
+
+  if (isEmail) {
+    const result = await db
+      .select()
+      .from(user)
+      .where(eq(user.email, identifier))
+      .limit(1)
+    return result[0] ?? null
+  } else {
+    return getUserByPhone(identifier)
+  }
+}
+
 export async function updateUser(
   id: string,
-  data: { name?: string; image?: string }
+  data: { name?: string; image?: string; phoneNumber?: string }
 ) {
   const result = await db
     .update(user)

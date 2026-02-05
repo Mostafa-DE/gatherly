@@ -4,8 +4,10 @@ import { router, publicProcedure, protectedProcedure } from "@/trpc"
 import { getUserById, updateUser } from "@/data-access/users"
 import { updateProfileSchema } from "@/schemas/user"
 import { organization, member, invitation } from "@/db/auth-schema"
+import { organizationSettings } from "@/db/schema"
 import { auth } from "@/auth"
 import { NotFoundError, BadRequestError } from "@/exceptions"
+import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -77,6 +79,7 @@ export const userRouter = router({
         slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
         timezone: z.string().optional(),
         defaultJoinMode: z.enum(["open", "invite", "approval"]).default("invite"),
+        currency: z.enum(SUPPORTED_CURRENCIES).nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -89,6 +92,17 @@ export const userRouter = router({
         },
         headers: ctx.headers,
       })
+
+      // Create organization settings with currency if provided
+      if (input.currency) {
+        await ctx.db.insert(organizationSettings).values({
+          organizationId: org.id,
+          currency: input.currency,
+          joinFormSchema: null,
+          joinFormVersion: 1,
+        })
+      }
+
       return org
     }),
 

@@ -9,6 +9,18 @@ import {
 } from "@/types/form";
 
 // =============================================================================
+// Supported Currencies
+// =============================================================================
+
+export const SUPPORTED_CURRENCIES = [
+  "USD", "EUR", "GBP", "JOD", "AED", "SAR", "EGP", "CAD", "AUD", "CHF"
+] as const;
+
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+
+export const currencySchema = z.enum(SUPPORTED_CURRENCIES);
+
+// =============================================================================
 // Form Field Types (for join form schema)
 // =============================================================================
 
@@ -55,6 +67,11 @@ export const updateJoinFormSchema = z.object({
   joinFormSchema: joinFormSchemaSchema.nullable(),
 });
 
+/** Update organization currency */
+export const updateCurrencySchema = z.object({
+  currency: currencySchema.nullable(),
+});
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -63,4 +80,5 @@ export type OrganizationSettingsSelect = z.infer<typeof organizationSettingsSele
 export type OrganizationSettingsInsert = z.infer<typeof organizationSettingsInsertSchema>;
 export type GetOrgSettingsInput = z.infer<typeof getOrgSettingsSchema>;
 export type UpdateJoinFormInput = z.infer<typeof updateJoinFormSchema>;
+export type UpdateCurrencyInput = z.infer<typeof updateCurrencySchema>;
 export type { FormFieldType, FormField, JoinFormSchema };

@@ -11,6 +11,16 @@ export const auth = betterAuth({
       ...authSchema,
     },
   }),
+  user: {
+    additionalFields: {
+      phoneNumber: {
+        type: "string",
+        required: true,
+        unique: true,
+        input: true,
+      },
+    },
+  },
   plugins: [
     organization({
       schema: {

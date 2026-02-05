@@ -93,6 +93,18 @@ export const getUserHistorySchema = z.object({
   offset: z.number().int().nonnegative().default(0),
 });
 
+/** Admin add participant by email or phone */
+export const adminAddParticipantSchema = z.object({
+  sessionId: z.string(),
+  identifier: z.string().min(1, "Email or phone required"),
+});
+
+/** Move participant between sessions (admin) */
+export const moveParticipantSchema = z.object({
+  participationId: z.string(),
+  targetSessionId: z.string(),
+});
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -107,6 +119,8 @@ export type GetRosterInput = z.infer<typeof getRosterSchema>;
 export type UpdateParticipationInput = z.infer<typeof updateParticipationSchema>;
 export type BulkUpdateAttendanceInput = z.infer<typeof bulkUpdateAttendanceSchema>;
 export type GetUserHistoryInput = z.infer<typeof getUserHistorySchema>;
+export type AdminAddParticipantInput = z.infer<typeof adminAddParticipantSchema>;
+export type MoveParticipantInput = z.infer<typeof moveParticipantSchema>;
 
 // Re-export status types for convenience
 export type { ParticipationStatus, AttendanceStatus, PaymentStatus };

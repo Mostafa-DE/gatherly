@@ -20,7 +20,9 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square, UserPlus, ArrowRightLeft } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 
 export const Route = createFileRoute(
@@ -36,10 +38,23 @@ function SessionRosterPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkAction, setBulkAction] = useState<"pending" | "show" | "no_show">("show")
 
+  // Add participant state
+  const [addIdentifier, setAddIdentifier] = useState("")
+  const [addError, setAddError] = useState("")
+
+  // Move participant state
+  const [movingParticipationId, setMovingParticipationId] = useState<string | null>(null)
+
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
 
   const { data: sessionData } = trpc.session.getById.useQuery({ sessionId })
+
+  // Get other sessions in the org for moving participants
+  const { data: orgSessions } = trpc.session.list.useQuery(
+    { limit: 100 },
+    { enabled: isAdmin }
+  )
 
   const {
     data: joinedParticipants,
@@ -67,6 +82,35 @@ function SessionRosterPage() {
     onSuccess: () => {
       utils.participation.roster.invalidate({ sessionId })
       setSelectedIds(new Set())
+    },
+  })
+
+  const adminAdd = trpc.participation.adminAdd.useMutation({
+    onSuccess: () => {
+      utils.participation.roster.invalidate({ sessionId })
+      // Invalidate session list and details for participant count update
+      utils.session.list.invalidate()
+      utils.session.getById.invalidate({ sessionId })
+      setAddIdentifier("")
+      setAddError("")
+    },
+    onError: (error) => {
+      setAddError(error.message)
+    },
+  })
+
+  const moveParticipant = trpc.participation.move.useMutation({
+    onSuccess: (_data, variables) => {
+      // Invalidate source session roster
+      utils.participation.roster.invalidate({ sessionId })
+      // Invalidate target session roster
+      utils.participation.roster.invalidate({ sessionId: variables.targetSessionId })
+      // Invalidate session list (for participant counts)
+      utils.session.list.invalidate()
+      // Invalidate both session details
+      utils.session.getById.invalidate({ sessionId })
+      utils.session.getById.invalidate({ sessionId: variables.targetSessionId })
+      setMovingParticipationId(null)
     },
   })
 
@@ -102,6 +146,25 @@ function SessionRosterPage() {
       })),
     })
   }
+
+  const handleAddParticipant = (e: React.FormEvent) => {
+    e.preventDefault()
+    setAddError("")
+    if (!addIdentifier.trim()) {
+      setAddError("Please enter an email or phone number")
+      return
+    }
+    adminAdd.mutate({ sessionId, identifier: addIdentifier.trim() })
+  }
+
+  const handleMove = (participationId: string, targetSessionId: string) => {
+    moveParticipant.mutate({ participationId, targetSessionId })
+  }
+
+  // Filter sessions that can be moved to (same org, not current, not cancelled/completed)
+  const availableTargetSessions = orgSessions?.filter(
+    (s) => s.id !== sessionId && s.status !== "cancelled" && s.status !== "completed"
+  ) ?? []
 
   if (whoamiLoading) {
     return (
@@ -156,6 +219,43 @@ function SessionRosterPage() {
           <p className="text-muted-foreground">{sessionData.title}</p>
         )}
       </div>
+
+      {/* Add Participant */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Add Participant
+          </CardTitle>
+          <CardDescription>
+            Add an organization member to this session by email or phone
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddParticipant} className="flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="identifier" className="sr-only">Email or Phone</Label>
+              <Input
+                id="identifier"
+                type="text"
+                placeholder="Email or phone number (+12025551234)"
+                value={addIdentifier}
+                onChange={(e) => setAddIdentifier(e.target.value)}
+                disabled={adminAdd.isPending}
+              />
+            </div>
+            <Button type="submit" disabled={adminAdd.isPending}>
+              {adminAdd.isPending ? "Adding..." : "Add"}
+            </Button>
+          </form>
+          {addError && (
+            <p className="mt-2 text-sm text-destructive">{addError}</p>
+          )}
+          {adminAdd.isSuccess && (
+            <p className="mt-2 text-sm text-green-600">Participant added successfully!</p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Joined Participants */}
@@ -257,6 +357,13 @@ function SessionRosterPage() {
                             })
                           }
                           isUpdating={updateParticipation.isPending}
+                          availableTargetSessions={availableTargetSessions}
+                          isMoving={moveParticipant.isPending && movingParticipationId === item.participation.id}
+                          showMoveUI={movingParticipationId === item.participation.id}
+                          onToggleMove={() => setMovingParticipationId(
+                            movingParticipationId === item.participation.id ? null : item.participation.id
+                          )}
+                          onMove={(targetSessionId) => handleMove(item.participation.id, targetSessionId)}
                         />
                       </div>
                     </div>
@@ -302,6 +409,49 @@ function SessionRosterPage() {
                         <p className="text-sm text-muted-foreground">
                           {item.user.email}
                         </p>
+                        {availableTargetSessions.length > 0 && (
+                          <div className="mt-2">
+                            {movingParticipationId === item.participation.id ? (
+                              <div className="flex items-center gap-2">
+                                <Select
+                                  onValueChange={(targetId) => {
+                                    if (targetId) {
+                                      handleMove(item.participation.id, targetId)
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Select session" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableTargetSessions.map((s) => (
+                                      <SelectItem key={s.id} value={s.id}>
+                                        {s.title}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setMovingParticipationId(null)}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setMovingParticipationId(item.participation.id)}
+                                disabled={moveParticipant.isPending}
+                              >
+                                <ArrowRightLeft className="h-4 w-4 mr-1" />
+                                Move
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -330,6 +480,11 @@ type ParticipantRowProps = {
   }
   onUpdate: (data: { attendance?: "pending" | "show" | "no_show"; payment?: "unpaid" | "paid"; notes?: string | null }) => void
   isUpdating: boolean
+  availableTargetSessions: Array<{ id: string; title: string; status: string }>
+  isMoving: boolean
+  showMoveUI: boolean
+  onToggleMove: () => void
+  onMove: (targetSessionId: string) => void
 }
 
 function ParticipantRow({
@@ -337,10 +492,16 @@ function ParticipantRow({
   user,
   onUpdate,
   isUpdating,
+  availableTargetSessions,
+  isMoving,
+  showMoveUI,
+  onToggleMove,
+  onMove,
 }: ParticipantRowProps) {
   const [showNotes, setShowNotes] = useState(false)
   const [notesValue, setNotesValue] = useState(participation.notes || "")
   const [notesDirty, setNotesDirty] = useState(false)
+  const [selectedTargetSession, setSelectedTargetSession] = useState("")
 
   const attendanceVariant = (attendance: string) => {
     switch (attendance) {
@@ -388,7 +549,7 @@ function ParticipantRow({
           </Badge>
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Select
           value={participation.attendance}
           onValueChange={(value) =>
@@ -423,7 +584,6 @@ function ParticipantRow({
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto"
           onClick={() => setShowNotes(!showNotes)}
         >
           <MessageSquare className="h-4 w-4 mr-1" />
@@ -434,7 +594,57 @@ function ParticipantRow({
             <ChevronDown className="h-4 w-4 ml-1" />
           )}
         </Button>
+        {availableTargetSessions.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleMove}
+            disabled={isMoving}
+          >
+            <ArrowRightLeft className="h-4 w-4 mr-1" />
+            Move
+          </Button>
+        )}
       </div>
+      {showMoveUI && availableTargetSessions.length > 0 && (
+        <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+          <span className="text-sm text-muted-foreground">Move to:</span>
+          <Select
+            value={selectedTargetSession}
+            onValueChange={setSelectedTargetSession}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select session" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTargetSessions.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            onClick={() => {
+              if (selectedTargetSession) {
+                onMove(selectedTargetSession)
+                setSelectedTargetSession("")
+              }
+            }}
+            disabled={!selectedTargetSession || isMoving}
+          >
+            {isMoving ? "Moving..." : "Confirm"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleMove}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
       {showNotes && (
         <div className="space-y-2 pt-2">
           <textarea

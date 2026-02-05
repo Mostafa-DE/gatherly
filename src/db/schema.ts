@@ -13,6 +13,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  numeric,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
 import { user, organization, member } from "./auth-schema";
@@ -70,6 +71,7 @@ export const organizationSettings = pgTable("organization_settings", {
     .references(() => organization.id, { onDelete: "cascade" }),
   joinFormSchema: jsonb("join_form_schema"),
   joinFormVersion: integer("join_form_version").default(1).notNull(),
+  currency: text("currency"), // ISO 4217 code (USD, EUR, JOD, etc.) - null = not set
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
@@ -96,6 +98,7 @@ export const eventSession = pgTable(
     location: text("location"),
     maxCapacity: integer("max_capacity").notNull(),
     maxWaitlist: integer("max_waitlist").default(0).notNull(),
+    price: numeric("price", { precision: 10, scale: 2 }), // null = free
     joinMode: text("join_mode").default("open").notNull(), // 'open' | 'approval_required' | 'invite_only'
     status: text("status").default("draft").notNull(), // 'draft' | 'published' | 'cancelled' | 'completed'
     createdBy: text("created_by").references(() => user.id, {

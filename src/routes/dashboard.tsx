@@ -54,7 +54,7 @@ function DashboardLayout() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="relative overflow-hidden">
+      <SidebarInset className="relative h-svh overflow-y-auto">
         {/* Background gradient matching landing page */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 via-background to-background" />
 

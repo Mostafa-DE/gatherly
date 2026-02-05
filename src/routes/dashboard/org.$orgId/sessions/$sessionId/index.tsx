@@ -15,8 +15,10 @@ import {
   CheckCircle2,
   XCircle,
   ArrowLeft,
+  Tag,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatPrice, hasPrice } from "@/lib/format-price"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/"
@@ -42,14 +44,28 @@ function SessionDetailPage() {
     error,
   } = trpc.session.getWithCounts.useQuery({ sessionId })
 
-  const { data: myParticipation, isLoading: participationLoading } =
-    trpc.participation.myParticipation.useQuery({ sessionId })
+  const { data: orgSettings } = trpc.organizationSettings.get.useQuery({})
+  const orgCurrency = orgSettings?.currency
 
-  const { data: roster } = trpc.participation.roster.useQuery({
-    sessionId,
-    status: "joined",
-    limit: 8,
-  })
+  const canLoadParticipation = sessionData ? sessionData.status !== "draft" : false
+  const canLoadRoster = sessionData
+    ? sessionData.status !== "draft" || isAdmin
+    : false
+
+  const { data: myParticipation, isLoading: participationLoading } =
+    trpc.participation.myParticipation.useQuery(
+      { sessionId },
+      { enabled: canLoadParticipation }
+    )
+
+  const { data: roster } = trpc.participation.roster.useQuery(
+    {
+      sessionId,
+      status: "joined",
+      limit: 8,
+    },
+    { enabled: canLoadRoster }
+  )
 
   const joinMutation = trpc.participation.join.useMutation({
     onSuccess: () => {
@@ -74,6 +90,7 @@ function SessionDetailPage() {
       utils.session.listPast.invalidate()
       utils.session.listUpcomingWithCounts.invalidate()
       utils.session.listPastWithCounts.invalidate()
+      utils.session.listDraftsWithCounts.invalidate()
     },
   })
 
@@ -84,6 +101,7 @@ function SessionDetailPage() {
       utils.session.listPast.invalidate()
       utils.session.listUpcomingWithCounts.invalidate()
       utils.session.listPastWithCounts.invalidate()
+      utils.session.listDraftsWithCounts.invalidate()
       navigate({ to: "/dashboard/org/$orgId/sessions", params: { orgId } })
     },
   })
@@ -120,6 +138,9 @@ function SessionDetailPage() {
   const spotsLeft = sessionData.maxCapacity - sessionData.joinedCount
   const capacityPercent = (sessionData.joinedCount / sessionData.maxCapacity) * 100
   const isPast = dateObj < new Date() || sessionData.status === "completed" || sessionData.status === "cancelled"
+  const isDraft = sessionData.status === "draft"
+  const showParticipants = !isDraft || isAdmin
+  const showActions = sessionData.status === "published" && !isPast
 
   const canJoin =
     sessionData.status === "published" &&
@@ -195,7 +216,7 @@ function SessionDetailPage() {
               <Calendar className="h-8 w-8 text-primary" />
             </div>
             <div>
-              <div className="flex items-center gap-3 mb-1">
+              <div className="flex items-center gap-3 mb-1 flex-wrap">
                 <h1 className="text-2xl font-bold">{sessionData.title}</h1>
                 <span
                   className={cn(
@@ -204,6 +225,17 @@ function SessionDetailPage() {
                   )}
                 >
                   {statusBadge.text}
+                </span>
+                <span
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
+                    hasPrice(sessionData.price)
+                      ? "bg-primary/10 text-primary"
+                      : "bg-green-500/10 text-green-600"
+                  )}
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  {formatPrice(sessionData.price, orgCurrency)}
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
@@ -251,7 +283,12 @@ function SessionDetailPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div
+        className={cn(
+          "grid gap-4",
+          isDraft ? "sm:grid-cols-2" : "sm:grid-cols-3"
+        )}
+      >
         {/* Capacity Card */}
         <div className="rounded-xl border bg-card p-5">
           <div className="flex items-center justify-between mb-3">
@@ -292,104 +329,107 @@ function SessionDetailPage() {
           </div>
         )}
 
-        {/* Your Status Card */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-muted-foreground">Your Status</span>
-            {isJoined ? (
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            ) : isWaitlisted ? (
-              <Clock className="h-4 w-4 text-yellow-500" />
-            ) : (
-              <UserPlus className="h-4 w-4 text-muted-foreground" />
-            )}
-          </div>
-          {participationLoading ? (
-            <Skeleton className="h-8 w-24" />
-          ) : isJoined ? (
-            <div>
-              <span className="text-xl font-bold text-green-500">Joined</span>
-              <p className="text-xs text-muted-foreground mt-1">You're in!</p>
+        {!isDraft && (
+          <div className="rounded-xl border bg-card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-muted-foreground">Your Status</span>
+              {isJoined ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : isWaitlisted ? (
+                <Clock className="h-4 w-4 text-yellow-500" />
+              ) : (
+                <UserPlus className="h-4 w-4 text-muted-foreground" />
+              )}
             </div>
-          ) : isWaitlisted ? (
-            <div>
-              <span className="text-xl font-bold text-yellow-500">Waitlisted</span>
-              <p className="text-xs text-muted-foreground mt-1">
-                Position #{(myParticipation as { waitlistPosition?: number }).waitlistPosition || "—"}
-              </p>
-            </div>
-          ) : myParticipation?.status === "cancelled" ? (
-            <div>
-              <span className="text-xl font-bold text-muted-foreground">Cancelled</span>
-              <p className="text-xs text-muted-foreground mt-1">Registration cancelled</p>
-            </div>
-          ) : (
-            <div>
-              <span className="text-xl font-bold text-muted-foreground">Not Joined</span>
-              <p className="text-xs text-muted-foreground mt-1">
-                {canJoin ? "Spots available" : "Session full"}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Participants Preview */}
-      <div className="rounded-xl border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium">Participants</h3>
-          {isAdmin && (
-            <Button variant="ghost" size="sm" asChild>
-              <Link
-                to="/dashboard/org/$orgId/sessions/$sessionId/roster"
-                params={{ orgId, sessionId }}
-              >
-                View full roster →
-              </Link>
-            </Button>
-          )}
-        </div>
-        {roster && roster.length > 0 ? (
-          <div className="space-y-3">
-            {roster.slice(0, 8).map((p, i) => (
-              <div
-                key={p.participation.id}
-                className="flex items-center gap-3"
-              >
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium shrink-0",
-                    p.user.image
-                      ? ""
-                      : `${avatarColors[i % avatarColors.length]} text-white`
-                  )}
-                >
-                  {p.user.image ? (
-                    <img
-                      src={p.user.image}
-                      alt={p.user.name ?? ""}
-                      className="h-full w-full rounded-full object-cover"
-                    />
-                  ) : (
-                    getInitials(p.user.name)
-                  )}
-                </div>
-                <p className="font-medium truncate">{p.user.name}</p>
+            {participationLoading ? (
+              <Skeleton className="h-8 w-24" />
+            ) : isJoined ? (
+              <div>
+                <span className="text-xl font-bold text-green-500">Joined</span>
+                <p className="text-xs text-muted-foreground mt-1">You're in!</p>
               </div>
-            ))}
-            {sessionData.joinedCount > 8 && (
-              <p className="text-sm text-muted-foreground">
-                +{sessionData.joinedCount - 8} more participant{sessionData.joinedCount - 8 !== 1 ? "s" : ""}
-              </p>
+            ) : isWaitlisted ? (
+              <div>
+                <span className="text-xl font-bold text-yellow-500">Waitlisted</span>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Position #{(myParticipation as { waitlistPosition?: number }).waitlistPosition || "—"}
+                </p>
+              </div>
+            ) : myParticipation?.status === "cancelled" ? (
+              <div>
+                <span className="text-xl font-bold text-muted-foreground">Cancelled</span>
+                <p className="text-xs text-muted-foreground mt-1">Registration cancelled</p>
+              </div>
+            ) : (
+              <div>
+                <span className="text-xl font-bold text-muted-foreground">Not Joined</span>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {canJoin ? "Spots available" : "Session full"}
+                </p>
+              </div>
             )}
           </div>
-        ) : (
-          <p className="text-muted-foreground">No participants yet</p>
         )}
       </div>
 
+      {/* Participants Preview */}
+      {showParticipants && (
+        <div className="rounded-xl border bg-card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium">Participants</h3>
+            {isAdmin && (
+              <Button variant="ghost" size="sm" asChild>
+                <Link
+                  to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                  params={{ orgId, sessionId }}
+                >
+                  View full roster →
+                </Link>
+              </Button>
+            )}
+          </div>
+          {roster && roster.length > 0 ? (
+            <div className="space-y-3">
+              {roster.slice(0, 8).map((p, i) => (
+                <div
+                  key={p.participation.id}
+                  className="flex items-center gap-3"
+                >
+                  <div
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium shrink-0",
+                      p.user.image
+                        ? ""
+                        : `${avatarColors[i % avatarColors.length]} text-white`
+                    )}
+                  >
+                    {p.user.image ? (
+                      <img
+                        src={p.user.image}
+                        alt={p.user.name ?? ""}
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      getInitials(p.user.name)
+                    )}
+                  </div>
+                  <p className="font-medium truncate">{p.user.name}</p>
+                </div>
+              ))}
+              {sessionData.joinedCount > 8 && (
+                <p className="text-sm text-muted-foreground">
+                  +{sessionData.joinedCount - 8} more participant{sessionData.joinedCount - 8 !== 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No participants yet</p>
+          )}
+        </div>
+      )}
+
       {/* Action Section */}
-      {!isPast && (
+      {showActions && (
         <div className="rounded-xl border bg-card p-5">
           {canJoin ? (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

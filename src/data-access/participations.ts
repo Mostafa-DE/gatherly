@@ -2,7 +2,7 @@ import { and, count, eq, ne, sql, desc, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { eventSession, participation, user } from "@/db/schema";
 import type { Participation } from "@/db/types";
-import { NotFoundError, BadRequestError } from "@/exceptions";
+import { NotFoundError, BadRequestError, ConflictError } from "@/exceptions";
 import type {
   AttendanceStatus,
   PaymentStatus,
@@ -93,6 +93,7 @@ export async function getSessionRoster(
         name: user.name,
         email: user.email,
         image: user.image,
+        phoneNumber: user.phoneNumber,
       },
     })
     .from(participation)
@@ -416,4 +417,262 @@ export async function bulkUpdateAttendance(
   });
 
   return updates.length;
+}
+
+/**
+ * Admin add participant (bypasses join_mode restrictions)
+ *
+ * Adds a user to a session. If the session is at capacity, adds to waitlist.
+ * Returns existing participation if already participating (idempotent).
+ */
+export async function adminAddParticipant(
+  sessionId: string,
+  userId: string
+): Promise<Participation> {
+  return await db.transaction(async (tx) => {
+    // 1. Lock session row
+    const sessionResult = await tx.execute<{
+      id: string;
+      deleted_at: Date | null;
+      status: string;
+      max_capacity: number;
+      max_waitlist: number;
+    }>(sql`
+      SELECT id, deleted_at, status, max_capacity, max_waitlist
+      FROM event_session
+      WHERE id = ${sessionId}
+      FOR UPDATE
+    `);
+    const session = sessionResult.rows[0];
+
+    // 2. Check session exists
+    if (!session) {
+      throw new NotFoundError("Session not found");
+    }
+    if (session.deleted_at) {
+      throw new NotFoundError("Session not found");
+    }
+
+    // 3. Check session is not cancelled or completed
+    if (session.status === "cancelled") {
+      throw new BadRequestError("Cannot add participant to a cancelled session");
+    }
+    if (session.status === "completed") {
+      throw new BadRequestError("Cannot add participant to a completed session");
+    }
+
+    // 4. Check for existing active participation (idempotent)
+    const [existing] = await tx
+      .select()
+      .from(participation)
+      .where(
+        and(
+          eq(participation.sessionId, sessionId),
+          eq(participation.userId, userId),
+          ne(participation.status, "cancelled")
+        )
+      );
+
+    if (existing) {
+      return existing; // Idempotent: return existing
+    }
+
+    // 5. Count current participants
+    const [counts] = await tx
+      .select({
+        joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
+        waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
+      })
+      .from(participation)
+      .where(eq(participation.sessionId, sessionId));
+
+    const joinedCount = counts?.joined ?? 0;
+    const waitlistedCount = counts?.waitlisted ?? 0;
+
+    // 6. Determine status
+    let status: "joined" | "waitlisted";
+
+    if (joinedCount < session.max_capacity) {
+      status = "joined";
+    } else if (waitlistedCount < session.max_waitlist) {
+      status = "waitlisted";
+    } else {
+      throw new ConflictError("Session and waitlist are full");
+    }
+
+    // 7. Insert new participation
+    try {
+      const [newParticipation] = await tx
+        .insert(participation)
+        .values({
+          sessionId,
+          userId,
+          status,
+          joinedAt: new Date(),
+        })
+        .returning();
+      return newParticipation;
+    } catch (error) {
+      // If unique constraint hit (race condition edge case), return existing
+      if (isUniqueConstraintError(error)) {
+        const [existing] = await tx
+          .select()
+          .from(participation)
+          .where(
+            and(
+              eq(participation.sessionId, sessionId),
+              eq(participation.userId, userId),
+              ne(participation.status, "cancelled")
+            )
+          );
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  });
+}
+
+/**
+ * Move participant between sessions (admin)
+ *
+ * Cancels participation in source session and adds to target session.
+ * Does NOT auto-promote on source session (per design decision).
+ * Returns both the cancelled and created participation records.
+ */
+export async function moveParticipant(
+  participationId: string,
+  targetSessionId: string
+): Promise<{ cancelled: Participation; created: Participation }> {
+  return await db.transaction(async (tx) => {
+    // 1. Get source participation
+    const [sourceParticipation] = await tx
+      .select()
+      .from(participation)
+      .where(eq(participation.id, participationId));
+
+    if (!sourceParticipation) {
+      throw new NotFoundError("Participation not found");
+    }
+    if (sourceParticipation.status === "cancelled") {
+      throw new BadRequestError("Participation is already cancelled");
+    }
+
+    // 2. Lock source session
+    const sourceSessionResult = await tx.execute<{
+      id: string;
+      deleted_at: Date | null;
+      organization_id: string;
+    }>(sql`
+      SELECT id, deleted_at, organization_id
+      FROM event_session
+      WHERE id = ${sourceParticipation.sessionId}
+      FOR UPDATE
+    `);
+    const sourceSession = sourceSessionResult.rows[0];
+
+    if (!sourceSession || sourceSession.deleted_at) {
+      throw new NotFoundError("Source session not found");
+    }
+
+    // 3. Prevent moving to same session
+    if (sourceParticipation.sessionId === targetSessionId) {
+      throw new BadRequestError("Cannot move participant to the same session");
+    }
+
+    // 4. Lock target session
+    const targetSessionResult = await tx.execute<{
+      id: string;
+      deleted_at: Date | null;
+      status: string;
+      organization_id: string;
+      max_capacity: number;
+      max_waitlist: number;
+    }>(sql`
+      SELECT id, deleted_at, status, organization_id, max_capacity, max_waitlist
+      FROM event_session
+      WHERE id = ${targetSessionId}
+      FOR UPDATE
+    `);
+    const targetSession = targetSessionResult.rows[0];
+
+    if (!targetSession || targetSession.deleted_at) {
+      throw new NotFoundError("Target session not found");
+    }
+
+    // 5. Verify both sessions are in the same organization
+    if (sourceSession.organization_id !== targetSession.organization_id) {
+      throw new BadRequestError("Cannot move participant to a session in a different organization");
+    }
+
+    // 6. Check target session is joinable
+    if (targetSession.status === "cancelled") {
+      throw new BadRequestError("Cannot move to a cancelled session");
+    }
+    if (targetSession.status === "completed") {
+      throw new BadRequestError("Cannot move to a completed session");
+    }
+
+    // 7. Check for existing participation in target session
+    const [existingTarget] = await tx
+      .select()
+      .from(participation)
+      .where(
+        and(
+          eq(participation.sessionId, targetSessionId),
+          eq(participation.userId, sourceParticipation.userId),
+          ne(participation.status, "cancelled")
+        )
+      );
+
+    if (existingTarget) {
+      throw new BadRequestError("User already has an active participation in the target session");
+    }
+
+    // 8. Cancel source participation (NO auto-promote per requirement)
+    const [cancelled] = await tx
+      .update(participation)
+      .set({
+        status: "cancelled",
+        cancelledAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(participation.id, participationId))
+      .returning();
+
+    // 9. Count current participants in target session
+    const [counts] = await tx
+      .select({
+        joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
+        waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
+      })
+      .from(participation)
+      .where(eq(participation.sessionId, targetSessionId));
+
+    const joinedCount = counts?.joined ?? 0;
+    const waitlistedCount = counts?.waitlisted ?? 0;
+
+    // 10. Determine status for target
+    let newStatus: "joined" | "waitlisted";
+
+    if (joinedCount < targetSession.max_capacity) {
+      newStatus = "joined";
+    } else if (waitlistedCount < targetSession.max_waitlist) {
+      newStatus = "waitlisted";
+    } else {
+      throw new ConflictError("Target session and waitlist are full");
+    }
+
+    // 11. Create new participation in target session
+    const [created] = await tx
+      .insert(participation)
+      .values({
+        sessionId: targetSessionId,
+        userId: sourceParticipation.userId,
+        status: newStatus,
+        joinedAt: new Date(),
+      })
+      .returning();
+
+    return { cancelled, created };
+  });
 }

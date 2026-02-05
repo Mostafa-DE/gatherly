@@ -84,3 +84,38 @@ export async function updateJoinFormSchema(
 
   return created;
 }
+
+/**
+ * Update organization currency
+ */
+export async function updateOrgCurrency(
+  organizationId: string,
+  currency: string | null
+): Promise<OrganizationSettings> {
+  const existing = await getOrgSettings(organizationId);
+
+  if (existing) {
+    const [updated] = await db
+      .update(organizationSettings)
+      .set({
+        currency,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizationSettings.organizationId, organizationId))
+      .returning();
+    return updated;
+  }
+
+  // Create new settings
+  const [created] = await db
+    .insert(organizationSettings)
+    .values({
+      organizationId,
+      currency,
+      joinFormSchema: null,
+      joinFormVersion: 1,
+    })
+    .returning();
+
+  return created;
+}

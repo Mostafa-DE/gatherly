@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -23,15 +24,18 @@ import {
   ChevronDown,
   Save,
   XCircle,
+  DollarSign,
 } from "lucide-react"
 import { FORM_FIELD_TYPES, type FormField, type FormFieldType } from "@/types/form"
 import { getTimezones } from "@/lib/timezones"
+import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
   component: SettingsPage,
 })
 
 const TIMEZONE_EMPTY_VALUE = "__unset__"
+const CURRENCY_EMPTY_VALUE = "__unset__"
 
 function SettingsPage() {
   const { orgId } = Route.useParams()
@@ -55,6 +59,7 @@ function SettingsPage() {
   const [joinMode, setJoinMode] = useState<"open" | "invite" | "approval">(
     (org?.defaultJoinMode as "open" | "invite" | "approval") || "invite"
   )
+  const [currency, setCurrency] = useState(settings?.currency || "")
   const [generalError, setGeneralError] = useState("")
   const timezones = useMemo(() => getTimezones(), [])
 
@@ -63,9 +68,15 @@ function SettingsPage() {
     setJoinMode((org?.defaultJoinMode as "open" | "invite" | "approval") || "invite")
   }, [org?.timezone, org?.defaultJoinMode])
 
+  useEffect(() => {
+    setCurrency(settings?.currency || "")
+  }, [settings?.currency])
+
   const generalDirty =
     timezone !== (org?.timezone || "") ||
     joinMode !== ((org?.defaultJoinMode as "open" | "invite" | "approval") || "invite")
+
+  const currencyDirty = currency !== (settings?.currency || "")
 
   const updateOrgSettings = trpc.organization.updateSettings.useMutation({
     onSuccess: () => {
@@ -82,6 +93,23 @@ function SettingsPage() {
     updateOrgSettings.mutate({
       timezone: timezone || null,
       defaultJoinMode: joinMode,
+    })
+  }
+
+  const updateCurrency = trpc.organizationSettings.updateCurrency.useMutation({
+    onSuccess: () => {
+      utils.organizationSettings.get.invalidate()
+      setGeneralError("")
+    },
+    onError: (err) => {
+      setGeneralError(err.message)
+    },
+  })
+
+  const handleSaveCurrency = () => {
+    setGeneralError("")
+    updateCurrency.mutate({
+      currency: currency || null,
     })
   }
 
@@ -313,6 +341,61 @@ function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Currency Settings */}
+      {isOwner && (
+        <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <DollarSign className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Currency Settings</h2>
+              <p className="text-sm text-muted-foreground">
+                Set the default currency for session pricing
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="currency" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Currency
+            </Label>
+            <Select
+              value={currency || CURRENCY_EMPTY_VALUE}
+              onValueChange={(value) =>
+                setCurrency(value === CURRENCY_EMPTY_VALUE ? "" : value)
+              }
+            >
+              <SelectTrigger id="currency" className="bg-background/50 max-w-xs">
+                <SelectValue placeholder="Select a currency" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CURRENCY_EMPTY_VALUE}>Not set</SelectItem>
+                {SUPPORTED_CURRENCIES.map((curr) => (
+                  <SelectItem key={curr} value={curr}>
+                    {curr}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Required for setting session prices
+            </p>
+          </div>
+
+          <div className="mt-6 border-t border-border/50 pt-6">
+            <Button
+              onClick={handleSaveCurrency}
+              disabled={!currencyDirty || updateCurrency.isPending}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {updateCurrency.isPending ? "Saving..." : "Save Currency"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Join Form Configuration */}
       <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">

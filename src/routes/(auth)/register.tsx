@@ -4,6 +4,7 @@ import { signUp } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { Calendar, UserPlus } from "lucide-react"
 
 export const Route = createFileRoute("/(auth)/register")({
@@ -14,6 +15,7 @@ function RegisterPage() {
   const navigate = useNavigate()
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
@@ -33,6 +35,12 @@ function RegisterPage() {
       return
     }
 
+    // Validate phone number
+    if (!phoneNumber || !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+      setError("Please enter a valid phone number")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -40,6 +48,7 @@ function RegisterPage() {
         email,
         password,
         name,
+        phoneNumber,
       })
 
       if (result.error) {
@@ -122,6 +131,15 @@ function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="bg-background/50"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phoneNumber">Phone Number</Label>
+              <PhoneInput
+                id="phoneNumber"
+                value={phoneNumber}
+                onChange={setPhoneNumber}
               />
             </div>
 

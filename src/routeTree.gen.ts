@@ -19,6 +19,7 @@ import { Route as authRegisterRouteImport } from './routes/(auth)/register'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
 import { Route as OrgSlugIndexRouteImport } from './routes/org.$slug/index'
 import { Route as DashboardOrgOrgIdRouteImport } from './routes/dashboard/org.$orgId'
+import { Route as DashboardGroupsCreateRouteImport } from './routes/dashboard/groups/create'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as DashboardOrgOrgIdIndexRouteImport } from './routes/dashboard/org.$orgId/index'
@@ -82,6 +83,11 @@ const OrgSlugIndexRoute = OrgSlugIndexRouteImport.update({
 const DashboardOrgOrgIdRoute = DashboardOrgOrgIdRouteImport.update({
   id: '/org/$orgId',
   path: '/org/$orgId',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardGroupsCreateRoute = DashboardGroupsCreateRouteImport.update({
+  id: '/groups/create',
+  path: '/groups/create',
   getParentRoute: () => DashboardRoute,
 } as any)
 const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/org/$slug/': typeof OrgSlugIndexRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
@@ -202,6 +209,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/org/$slug': typeof OrgSlugIndexRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/dashboard/': typeof DashboardIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
+  '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/org/$slug/': typeof OrgSlugIndexRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
@@ -255,6 +264,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
     | '/org/$slug/'
     | '/dashboard/org/$orgId/invitations'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/dashboard/groups/create'
     | '/org/$slug'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/dashboard/'
     | '/api/auth/$'
     | '/api/trpc/$'
+    | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
     | '/org/$slug/'
     | '/dashboard/org/$orgId/invitations'
@@ -401,6 +413,13 @@ declare module '@tanstack/react-router' {
       path: '/org/$orgId'
       fullPath: '/dashboard/org/$orgId'
       preLoaderRoute: typeof DashboardOrgOrgIdRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/dashboard/groups/create': {
+      id: '/dashboard/groups/create'
+      path: '/groups/create'
+      fullPath: '/dashboard/groups/create'
+      preLoaderRoute: typeof DashboardGroupsCreateRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/api/trpc/$': {
@@ -557,6 +576,7 @@ interface DashboardRouteChildren {
   DashboardInvitationsRoute: typeof DashboardInvitationsRoute
   DashboardProfileRoute: typeof DashboardProfileRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  DashboardGroupsCreateRoute: typeof DashboardGroupsCreateRoute
   DashboardOrgOrgIdRoute: typeof DashboardOrgOrgIdRouteWithChildren
 }
 
@@ -564,6 +584,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardInvitationsRoute: DashboardInvitationsRoute,
   DashboardProfileRoute: DashboardProfileRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  DashboardGroupsCreateRoute: DashboardGroupsCreateRoute,
   DashboardOrgOrgIdRoute: DashboardOrgOrgIdRouteWithChildren,
 }
 

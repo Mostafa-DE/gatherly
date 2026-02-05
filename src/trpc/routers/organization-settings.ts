@@ -3,10 +3,12 @@ import { ForbiddenError } from "@/exceptions";
 import {
   getOrCreateOrgSettings,
   updateJoinFormSchema,
+  updateOrgCurrency,
 } from "@/data-access/organization-settings";
 import {
   getOrgSettingsSchema,
   updateJoinFormSchema as updateJoinFormInputSchema,
+  updateCurrencySchema,
 } from "@/schemas/organization-settings";
 
 // =============================================================================
@@ -46,5 +48,15 @@ export const organizationSettingsRouter = router({
         ctx.activeOrganization.id,
         input.joinFormSchema
       );
+    }),
+
+  /**
+   * Update organization currency (Admin)
+   */
+  updateCurrency: orgProcedure
+    .input(updateCurrencySchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role);
+      return updateOrgCurrency(ctx.activeOrganization.id, input.currency);
     }),
 });

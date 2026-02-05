@@ -4,9 +4,10 @@ import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { User, Save, Mail, Calendar, CheckCircle2, XCircle, Pencil } from "lucide-react"
+import { User, Save, Mail, Calendar, CheckCircle2, XCircle, Pencil, Phone } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/profile")({
   component: UserProfilePage,
@@ -18,6 +19,7 @@ function UserProfilePage() {
 
   const [name, setName] = useState("")
   const [image, setImage] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [isEditing, setIsEditing] = useState(false)
 
   const updateMutation = trpc.user.updateProfile.useMutation({
@@ -32,17 +34,21 @@ function UserProfilePage() {
     if (user) {
       setName(user.name)
       setImage(user.image ?? "")
+      setPhoneNumber(user.phoneNumber ?? "")
       setIsEditing(true)
     }
   }
 
   const handleSave = () => {
-    const updates: { name?: string; image?: string } = {}
+    const updates: { name?: string; image?: string; phoneNumber?: string } = {}
     if (name && name !== user?.name) {
       updates.name = name
     }
     if (image !== (user?.image ?? "")) {
       updates.image = image || undefined
+    }
+    if (phoneNumber && phoneNumber !== (user?.phoneNumber ?? "")) {
+      updates.phoneNumber = phoneNumber
     }
     if (Object.keys(updates).length > 0) {
       updateMutation.mutate(updates)
@@ -55,6 +61,7 @@ function UserProfilePage() {
     setIsEditing(false)
     setName("")
     setImage("")
+    setPhoneNumber("")
   }
 
   if (isLoading) {
@@ -147,15 +154,23 @@ function UserProfilePage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="image">Profile Image URL</Label>
-                <Input
-                  id="image"
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  placeholder="https://example.com/avatar.jpg"
-                  className="bg-background/50"
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <PhoneInput
+                  id="phoneNumber"
+                  value={phoneNumber}
+                  onChange={setPhoneNumber}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="image">Profile Image URL</Label>
+              <Input
+                id="image"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                placeholder="https://example.com/avatar.jpg"
+                className="bg-background/50"
+              />
             </div>
             <div className="flex gap-2">
               <Button
@@ -196,13 +211,23 @@ function UserProfilePage() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-border/50 bg-background/50 p-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
               <Mail className="h-4 w-4" />
               Email
             </div>
             <p className="font-medium truncate">{user.email}</p>
+          </div>
+
+          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+              <Phone className="h-4 w-4" />
+              Phone
+            </div>
+            <p className="font-medium truncate">
+              {user.phoneNumber || <span className="text-muted-foreground">Not set</span>}
+            </p>
           </div>
 
           <div className="rounded-lg border border-border/50 bg-background/50 p-4">

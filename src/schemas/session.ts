@@ -44,6 +44,7 @@ export const createSessionSchema = z.object({
   maxCapacity: z.number().int().positive(),
   maxWaitlist: z.number().int().nonnegative().default(0),
   joinMode: joinModeSchema.default("open"),
+  price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format").nullable().optional(),
 });
 
 /** Update an existing session */
@@ -55,6 +56,7 @@ export const updateSessionSchema = z.object({
   maxCapacity: z.number().int().positive().optional(),
   maxWaitlist: z.number().int().nonnegative().optional(),
   joinMode: joinModeSchema.optional(),
+  price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format").nullable().optional(),
 });
 
 /** Update session status */

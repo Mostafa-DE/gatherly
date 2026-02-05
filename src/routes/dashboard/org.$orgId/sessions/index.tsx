@@ -3,8 +3,9 @@ import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Calendar, MapPin, ChevronDown } from "lucide-react"
+import { Plus, Calendar, MapPin, ChevronDown, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { formatPrice, hasPrice } from "@/lib/format-price"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/")({
   component: SessionsPage,
@@ -14,7 +15,11 @@ function SessionsPage() {
   const { orgId } = Route.useParams()
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+  const isOwner = whoami?.membership?.role === "owner"
   const org = whoami?.activeOrganization
+
+  const { data: orgSettings } = trpc.organizationSettings.get.useQuery({})
+  const orgCurrency = orgSettings?.currency || null
 
   return (
     <div className="space-y-10 py-6">
@@ -49,18 +54,93 @@ function SessionsPage() {
         </div>
       </div>
 
+      {/* Draft Sessions */}
+      <DraftSessions orgId={orgId} isOwner={isOwner} currency={orgCurrency} />
+
       {/* Upcoming Sessions */}
-      <UpcomingSessions orgId={orgId} />
+      <UpcomingSessions orgId={orgId} currency={orgCurrency} />
 
       {/* Past Sessions */}
-      <PastSessions orgId={orgId} />
+      <PastSessions orgId={orgId} currency={orgCurrency} />
     </div>
   )
 }
 
 const PAGE_SIZE = 10
 
-function UpcomingSessions({ orgId }: { orgId: string }) {
+function DraftSessions({ orgId, isOwner, currency }: { orgId: string; isOwner: boolean; currency: string | null }) {
+  const [limit, setLimit] = useState(PAGE_SIZE)
+
+  const { data: sessions, isLoading, error, isFetching } =
+    trpc.session.listDraftsWithCounts.useQuery(
+      { limit },
+      { enabled: isOwner }
+    )
+
+  if (!isOwner) {
+    return null
+  }
+
+  const hasMore = sessions && sessions.length === limit
+
+  if (isLoading) {
+    return (
+      <div>
+        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Draft Sessions</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {[1, 2].map((i) => (
+            <SessionCardSkeleton key={i} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div>
+        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Draft Sessions</h2>
+        <p className="text-sm text-destructive">{error.message}</p>
+      </div>
+    )
+  }
+
+  if (!sessions || sessions.length === 0) {
+    return (
+      <div>
+        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Draft Sessions</h2>
+        <p className="text-muted-foreground">No draft sessions</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h2 className="mb-4 text-sm font-medium text-muted-foreground">
+        {sessions.length} draft session{sessions.length !== 1 ? "s" : ""}
+      </h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {sessions.map((session) => (
+          <SessionCard key={session.id} session={session} orgId={orgId} currency={currency} />
+        ))}
+      </div>
+      {hasMore && (
+        <div className="mt-4 text-center">
+          <Button
+            variant="ghost"
+            onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+            disabled={isFetching}
+          >
+            <ChevronDown className="h-4 w-4 mr-2" />
+            {isFetching ? "Loading..." : "Load More"}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function UpcomingSessions({ orgId, currency }: { orgId: string; currency: string | null }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
   const { data: sessions, isLoading, error, isFetching } = trpc.session.listUpcomingWithCounts.useQuery({
@@ -107,7 +187,7 @@ function UpcomingSessions({ orgId }: { orgId: string }) {
       </h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {sessions.map((session) => (
-          <SessionCard key={session.id} session={session} orgId={orgId} />
+          <SessionCard key={session.id} session={session} orgId={orgId} currency={currency} />
         ))}
       </div>
       {hasMore && (
@@ -126,7 +206,7 @@ function UpcomingSessions({ orgId }: { orgId: string }) {
   )
 }
 
-function PastSessions({ orgId }: { orgId: string }) {
+function PastSessions({ orgId, currency }: { orgId: string; currency: string | null }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
   const { data: sessions, isLoading, error, isFetching } = trpc.session.listPastWithCounts.useQuery({
@@ -166,7 +246,7 @@ function PastSessions({ orgId }: { orgId: string }) {
       <h2 className="mb-4 text-sm font-medium text-muted-foreground">Past Sessions</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {sessions.map((session) => (
-          <SessionCard key={session.id} session={session} orgId={orgId} isPast />
+          <SessionCard key={session.id} session={session} orgId={orgId} isPast currency={currency} />
         ))}
       </div>
       {hasMore && (
@@ -194,6 +274,7 @@ type SessionWithCounts = {
   status: string
   maxCapacity: number
   maxWaitlist: number
+  price: string | null
   joinedCount: number
   waitlistCount: number
   participants: Array<{
@@ -207,25 +288,30 @@ function SessionCard({
   session,
   orgId,
   isPast = false,
+  currency,
 }: {
   session: SessionWithCounts
   orgId: string
   isPast?: boolean
+  currency: string | null
 }) {
   const spotsLeft = session.maxCapacity - session.joinedCount
   const capacityPercent = (session.joinedCount / session.maxCapacity) * 100
 
   // Determine status badge
   const getStatusBadge = () => {
-    if (session.status === "cancelled") {
-      return { text: "Cancelled", className: "bg-destructive/10 text-destructive" }
-    }
-    if (session.status === "completed") {
-      return { text: "Completed", className: "bg-muted text-muted-foreground" }
-    }
-    if (isPast) {
-      return { text: "Past", className: "bg-muted text-muted-foreground" }
-    }
+  if (session.status === "cancelled") {
+    return { text: "Cancelled", className: "bg-destructive/10 text-destructive" }
+  }
+  if (session.status === "completed") {
+    return { text: "Completed", className: "bg-muted text-muted-foreground" }
+  }
+  if (session.status === "draft") {
+    return { text: "Draft", className: "bg-yellow-500/10 text-yellow-600" }
+  }
+  if (isPast) {
+    return { text: "Past", className: "bg-muted text-muted-foreground" }
+  }
     if (spotsLeft === 0) {
       return { text: "Full", className: "bg-destructive/10 text-destructive" }
     }
@@ -289,14 +375,27 @@ function SessionCard({
             </p>
           </div>
         </div>
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-xs font-medium",
-            statusBadge.className
-          )}
-        >
-          {statusBadge.text}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-xs font-medium",
+              statusBadge.className
+            )}
+          >
+            {statusBadge.text}
+          </span>
+          <span
+            className={cn(
+              "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+              hasPrice(session.price)
+                ? "bg-primary/10 text-primary"
+                : "bg-green-500/10 text-green-600"
+            )}
+          >
+            <Tag className="h-3 w-3" />
+            {formatPrice(session.price, currency)}
+          </span>
+        </div>
       </div>
 
       {/* Location */}
