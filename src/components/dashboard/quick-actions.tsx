@@ -14,33 +14,11 @@ export function QuickActions() {
   const { orgId } = useParams({ strict: false })
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const isOrgRoute = pathname.includes("/dashboard/org/")
-  const isDashboardHome = pathname === "/dashboard" || pathname === "/dashboard/"
   const { data: whoami } = trpc.user.whoami.useQuery()
 
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
 
-  // Show "Create Group" button on dashboard home
-  if (isDashboardHome) {
-    const handleCreateOrgClick = () => {
-      const createOrgCard = document.getElementById("create-org-card")
-      if (createOrgCard) {
-        createOrgCard.scrollIntoView({ behavior: "smooth", block: "center" })
-        createOrgCard.click()
-      }
-    }
-
-    return (
-      <div className="ml-auto flex items-center gap-1 sm:gap-2">
-        <Button variant="default" size="sm" onClick={handleCreateOrgClick}>
-          <Plus className="size-4 mr-1" />
-          <span className="hidden sm:inline">Create Group</span>
-          <span className="sm:hidden">New Group</span>
-        </Button>
-      </div>
-    )
-  }
-
-  // Only show org quick actions when actually in an org route
+  // Only show org quick actions when in an org route
   if (!isOrgRoute || !orgId) {
     return null
   }

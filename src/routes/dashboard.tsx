@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { useSession } from "@/auth/client"
 import { AppSidebar, BreadcrumbNav, QuickActions } from "@/components/dashboard"
+import { ThemeToggle } from "@/components/theme-toggle"
 import {
   SidebarInset,
   SidebarProvider,
@@ -68,6 +69,7 @@ function DashboardLayout() {
           <Separator orientation="vertical" className="mr-1 h-4 sm:mr-2" />
           <BreadcrumbNav />
           <QuickActions />
+          <ThemeToggle />
         </header>
 
         {/* Email verification warning banner */}

@@ -6,7 +6,7 @@
 @theme {
   --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
-  /* Light mode colors */
+  /* Light mode colors (default) */
   --color-background: hsl(0 0% 100%);
   --color-foreground: hsl(240 10% 10%);
   --color-card: hsl(0 0% 100%);
@@ -45,50 +45,7 @@
   --radius-sm: calc(var(--radius-lg) - 4px);
 }
 
-/* Dark mode - Railway inspired with teal primary */
-@media (prefers-color-scheme: dark) {
-  @theme {
-    /* #13121C = hsl(246 22% 9%) - Railway's comfortable dark background */
-    --color-background: hsl(246 22% 9%);
-    --color-foreground: hsl(0 0% 95%);
-    /* Cards slightly elevated */
-    --color-card: hsl(246 20% 13%);
-    --color-card-foreground: hsl(0 0% 95%);
-    --color-popover: hsl(246 20% 13%);
-    --color-popover-foreground: hsl(0 0% 95%);
-    /* Teal primary */
-    --color-primary: hsl(175 50% 45%);
-    --color-primary-foreground: hsl(246 22% 9%);
-    /* Secondary - slightly lighter than background */
-    --color-secondary: hsl(246 18% 18%);
-    --color-secondary-foreground: hsl(0 0% 95%);
-    --color-muted: hsl(246 18% 18%);
-    --color-muted-foreground: hsl(240 5% 72%);
-    --color-accent: hsl(246 18% 18%);
-    --color-accent-foreground: hsl(0 0% 95%);
-    --color-destructive: hsl(0 70% 50%);
-    --color-destructive-foreground: hsl(0 0% 95%);
-    /* Visible borders */
-    --color-border: hsl(246 15% 32%);
-    --color-input: hsl(246 15% 32%);
-    --color-ring: hsl(175 50% 45%);
-    --color-chart-1: hsl(175 50% 45%);
-    --color-chart-2: hsl(200 70% 50%);
-    --color-chart-3: hsl(30 80% 55%);
-    --color-chart-4: hsl(280 65% 60%);
-    --color-chart-5: hsl(340 75% 55%);
-    /* Sidebar matches background */
-    --color-sidebar: hsl(246 22% 9%);
-    --color-sidebar-foreground: hsl(0 0% 95%);
-    --color-sidebar-primary: hsl(175 50% 45%);
-    --color-sidebar-primary-foreground: hsl(246 22% 9%);
-    --color-sidebar-accent: hsl(246 18% 18%);
-    --color-sidebar-accent-foreground: hsl(0 0% 95%);
-    --color-sidebar-border: hsl(246 15% 28%);
-    --color-sidebar-ring: hsl(175 50% 45%);
-  }
-}
-
+/* Light mode root variables */
 :root {
   --sidebar: hsl(0 0% 98%);
   --sidebar-foreground: hsl(240 10% 10%);
@@ -100,27 +57,49 @@
   --sidebar-ring: hsl(175 50% 40%);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --sidebar: hsl(246 22% 9%);
-    --sidebar-foreground: hsl(0 0% 95%);
-    --sidebar-primary: hsl(175 50% 45%);
-    --sidebar-primary-foreground: hsl(246 22% 9%);
-    --sidebar-accent: hsl(246 18% 18%);
-    --sidebar-accent-foreground: hsl(0 0% 95%);
-    --sidebar-border: hsl(246 15% 28%);
-    --sidebar-ring: hsl(175 50% 45%);
-  }
-}
-
+/* Dark mode - applied via .dark class on html */
 .dark {
+  --color-background: hsl(246 22% 9%);
+  --color-foreground: hsl(0 0% 95%);
+  --color-card: hsl(246 20% 13%);
+  --color-card-foreground: hsl(0 0% 95%);
+  --color-popover: hsl(246 20% 13%);
+  --color-popover-foreground: hsl(0 0% 95%);
+  --color-primary: hsl(175 50% 45%);
+  --color-primary-foreground: hsl(246 22% 9%);
+  --color-secondary: hsl(246 18% 18%);
+  --color-secondary-foreground: hsl(0 0% 95%);
+  --color-muted: hsl(246 18% 18%);
+  --color-muted-foreground: hsl(240 5% 72%);
+  --color-accent: hsl(246 18% 18%);
+  --color-accent-foreground: hsl(0 0% 95%);
+  --color-destructive: hsl(0 70% 50%);
+  --color-destructive-foreground: hsl(0 0% 95%);
+  --color-border: hsl(246 15% 32%);
+  --color-input: hsl(246 15% 32%);
+  --color-ring: hsl(175 50% 45%);
+  --color-chart-1: hsl(175 50% 45%);
+  --color-chart-2: hsl(200 70% 50%);
+  --color-chart-3: hsl(30 80% 55%);
+  --color-chart-4: hsl(280 65% 60%);
+  --color-chart-5: hsl(340 75% 55%);
+  --color-sidebar: hsl(246 22% 9%);
+  --color-sidebar-foreground: hsl(0 0% 95%);
+  --color-sidebar-primary: hsl(175 50% 45%);
+  --color-sidebar-primary-foreground: hsl(246 22% 9%);
+  --color-sidebar-accent: hsl(246 18% 18%);
+  --color-sidebar-accent-foreground: hsl(0 0% 95%);
+  --color-sidebar-border: hsl(246 15% 28%);
+  --color-sidebar-ring: hsl(175 50% 45%);
+
+  /* Sidebar variables */
   --sidebar: hsl(246 22% 9%);
   --sidebar-foreground: hsl(0 0% 95%);
   --sidebar-primary: hsl(175 50% 45%);
   --sidebar-primary-foreground: hsl(246 22% 9%);
   --sidebar-accent: hsl(246 18% 18%);
   --sidebar-accent-foreground: hsl(0 0% 95%);
-  --sidebar-border: hsl(246 15% 20%);
+  --sidebar-border: hsl(246 15% 28%);
   --sidebar-ring: hsl(175 50% 45%);
 }
 

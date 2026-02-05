@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { Button } from "@/components/ui/button"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Calendar } from "lucide-react"
 
 interface LandingNavbarProps {
@@ -48,6 +49,7 @@ export function LandingNavbar({ isLoggedIn }: LandingNavbarProps) {
 
         {/* Auth buttons */}
         <nav className="flex items-center gap-2">
+          <ThemeToggle />
           {isLoggedIn ? (
             <Button asChild>
               <Link to="/dashboard">Go to Dashboard</Link>
