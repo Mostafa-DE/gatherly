@@ -66,7 +66,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const [trpcClient] = useState(() => getTrpcClient())
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

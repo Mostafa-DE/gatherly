@@ -1,9 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -26,10 +25,13 @@ import {
   XCircle,
 } from "lucide-react"
 import { FORM_FIELD_TYPES, type FormField, type FormFieldType } from "@/types/form"
+import { getTimezones } from "@/lib/timezones"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
   component: SettingsPage,
 })
+
+const TIMEZONE_EMPTY_VALUE = "__unset__"
 
 function SettingsPage() {
   const { orgId } = Route.useParams()
@@ -54,6 +56,12 @@ function SettingsPage() {
     (org?.defaultJoinMode as "open" | "invite" | "approval") || "invite"
   )
   const [generalError, setGeneralError] = useState("")
+  const timezones = useMemo(() => getTimezones(), [])
+
+  useEffect(() => {
+    setTimezone(org?.timezone || "")
+    setJoinMode((org?.defaultJoinMode as "open" | "invite" | "approval") || "invite")
+  }, [org?.timezone, org?.defaultJoinMode])
 
   const generalDirty =
     timezone !== (org?.timezone || "") ||
@@ -234,13 +242,24 @@ function SettingsPage() {
                   <Clock className="h-4 w-4" />
                   Timezone
                 </Label>
-                <Input
-                  id="timezone"
-                  placeholder="America/New_York"
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="bg-background/50"
-                />
+                <Select
+                  value={timezone || TIMEZONE_EMPTY_VALUE}
+                  onValueChange={(value) =>
+                    setTimezone(value === TIMEZONE_EMPTY_VALUE ? "" : value)
+                  }
+                >
+                  <SelectTrigger id="timezone" className="bg-background/50">
+                    <SelectValue placeholder="Select a timezone" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value={TIMEZONE_EMPTY_VALUE}>Not set</SelectItem>
+                    {timezones.map((zone) => (
+                      <SelectItem key={zone} value={zone}>
+                        {zone}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-xs text-muted-foreground">
                   e.g. America/New_York, Europe/London
                 </p>

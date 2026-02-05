@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { organization as orgClient } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   Users,
   Sparkles,
 } from "lucide-react"
+import { getTimezones } from "@/lib/timezones"
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHomePage,
@@ -217,6 +218,7 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
     "open" | "invite" | "approval"
   >("invite")
   const [error, setError] = useState("")
+  const timezones = useMemo(() => getTimezones(), [])
 
   const utils = trpc.useUtils()
   const createOrg = trpc.user.createOrg.useMutation({
@@ -296,13 +298,19 @@ function CreateOrgForm({ onCancel }: { onCancel?: () => void }) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="timezone">Timezone (optional)</Label>
-          <Input
+          <select
             id="timezone"
-            placeholder="America/New_York"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
-            className="bg-background/50"
-          />
+            className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="">Not set</option>
+            {timezones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-2">
           <Label htmlFor="joinMode">Default Join Mode</Label>
