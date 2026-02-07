@@ -1,7 +1,7 @@
 import { FormInput, FileSpreadsheet, MessageCircle, ClipboardList } from "lucide-react"
 
 const painPoints = [
-  { icon: FormInput, title: "Google Forms limitations", desc: "Responses pile up. No real-time roster. Manual work to track who's actually coming." },
+  { icon: FormInput, title: "Google Forms limitations", desc: "Responses pile up. No real-time participant list. Manual work to track who's actually coming." },
   { icon: FileSpreadsheet, title: "Spreadsheet overhead", desc: "Copy-paste from forms, update manually, share links. Repeat every session." },
   { icon: MessageCircle, title: "Group chat confusion", desc: "RSVPs scattered across messages. No clear count. Constant back-and-forth." },
   { icon: ClipboardList, title: "No attendance history", desc: "Who's reliable? Who always cancels? You're guessing without data." },

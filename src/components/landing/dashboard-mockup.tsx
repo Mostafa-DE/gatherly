@@ -77,7 +77,7 @@ export function DashboardMockup() {
                     +4
                   </div>
                 </div>
-                <span className="landing-body text-sm font-medium text-primary">View roster →</span>
+                <span className="landing-body text-sm font-medium text-primary">View session →</span>
               </div>
             </div>
 
@@ -124,7 +124,7 @@ export function DashboardMockup() {
                     </div>
                   ))}
                 </div>
-                <span className="landing-body text-sm font-medium text-primary">View roster →</span>
+                <span className="landing-body text-sm font-medium text-primary">View session →</span>
               </div>
             </div>
           </div>

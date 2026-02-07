@@ -6,7 +6,7 @@ const data = [
   { feature: "Automatic waitlist", gatherly: true, meetup: true, forms: false, sheets: false },
   { feature: "Auto-promote on cancel", gatherly: true, meetup: false, forms: false, sheets: false },
   { feature: "Attendance tracking", gatherly: true, meetup: false, forms: false, sheets: "partial" as const },
-  { feature: "Real-time roster", gatherly: true, meetup: true, forms: false, sheets: false },
+  { feature: "Real-time participants", gatherly: true, meetup: true, forms: false, sheets: false },
   { feature: "No manual data entry", gatherly: true, meetup: true, forms: false, sheets: false },
   { feature: "Custom member fields", gatherly: true, meetup: false, forms: true, sheets: true },
 ]

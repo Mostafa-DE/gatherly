@@ -306,7 +306,7 @@ function SessionDetailPage() {
                     params={{ orgId, sessionId }}
                   >
                     <ClipboardList className="mr-2 h-4 w-4" />
-                    View Roster
+                    View Participants
                   </Link>
                 </DropdownMenuItem>
                 {canComplete && (
@@ -627,7 +627,7 @@ function SessionDetailPage() {
                   to="/dashboard/org/$orgId/sessions/$sessionId/roster"
                   params={{ orgId, sessionId }}
                 >
-                  View Roster
+                  View Participants
                   <ArrowLeft className="h-3 w-3 ml-1 rotate-180" />
                 </Link>
               </Button>

@@ -7,16 +7,18 @@ import { ShareDialog } from "@/components/share-dialog"
 import {
   Calendar,
   Users,
-  ArrowRight,
   MapPin,
   TrendingUp,
   Plus,
   Crown,
   ShieldCheck,
   User,
+  Tag,
+  ArrowRight,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buildOrgUrl } from "@/lib/share-urls"
+import { formatPrice, hasPrice } from "@/lib/format-price"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/")({
   component: OrgOverviewPage,
@@ -262,6 +264,7 @@ type SessionWithCounts = {
   status: string
   maxCapacity: number
   maxWaitlist: number
+  price?: string | null
   joinedCount: number
   waitlistCount: number
   participants: Array<{
@@ -286,28 +289,23 @@ function SessionCard({
     <Link
       to="/dashboard/org/$orgId/sessions/$sessionId"
       params={{ orgId, sessionId: session.id }}
-      className="group block rounded-xl border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-md"
+      className="group block rounded-xl border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md"
     >
-      {/* Header: date badge + status */}
+      {/* Header: calendar icon + date text + status */}
       <div className="mb-3 flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 px-2.5 py-1.5 min-w-[3rem] shrink-0">
-            <span className="text-base font-bold text-primary leading-none">
-              {dateObj.getDate()}
-            </span>
-            <span className="text-[10px] font-semibold text-primary/70 mt-0.5">
-              {dateObj
-                .toLocaleDateString(undefined, { month: "short" })
-                .toUpperCase()}
-            </span>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+            <Calendar className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="font-medium truncate">{session.title}</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="font-semibold">
               {dateObj.toLocaleDateString(undefined, {
-                weekday: "short",
+                weekday: "long",
+                month: "short",
+                day: "numeric",
               })}
-              {" "}
+            </p>
+            <p className="text-sm text-muted-foreground">
               {dateObj.toLocaleTimeString(undefined, {
                 hour: "numeric",
                 minute: "2-digit",
@@ -318,17 +316,32 @@ function SessionCard({
         <SessionStatusBadge status={session.status} spotsLeft={spotsLeft} />
       </div>
 
-      {/* Location */}
-      {session.location && (
-        <div className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-          <MapPin className="h-3.5 w-3.5 shrink-0" />
-          <span className="truncate">{session.location}</span>
-        </div>
-      )}
+      {/* Location + price */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        {session.location && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{session.location}</span>
+          </span>
+        )}
+        {session.price !== undefined && (
+          <span
+            className={cn(
+              "flex items-center gap-1 font-medium",
+              hasPrice(session.price)
+                ? "text-foreground"
+                : "text-[var(--color-status-success)]"
+            )}
+          >
+            <Tag className="h-3 w-3" />
+            {formatPrice(session.price, null)}
+          </span>
+        )}
+      </div>
 
       {/* Capacity */}
       <div className="mb-3">
-        <div className="mb-1 flex justify-between text-sm">
+        <div className="mb-1.5 flex justify-between text-sm">
           <span className="text-muted-foreground">Capacity</span>
           <span className="font-medium tabular-nums">
             {session.joinedCount}/{session.maxCapacity}
@@ -349,7 +362,7 @@ function SessionCard({
         </div>
       </div>
 
-      {/* Participants + arrow */}
+      {/* Participants + View session */}
       <div className="flex items-center justify-between">
         <div className="flex -space-x-2">
           {session.participants.slice(0, 4).map((participant, i) => (
@@ -379,7 +392,9 @@ function SessionCard({
             </div>
           )}
         </div>
-        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+        <span className="text-sm font-medium text-primary transition-colors group-hover:text-primary/80">
+          View session →
+        </span>
       </div>
     </Link>
   )
@@ -433,23 +448,24 @@ function SessionStatusBadge({
 
 function SessionCardSkeleton() {
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border bg-card p-5">
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-[46px] w-12 rounded-lg" />
+          <Skeleton className="h-10 w-10 rounded-lg" />
           <div>
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="mt-1 h-4 w-20" />
+            <Skeleton className="h-5 w-36" />
+            <Skeleton className="mt-1 h-4 w-16" />
           </div>
         </div>
         <Skeleton className="h-5 w-14 rounded-full" />
       </div>
+      <Skeleton className="mb-3 h-4 w-32" />
       <div className="mb-3">
-        <div className="mb-1 flex justify-between">
+        <div className="mb-1.5 flex justify-between">
           <Skeleton className="h-3 w-14" />
           <Skeleton className="h-3 w-10" />
         </div>
-        <Skeleton className="h-1.5 w-full rounded-full" />
+        <Skeleton className="h-2 w-full rounded-full" />
       </div>
       <div className="flex items-center justify-between">
         <div className="flex -space-x-2">
@@ -457,7 +473,7 @@ function SessionCardSkeleton() {
             <Skeleton key={i} className="h-7 w-7 rounded-full" />
           ))}
         </div>
-        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-20" />
       </div>
     </div>
   )

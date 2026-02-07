@@ -181,7 +181,7 @@ function SessionRosterPage() {
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              Only group owners and admins can view the roster.
+              Only group owners and admins can view participants.
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -214,7 +214,7 @@ function SessionRosterPage() {
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Session Roster</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Session Participants</h1>
         {sessionData && (
           <p className="text-muted-foreground">{sessionData.title}</p>
         )}

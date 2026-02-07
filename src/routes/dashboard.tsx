@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
+import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router"
 import { useSession } from "@/auth/client"
 import { AppSidebar, BreadcrumbNav, QuickActions } from "@/components/dashboard"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -18,7 +18,7 @@ function DashboardLayout() {
   const { data: session, isPending } = useSession()
 
   if (!isPending && !session?.user) {
-    throw redirect({ to: "/login" })
+    return <Navigate to="/login" />
   }
 
   // Show loading while checking auth or redirecting

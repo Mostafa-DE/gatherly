@@ -116,7 +116,7 @@ function formatLabel(segment: string): string {
     members: "Members",
     settings: "Settings",
     profile: "Group Profile",
-    roster: "Roster",
+    roster: "Participants",
   }
 
   return labels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)

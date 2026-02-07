@@ -13,7 +13,7 @@ const features = [
   { icon: ArrowUpCircle, title: "Auto-Promote", desc: "When someone cancels, the next person on waitlist gets the spot automatically." },
   { icon: CheckCircle, title: "Attendance Tracking", desc: "Mark who showed up. Build reliable attendance history over time." },
   { icon: UserCog, title: "Custom Fields", desc: "Collect the member info you need. Phone, emergency contact, skill level — anything." },
-  { icon: LinkIcon, title: "One Link", desc: "Share a single link. Members sign up. You see the roster update in real-time." },
+  { icon: LinkIcon, title: "One Link", desc: "Share a single link. Members sign up. You see participants update in real-time." },
 ]
 
 export function FeaturesSection() {
