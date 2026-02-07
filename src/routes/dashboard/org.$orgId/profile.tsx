@@ -443,6 +443,7 @@ function ProfileFieldInput({
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
+            className="bg-white dark:bg-input/30"
           />
         )
       case "number":
@@ -454,12 +455,13 @@ function ProfileFieldInput({
               onChange(e.target.value ? Number(e.target.value) : "")
             }
             placeholder={field.placeholder}
+            className="bg-white dark:bg-input/30"
           />
         )
       case "textarea":
         return (
           <textarea
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-white dark:bg-input/30 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
@@ -471,6 +473,7 @@ function ProfileFieldInput({
             type="date"
             value={(value as string) || ""}
             onChange={(e) => onChange(e.target.value)}
+            className="bg-white dark:bg-input/30"
           />
         )
       case "checkbox":
@@ -491,7 +494,7 @@ function ProfileFieldInput({
             value={(value as string) || ""}
             onValueChange={(v) => onChange(v)}
           >
-            <SelectTrigger>
+            <SelectTrigger className="bg-white dark:bg-input/30">
               <SelectValue
                 placeholder={field.placeholder || "Select..."}
               />

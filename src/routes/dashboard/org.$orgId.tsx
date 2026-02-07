@@ -127,9 +127,8 @@ function OrgLayout() {
   const hasUnfilledRequired = unfilledRequiredFields.length > 0
   const hasUnfilledOptional = unfilledOptionalFields.length > 0
 
-  // Required fields: always show (not dismissable), for all members
-  // Optional fields: dismissable, non-admins only
-  const showRequiredBanner = hasUnfilledRequired
+  // Only show profile banners for regular members, not admins/owners
+  const showRequiredBanner = !isAdmin && hasUnfilledRequired
   const showOptionalBanner = !isAdmin && !bannerDismissed && !hasUnfilledRequired && hasUnfilledOptional
 
   return (
