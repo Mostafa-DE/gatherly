@@ -1,6 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Zap } from "lucide-react"
 import { DashboardMockup } from "./dashboard-mockup"
 
 interface HeroSectionProps {
@@ -9,76 +8,89 @@ interface HeroSectionProps {
 
 export function HeroSection({ isLoggedIn }: HeroSectionProps) {
   return (
-    <section className="relative overflow-hidden px-4 pb-16 pt-24 sm:px-6 sm:pb-24 sm:pt-32">
-      {/* Background gradient */}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 via-background to-background" />
+    <section className="relative overflow-hidden bg-background px-5 pb-16 pt-28 sm:px-8 sm:pb-24 sm:pt-40">
+      {/* Diagonal accent */}
+      <div
+        className="absolute -right-32 bottom-0 top-0 w-[600px] opacity-5"
+        style={{
+          background: `repeating-linear-gradient(-45deg, transparent, transparent 40px, var(--color-primary) 40px, var(--color-primary) 42px)`,
+        }}
+      />
 
-      {/* Grid pattern */}
-      <div className="absolute inset-0 -z-10 opacity-[0.03]">
-        <div className="h-full w-full bg-[linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] bg-[size:4rem_4rem]" />
-      </div>
+      {/* Geometric shapes */}
+      <div className="absolute right-20 top-32 hidden h-20 w-20 rotate-12 border-[3px] border-primary opacity-10 lg:block" />
+      <div className="absolute left-16 top-48 hidden h-12 w-12 rotate-45 bg-primary opacity-10 lg:block" />
 
-      <div className="mx-auto max-w-4xl text-center">
-        {/* Badge */}
-        <div className="mb-6 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-sm text-primary">
-          <span className="mr-2 h-2 w-2 rounded-full bg-primary" />
-          Session management for modern teams
-        </div>
+      <div className="relative mx-auto max-w-5xl">
+        <div className="mx-auto max-w-3xl text-center">
+          {/* Badge */}
+          <div className="landing-slide-right landing-body mb-6 inline-flex items-center gap-2 rounded border border-primary px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary">
+            <Zap className="h-3 w-3" />
+            Session management for modern teams
+          </div>
 
-        <h1 className="text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
-          Run Sessions,{" "}
-          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Not Spreadsheets
-          </span>
-        </h1>
+          <h1 className="landing-display landing-slide-up landing-slide-up-1 text-5xl font-bold leading-none text-foreground sm:text-6xl lg:text-8xl">
+            Run Sessions,{" "}
+            <br className="hidden sm:block" />
+            <span className="text-primary">Not Spreadsheets</span>
+          </h1>
 
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-          The modern way to manage recurring group activities. Create sessions,
-          handle capacity, track attendance — all in one place.
-        </p>
+          <p className="landing-body landing-slide-up landing-slide-up-2 mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
+            The modern way to manage recurring group activities. Create sessions,
+            handle capacity, track attendance — all in one place.
+          </p>
 
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          {isLoggedIn ? (
-            <Button asChild size="lg" className="group w-full sm:w-auto">
-              <Link to="/dashboard">
-                Go to Dashboard
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+          <div className="landing-slide-up landing-slide-up-3 mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            {isLoggedIn ? (
+              <Link
+                to="/dashboard"
+                className="group inline-flex items-center justify-center gap-2 bg-primary px-8 py-4 text-base font-bold text-primary-foreground transition-all"
+                style={{ clipPath: "polygon(0% 0%, 95% 0%, 100% 50%, 95% 100%, 0% 100%, 5% 50%)" }}
+              >
+                GO TO DASHBOARD
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
-            </Button>
-          ) : (
-            <>
-              <Button asChild size="lg" className="group w-full sm:w-auto">
-                <Link to="/register">
-                  Start Free
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            ) : (
+              <>
+                <Link
+                  to="/register"
+                  className="group inline-flex items-center justify-center gap-2 bg-primary px-8 py-4 text-base font-bold text-primary-foreground transition-all"
+                  style={{ clipPath: "polygon(0% 0%, 95% 0%, 100% 50%, 95% 100%, 0% 100%, 5% 50%)" }}
+                >
+                  START FREE
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
-              </Button>
-              <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-                <Link to="/login">Sign In</Link>
-              </Button>
-            </>
-          )}
+                <Link
+                  to="/login"
+                  className="inline-flex items-center justify-center gap-2 border border-[var(--color-primary-border)] px-8 py-4 text-base font-semibold text-primary transition-colors"
+                >
+                  Sign In
+                </Link>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Stats */}
-        <div className="mt-16 grid grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary sm:text-3xl">1 Free</div>
-            <div className="mt-1 text-sm text-muted-foreground">Group forever</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary sm:text-3xl">200</div>
-            <div className="mt-1 text-sm text-muted-foreground">Members included</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary sm:text-3xl">$1</div>
-            <div className="mt-1 text-sm text-muted-foreground">Then $10/mo</div>
-          </div>
+        {/* Stats bar */}
+        <div className="landing-slide-up landing-slide-up-4 mx-auto mt-14 grid max-w-2xl grid-cols-3 border-y border-[var(--color-primary-border)]">
+          {[
+            { val: "1 FREE", label: "Group forever" },
+            { val: "200", label: "Members included" },
+            { val: "$1", label: "Then $10/mo" },
+          ].map((s) => (
+            <div key={s.label} className="py-5 text-center">
+              <div className="landing-display text-2xl font-bold text-primary sm:text-3xl">
+                {s.val}
+              </div>
+              <div className="landing-body mt-1 text-xs uppercase tracking-widest text-muted-foreground">
+                {s.label}
+              </div>
+            </div>
+          ))}
         </div>
+
+        <DashboardMockup />
       </div>
-
-      {/* Dashboard Mockup */}
-      <DashboardMockup />
     </section>
   )
 }

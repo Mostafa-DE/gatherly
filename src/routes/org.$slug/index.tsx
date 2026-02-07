@@ -79,7 +79,6 @@ function PublicOrgPage() {
   })
 
   const formFields = (formSchemaData?.joinFormSchema as { fields?: FormField[] } | null)?.fields || []
-  const hasRequiredFields = formFields.some((f) => f.required)
 
   // Check for unanswered optional fields to show reminder banner
   const unfilledOptionalFields = formFields.filter((f) => {

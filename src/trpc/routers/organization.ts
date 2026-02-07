@@ -100,7 +100,7 @@ export const organizationRouter = router({
   joinOrg: protectedProcedure
     .input(z.object({
       organizationId: z.string(),
-      formAnswers: z.record(z.unknown()).optional(),
+      formAnswers: z.record(z.string(), z.unknown()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const result = await joinOrganization(

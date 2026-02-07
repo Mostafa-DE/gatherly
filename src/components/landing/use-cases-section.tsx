@@ -9,7 +9,7 @@ import {
   Briefcase,
 } from "lucide-react"
 
-const useCases = [
+const cases = [
   { icon: Dumbbell, label: "Fitness Classes" },
   { icon: BookOpen, label: "Book Clubs" },
   { icon: Gamepad2, label: "Gaming Groups" },
@@ -22,36 +22,30 @@ const useCases = [
 
 export function UseCasesSection() {
   return (
-    <section className="relative overflow-hidden py-12 sm:py-16">
-      {/* Gradient line top */}
-      <div className="absolute left-0 right-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-      {/* Gradient line bottom */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-
-      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+    <section className="border-y border-border bg-card px-5 py-16 sm:px-8 sm:py-20">
+      <div className="mx-auto max-w-6xl">
         <div className="text-center">
-          <span className="text-sm font-medium uppercase tracking-wider text-primary">
+          <span className="landing-body text-xs font-bold uppercase tracking-[0.2em] text-primary">
             Use Cases
           </span>
-          <h2 className="mt-2 text-2xl font-bold sm:text-3xl">
+          <h2 className="landing-display mt-2 text-2xl font-bold text-foreground sm:text-3xl">
             Built for Recurring Activities
           </h2>
-          <p className="mt-3 text-muted-foreground">
+          <p className="landing-body mt-3 text-muted-foreground">
             From weekly training sessions to monthly meetups — if it repeats, Gatherly helps.
           </p>
         </div>
 
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
-          {useCases.map((useCase) => (
+        <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {cases.map((c) => (
             <div
-              key={useCase.label}
-              className="group relative flex items-center gap-2.5 overflow-hidden rounded-full border bg-card px-5 py-2.5 text-sm font-medium shadow-sm transition-all hover:border-primary/50 hover:shadow-md"
+              key={c.label}
+              className="group flex items-center gap-3 border border-[var(--color-primary-border)] bg-background p-4 transition-all"
             >
-              {/* Hover gradient */}
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-
-              <useCase.icon className="relative h-4 w-4 text-primary transition-transform group-hover:scale-110" />
-              <span className="relative">{useCase.label}</span>
+              <c.icon className="h-5 w-5 shrink-0 text-primary" />
+              <span className="landing-body text-sm font-semibold text-foreground">
+                {c.label}
+              </span>
             </div>
           ))}
         </div>

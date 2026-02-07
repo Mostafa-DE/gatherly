@@ -19,7 +19,7 @@ function HomePage() {
   const isLoggedIn = !isPending && !!session?.user
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="landing-body">
       <LandingNavbar isLoggedIn={isLoggedIn} />
       <HeroSection isLoggedIn={isLoggedIn} />
       <ProblemSection />

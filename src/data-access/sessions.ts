@@ -289,7 +289,6 @@ export async function createSession(
   createdBy: string,
   data: CreateSessionInput
 ): Promise<EventSession> {
-
   const [session] = await db
     .insert(eventSession)
     .values({

@@ -93,6 +93,10 @@ export const userRouter = router({
         headers: ctx.headers,
       })
 
+      if (!org?.id) {
+        throw new BadRequestError("Failed to create organization")
+      }
+
       // Create organization settings with currency if provided
       if (input.currency) {
         await ctx.db.insert(organizationSettings).values({

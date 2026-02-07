@@ -1,13 +1,14 @@
 import { db } from "@/db"
 import type { User, Session } from "@/db/schema"
+import type { auth } from "@/auth"
 
 /**
  * Auth session shape from Better Auth.
  * Used to type the session data passed from request middleware.
  */
 export type AuthSession = {
-  user?: User
-  session?: Session
+  user?: User | NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>["user"]
+  session?: Session | NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>["session"]
 }
 
 /**
@@ -16,7 +17,7 @@ export type AuthSession = {
  */
 export function createTRPCContext(
   authSession: Partial<AuthSession>,
-  headers?: Headers
+  headers: Headers = new Headers()
 ) {
   const { user, session } = authSession || {}
 

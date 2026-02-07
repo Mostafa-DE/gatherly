@@ -8,7 +8,7 @@ import { useState } from 'react'
 
 import { trpc, getTrpcClient } from '@/lib/trpc'
 
-import appCss from '../styles.css?url'
+import appCss from '@/styles.css?url'
 
 function NotFound() {
   return (

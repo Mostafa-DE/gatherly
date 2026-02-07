@@ -1,43 +1,42 @@
 import { Link } from "@tanstack/react-router"
-import { Calendar } from "lucide-react"
+import { Zap } from "lucide-react"
 
 export function LandingFooter() {
-  const currentYear = new Date().getFullYear()
+  const year = new Date().getFullYear()
 
   return (
-    <footer className="border-t border-border/50 bg-card">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+    <footer className="border-t border-border bg-background px-5 py-12 sm:px-8">
+      <div className="mx-auto max-w-6xl">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <Calendar className="h-4 w-4 text-primary-foreground" />
+              <div
+                className="flex h-6 w-6 items-center justify-center bg-primary"
+                style={{ clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)" }}
+              >
+                <Zap className="h-3 w-3 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold">Gatherly</span>
+              <span className="landing-display text-sm font-bold text-foreground">
+                Gatherly
+              </span>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
+            <p className="landing-body mt-3 text-sm text-muted-foreground">
               Session management for modern teams. Simple, focused, effective.
             </p>
           </div>
 
           {/* Product */}
           <div>
-            <h3 className="text-sm font-semibold">Product</h3>
+            <h3 className="landing-body text-sm font-semibold text-foreground">Product</h3>
             <ul className="mt-3 space-y-2">
               <li>
-                <Link
-                  to="/register"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
+                <Link to="/register" className="landing-body text-sm text-muted-foreground transition-colors hover:text-foreground">
                   Get Started
                 </Link>
               </li>
               <li>
-                <Link
-                  to="/login"
-                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                >
+                <Link to="/login" className="landing-body text-sm text-muted-foreground transition-colors hover:text-foreground">
                   Sign In
                 </Link>
               </li>
@@ -46,45 +45,29 @@ export function LandingFooter() {
 
           {/* Resources */}
           <div>
-            <h3 className="text-sm font-semibold">Resources</h3>
+            <h3 className="landing-body text-sm font-semibold text-foreground">Resources</h3>
             <ul className="mt-3 space-y-2">
-              <li>
-                <span className="text-sm text-muted-foreground/50">
-                  Documentation (Coming Soon)
-                </span>
-              </li>
-              <li>
-                <span className="text-sm text-muted-foreground/50">
-                  API (Coming Soon)
-                </span>
-              </li>
+              <li><span className="landing-body text-sm text-[var(--color-text-disabled)]">Documentation (Coming Soon)</span></li>
+              <li><span className="landing-body text-sm text-[var(--color-text-disabled)]">API (Coming Soon)</span></li>
             </ul>
           </div>
 
           {/* Legal */}
           <div>
-            <h3 className="text-sm font-semibold">Legal</h3>
+            <h3 className="landing-body text-sm font-semibold text-foreground">Legal</h3>
             <ul className="mt-3 space-y-2">
-              <li>
-                <span className="text-sm text-muted-foreground/50">
-                  Privacy Policy (Coming Soon)
-                </span>
-              </li>
-              <li>
-                <span className="text-sm text-muted-foreground/50">
-                  Terms of Service (Coming Soon)
-                </span>
-              </li>
+              <li><span className="landing-body text-sm text-[var(--color-text-disabled)]">Privacy Policy (Coming Soon)</span></li>
+              <li><span className="landing-body text-sm text-[var(--color-text-disabled)]">Terms of Service (Coming Soon)</span></li>
             </ul>
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border/50 pt-6 sm:flex-row">
-          <p className="text-sm text-muted-foreground">
-            &copy; {currentYear} Gatherly. All rights reserved.
+        <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
+          <p className="landing-body text-sm text-muted-foreground">
+            &copy; {year} Gatherly. All rights reserved.
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="landing-body text-sm text-muted-foreground">
             Built for organizers who want simplicity.
           </p>
         </div>

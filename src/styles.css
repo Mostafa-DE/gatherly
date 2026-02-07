@@ -1,107 +1,234 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600;700&display=swap");
 @import "tailwindcss" source("./");
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  /* Light mode colors (default) */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(240 10% 10%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(240 10% 10%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(240 10% 10%);
-  --color-primary: hsl(175 50% 40%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(240 5% 96%);
-  --color-secondary-foreground: hsl(240 10% 10%);
-  --color-muted: hsl(240 5% 96%);
-  --color-muted-foreground: hsl(240 5% 45%);
-  --color-accent: hsl(240 5% 96%);
-  --color-accent-foreground: hsl(240 10% 10%);
-  --color-destructive: hsl(0 84% 60%);
-  --color-destructive-foreground: hsl(0 0% 100%);
-  --color-border: hsl(240 5% 90%);
-  --color-input: hsl(240 5% 90%);
-  --color-ring: hsl(175 50% 40%);
-  --color-chart-1: hsl(175 50% 40%);
-  --color-chart-2: hsl(200 70% 50%);
-  --color-chart-3: hsl(30 80% 55%);
-  --color-chart-4: hsl(280 65% 60%);
-  --color-chart-5: hsl(340 75% 55%);
-  --color-sidebar: hsl(0 0% 98%);
-  --color-sidebar-foreground: hsl(240 10% 10%);
-  --color-sidebar-primary: hsl(175 50% 40%);
-  --color-sidebar-primary-foreground: hsl(0 0% 100%);
-  --color-sidebar-accent: hsl(240 5% 96%);
-  --color-sidebar-accent-foreground: hsl(240 10% 10%);
-  --color-sidebar-border: hsl(240 5% 90%);
-  --color-sidebar-ring: hsl(175 50% 40%);
+  /* ===== Light mode (default) — Gatherly Design System ===== */
 
+  /* Backgrounds — warm cream */
+  --color-background: #EDE9E3;
+  --color-foreground: #1C1C1A;
+
+  /* Cards & surfaces */
+  --color-card: #F5F3F0;
+  --color-card-foreground: #1C1C1A;
+
+  /* Popovers (elevated surface) */
+  --color-popover: #FAFAF8;
+  --color-popover-foreground: #1C1C1A;
+
+  /* Primary — Deep Teal (brand, nav, links, selected states) */
+  --color-primary: #0D7377;
+  --color-primary-foreground: #FFFFFF;
+
+  /* Secondary — subtle warm neutral */
+  --color-secondary: #F5F3F0;
+  --color-secondary-foreground: #3D3D3B;
+
+  /* Muted — subdued backgrounds & text */
+  --color-muted: #F5F3F0;
+  --color-muted-foreground: #78756F;
+
+  /* Accent — subtle hover/selected bg (used by shadcn internally) */
+  --color-accent: #F5F3F0;
+  --color-accent-foreground: #3D3D3B;
+
+  /* CTA — uses primary teal for action buttons */
+  --color-cta: #0D7377;
+  --color-cta-foreground: #FFFFFF;
+
+  /* Destructive */
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+
+  /* Borders & inputs — warm gray (darker for visibility) */
+  --color-border: #C8C4BD;
+  --color-input: #C8C4BD;
+  --color-ring: #0D7377;
+
+  /* Charts — using brand + status colors */
+  --color-chart-1: #0D7377;
+  --color-chart-2: #3FB5B9;
+  --color-chart-3: #16A34A;
+  --color-chart-4: #CA8A04;
+  --color-chart-5: #DC2626;
+
+  /* Sidebar */
+  --color-sidebar: #EDE9E3;
+  --color-sidebar-foreground: #1C1C1A;
+  --color-sidebar-primary: #0D7377;
+  --color-sidebar-primary-foreground: #FFFFFF;
+  --color-sidebar-accent: #F5F3F0;
+  --color-sidebar-accent-foreground: #3D3D3B;
+  --color-sidebar-border: #C8C4BD;
+  --color-sidebar-ring: #0D7377;
+
+  /* Radius — 8px base per design system */
   --radius-lg: 0.5rem;
   --radius-md: calc(var(--radius-lg) - 2px);
   --radius-sm: calc(var(--radius-lg) - 4px);
 }
 
-/* Light mode root variables */
+/* Extra semantic tokens from design system (light mode) */
 :root {
-  --sidebar: hsl(0 0% 98%);
-  --sidebar-foreground: hsl(240 10% 10%);
-  --sidebar-primary: hsl(175 50% 40%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(240 5% 96%);
-  --sidebar-accent-foreground: hsl(240 10% 10%);
-  --sidebar-border: hsl(240 5% 90%);
-  --sidebar-ring: hsl(175 50% 40%);
+  /* Primary utilities */
+  --color-primary-light: #3FB5B9;
+  --color-primary-subtle: rgba(13, 115, 119, 0.08);
+  --color-primary-hover: rgba(13, 115, 119, 0.12);
+
+  --color-primary-border: rgba(13, 115, 119, 0.15);
+  --color-primary-highlight: rgba(13, 115, 119, 0.05);
+
+  /* Accent utilities */
+  --color-accent-hover: rgba(13, 115, 119, 0.12);
+
+  /* Nav backdrop */
+  --color-nav-bg: rgba(237, 233, 227, 0.95);
+
+  /* Disabled / placeholder text */
+  --color-text-disabled: rgba(120, 117, 111, 0.5);
+
+  /* Elevated surface (nested cards, popovers, tooltips) */
+  --color-surface-elevated: #FAFAF8;
+
+  /* Text semantic tokens */
+  --color-text-heading: #1C1C1A;
+  --color-text-body: #3D3D3B;
+  --color-text-muted: #78756F;
+
+  /* Status colors */
+  --color-status-success: #16A34A;
+  --color-status-warning: #CA8A04;
+  --color-status-danger: #DC2626;
+  --color-status-inactive: #6B7280;
+
+  /* Status badge backgrounds */
+  --color-badge-success-bg: #F0FDF4;
+  --color-badge-warning-bg: #FEFCE8;
+  --color-badge-danger-bg: #FEF2F2;
+  --color-badge-inactive-bg: #F3F4F6;
+
+  /* Sidebar vars (for @theme inline) */
+  --sidebar: #EDE9E3;
+  --sidebar-foreground: #1C1C1A;
+  --sidebar-primary: #0D7377;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F5F3F0;
+  --sidebar-accent-foreground: #3D3D3B;
+  --sidebar-border: #C8C4BD;
+  --sidebar-ring: #0D7377;
 }
 
-/* Dark mode - applied via .dark class on html */
-/* Reduced contrast between background and cards for a more subtle look */
+/* ===== Dark mode — cool navy, not warm brown ===== */
 .dark {
-  --color-background: hsl(240 6% 10%);
-  --color-foreground: hsl(0 0% 95%);
-  --color-card: hsl(240 6% 12%);
-  --color-card-foreground: hsl(0 0% 95%);
-  --color-popover: hsl(240 6% 12%);
-  --color-popover-foreground: hsl(0 0% 95%);
-  --color-primary: hsl(175 50% 45%);
-  --color-primary-foreground: hsl(240 6% 10%);
-  --color-secondary: hsl(240 5% 16%);
-  --color-secondary-foreground: hsl(0 0% 95%);
-  --color-muted: hsl(240 5% 16%);
-  --color-muted-foreground: hsl(240 5% 65%);
-  --color-accent: hsl(240 5% 16%);
-  --color-accent-foreground: hsl(0 0% 95%);
-  --color-destructive: hsl(0 70% 50%);
-  --color-destructive-foreground: hsl(0 0% 95%);
-  --color-border: hsl(240 5% 20%);
-  --color-input: hsl(240 5% 20%);
-  --color-ring: hsl(175 50% 45%);
-  --color-chart-1: hsl(175 50% 45%);
-  --color-chart-2: hsl(200 70% 50%);
-  --color-chart-3: hsl(30 80% 55%);
-  --color-chart-4: hsl(280 65% 60%);
-  --color-chart-5: hsl(340 75% 55%);
-  --color-sidebar: hsl(240 6% 9%);
-  --color-sidebar-foreground: hsl(0 0% 95%);
-  --color-sidebar-primary: hsl(175 50% 45%);
-  --color-sidebar-primary-foreground: hsl(240 6% 10%);
-  --color-sidebar-accent: hsl(240 5% 15%);
-  --color-sidebar-accent-foreground: hsl(0 0% 95%);
-  --color-sidebar-border: hsl(240 5% 18%);
-  --color-sidebar-ring: hsl(175 50% 45%);
+  /* Backgrounds — deep navy */
+  --color-background: #0A0E1A;
+  --color-foreground: #F5F5F7;
 
-  /* Sidebar variables */
-  --sidebar: hsl(240 6% 9%);
-  --sidebar-foreground: hsl(0 0% 95%);
-  --sidebar-primary: hsl(175 50% 45%);
-  --sidebar-primary-foreground: hsl(240 6% 10%);
-  --sidebar-accent: hsl(240 5% 15%);
-  --sidebar-accent-foreground: hsl(0 0% 95%);
-  --sidebar-border: hsl(240 5% 18%);
-  --sidebar-ring: hsl(175 50% 45%);
+  /* Cards (surface) */
+  --color-card: #151B2E;
+  --color-card-foreground: #F5F5F7;
+
+  /* Popovers (elevated surface) */
+  --color-popover: #1A2138;
+  --color-popover-foreground: #F5F5F7;
+
+  /* Primary — lighter teal for dark bg contrast */
+  --color-primary: #3FB5B9;
+  --color-primary-foreground: #0A0E1A;
+
+  /* Secondary */
+  --color-secondary: #151B2E;
+  --color-secondary-foreground: #C1C5D0;
+
+  /* Muted */
+  --color-muted: #151B2E;
+  --color-muted-foreground: #8892A4;
+
+  /* Accent — subtle hover/selected bg (dark) */
+  --color-accent: #151B2E;
+  --color-accent-foreground: #C1C5D0;
+
+  /* CTA — lighter teal for dark bg */
+  --color-cta: #3FB5B9;
+  --color-cta-foreground: #0A0E1A;
+
+  /* Destructive */
+  --color-destructive: #F87171;
+  --color-destructive-foreground: #F5F5F7;
+
+  /* Borders — navy-tinted */
+  --color-border: #1E2740;
+  --color-input: #1E2740;
+  --color-ring: #3FB5B9;
+
+  /* Charts */
+  --color-chart-1: #3FB5B9;
+  --color-chart-2: #7ACFD2;
+  --color-chart-3: #4ADE80;
+  --color-chart-4: #FACC15;
+  --color-chart-5: #F87171;
+
+  /* Sidebar */
+  --color-sidebar: #0A0E1A;
+  --color-sidebar-foreground: #F5F5F7;
+  --color-sidebar-primary: #3FB5B9;
+  --color-sidebar-primary-foreground: #0A0E1A;
+  --color-sidebar-accent: #151B2E;
+  --color-sidebar-accent-foreground: #C1C5D0;
+  --color-sidebar-border: #1E2740;
+  --color-sidebar-ring: #3FB5B9;
+
+  /* Primary utilities */
+  --color-primary-light: #7ACFD2;
+  --color-primary-subtle: rgba(63, 181, 185, 0.12);
+  --color-primary-hover: rgba(63, 181, 185, 0.18);
+  --color-primary-border: rgba(63, 181, 185, 0.18);
+  --color-primary-highlight: rgba(63, 181, 185, 0.08);
+
+  /* Accent utilities */
+  --color-accent-hover: rgba(63, 181, 185, 0.18);
+
+  /* Nav backdrop */
+  --color-nav-bg: rgba(10, 14, 26, 0.95);
+
+  /* Disabled / placeholder text */
+  --color-text-disabled: rgba(136, 146, 164, 0.5);
+
+  /* Elevated surface */
+  --color-surface-elevated: #1A2138;
+
+  /* Text semantic tokens */
+  --color-text-heading: #F5F5F7;
+  --color-text-body: #C1C5D0;
+  --color-text-muted: #8892A4;
+
+  /* Status colors — lighter for dark bg */
+  --color-status-success: #4ADE80;
+  --color-status-warning: #FACC15;
+  --color-status-danger: #F87171;
+  --color-status-inactive: #9CA3AF;
+
+  /* Status badge backgrounds — semi-transparent */
+  --color-badge-success-bg: rgba(74, 222, 128, 0.15);
+  --color-badge-warning-bg: rgba(250, 204, 21, 0.15);
+  --color-badge-danger-bg: rgba(248, 113, 113, 0.15);
+  --color-badge-inactive-bg: rgba(156, 163, 175, 0.12);
+
+  /* Sidebar vars */
+  --sidebar: #0A0E1A;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-primary: #3FB5B9;
+  --sidebar-primary-foreground: #0A0E1A;
+  --sidebar-accent: #151B2E;
+  --sidebar-accent-foreground: #C1C5D0;
+  --sidebar-border: #1E2740;
+  --sidebar-ring: #3FB5B9;
 }
 
 @theme inline {
@@ -123,3 +250,39 @@
     @apply bg-background text-foreground font-sans;
   }
 }
+
+/* ===== Landing page typography & animations ===== */
+.landing-display {
+  font-family: "Oswald", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+.landing-body {
+  font-family: "Barlow", sans-serif;
+}
+
+@keyframes landing-slide-right {
+  from { transform: translateX(-60px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes landing-slide-up {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes landing-glow-light {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(13, 115, 119, 0.25); }
+  50% { box-shadow: 0 0 24px 4px rgba(13, 115, 119, 0.12); }
+}
+@keyframes landing-glow-dark {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 181, 185, 0.3); }
+  50% { box-shadow: 0 0 24px 4px rgba(63, 181, 185, 0.15); }
+}
+
+.landing-slide-right { animation: landing-slide-right 0.6s ease-out both; }
+.landing-slide-up { animation: landing-slide-up 0.5s ease-out both; }
+.landing-slide-up-1 { animation-delay: 0.1s; }
+.landing-slide-up-2 { animation-delay: 0.2s; }
+.landing-slide-up-3 { animation-delay: 0.3s; }
+.landing-slide-up-4 { animation-delay: 0.4s; }
+.landing-glow { animation: landing-glow-light 3s ease-in-out infinite; }
+.dark .landing-glow { animation: landing-glow-dark 3s ease-in-out infinite; }

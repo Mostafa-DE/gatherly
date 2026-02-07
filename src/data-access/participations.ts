@@ -7,7 +7,8 @@ import type {
   AttendanceStatus,
   PaymentStatus,
 } from "@/lib/sessions/state-machine";
-import type { PgTransaction } from "drizzle-orm/pg-core";
+
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 // =============================================================================
 // Helper: Check if error is a unique constraint violation
@@ -22,7 +23,7 @@ function isUniqueConstraintError(error: unknown): boolean {
  * Used to prevent double-booking a person
  */
 async function assertNoConflictingParticipation(
-  tx: PgTransaction<any, any, any>,
+  tx: DbTransaction,
   userId: string,
   sessionDateTime: Date | string,
   excludeSessionId: string

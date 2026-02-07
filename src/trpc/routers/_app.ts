@@ -1,11 +1,11 @@
 import { router } from "@/trpc";
-import { userRouter } from "./user";
-import { sessionRouter } from "./session";
-import { participationRouter } from "./participation";
-import { groupMemberProfileRouter } from "./group-member-profile";
-import { organizationSettingsRouter } from "./organization-settings";
-import { joinRequestRouter } from "./join-request";
-import { organizationRouter } from "./organization";
+import { userRouter } from "@/trpc/routers/user";
+import { sessionRouter } from "@/trpc/routers/session";
+import { participationRouter } from "@/trpc/routers/participation";
+import { groupMemberProfileRouter } from "@/trpc/routers/group-member-profile";
+import { organizationSettingsRouter } from "@/trpc/routers/organization-settings";
+import { joinRequestRouter } from "@/trpc/routers/join-request";
+import { organizationRouter } from "@/trpc/routers/organization";
 
 export const appRouter = router({
   user: userRouter,

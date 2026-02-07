@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   Calendar,
   Users,
-  Clock,
   ArrowRight,
   MapPin,
   TrendingUp,

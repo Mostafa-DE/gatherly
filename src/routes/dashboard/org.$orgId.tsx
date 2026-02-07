@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { organization as orgClient } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
@@ -22,7 +22,6 @@ export const Route = createFileRoute("/dashboard/org/$orgId")({
 
 function OrgLayout() {
   const { orgId } = Route.useParams()
-  const navigate = useNavigate()
   const utils = trpc.useUtils()
   const [bannerDismissed, setBannerDismissed] = useState(false)
 
@@ -110,7 +109,7 @@ function OrgLayout() {
 
   // Calculate unfilled optional fields
   const formFields = (settings?.joinFormSchema as { fields?: FormField[] } | null)?.fields || []
-  const profileData = (myProfile?.profileData as Record<string, unknown>) || {}
+  const profileData = (myProfile?.answers as Record<string, unknown>) || {}
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
 
   const unfilledOptionalFields = formFields.filter((f) => {

@@ -36,6 +36,7 @@ export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
 
 const TIMEZONE_EMPTY_VALUE = "__unset__"
 const CURRENCY_EMPTY_VALUE = "__unset__"
+type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number]
 
 function SettingsPage() {
   const { orgId } = Route.useParams()
@@ -59,7 +60,9 @@ function SettingsPage() {
   const [joinMode, setJoinMode] = useState<"open" | "invite" | "approval">(
     (org?.defaultJoinMode as "open" | "invite" | "approval") || "invite"
   )
-  const [currency, setCurrency] = useState(settings?.currency || "")
+  const [currency, setCurrency] = useState<SupportedCurrency | "">(
+    (settings?.currency as SupportedCurrency | null) ?? ""
+  )
   const [generalError, setGeneralError] = useState("")
   const timezones = useMemo(() => getTimezones(), [])
 
@@ -69,7 +72,7 @@ function SettingsPage() {
   }, [org?.timezone, org?.defaultJoinMode])
 
   useEffect(() => {
-    setCurrency(settings?.currency || "")
+    setCurrency((settings?.currency as SupportedCurrency | null) ?? "")
   }, [settings?.currency])
 
   const generalDirty =
@@ -109,7 +112,7 @@ function SettingsPage() {
   const handleSaveCurrency = () => {
     setGeneralError("")
     updateCurrency.mutate({
-      currency: currency || null,
+      currency: currency === "" ? null : currency,
     })
   }
 
@@ -365,7 +368,9 @@ function SettingsPage() {
             <Select
               value={currency || CURRENCY_EMPTY_VALUE}
               onValueChange={(value) =>
-                setCurrency(value === CURRENCY_EMPTY_VALUE ? "" : value)
+                setCurrency(
+                  value === CURRENCY_EMPTY_VALUE ? "" : (value as SupportedCurrency)
+                )
               }
             >
               <SelectTrigger id="currency" className="bg-background/50 max-w-xs">

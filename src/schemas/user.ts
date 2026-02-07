@@ -1,7 +1,7 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { z } from "zod"
 import { user } from "@/db/schema"
-import { commonFieldsOmit } from "./shared"
+import { commonFieldsOmit } from "@/schemas/shared"
 
 // Schema generated from Drizzle table
 export const userSelectSchema = createSelectSchema(user)

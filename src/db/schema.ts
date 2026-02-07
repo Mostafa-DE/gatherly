@@ -16,10 +16,10 @@ import {
   numeric,
 } from "drizzle-orm/pg-core";
 import { createId } from "@paralleldrive/cuid2";
-import { user, organization, member } from "./auth-schema";
+import { user, organization } from "@/db/auth-schema";
 
 // Re-export auto-generated auth schema
-export * from "./auth-schema";
+export * from "@/db/auth-schema";
 
 // =============================================================================
 // Join Request (for approval-based organization joining)
@@ -286,5 +286,4 @@ export type {
   NewGroupMemberProfile,
   JoinRequest,
   NewJoinRequest,
-} from "./types";
-
+} from "@/db/types";

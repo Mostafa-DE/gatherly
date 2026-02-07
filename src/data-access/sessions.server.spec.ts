@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { createSession, updateSession } from "@/data-access/sessions"
-import { ConflictError } from "@/exceptions"
+import { createSession, getSessionById, getSessionByIdWithDeleted, softDeleteSession, updateSession, updateSessionStatus } from "@/data-access/sessions"
 import {
   cleanupTestData,
   createTestOrganization,
@@ -31,7 +30,7 @@ describe("sessions data-access", () => {
     userId = ""
   })
 
-  it("rejects creating two sessions at the same date and time", async () => {
+  it("allows creating two sessions at the same date and time", async () => {
     const sessionTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
 
     await createSession(organizationId, userId, {
@@ -50,10 +49,10 @@ describe("sessions data-access", () => {
         maxWaitlist: 0,
         joinMode: "open",
       })
-    ).rejects.toBeInstanceOf(ConflictError)
+    ).resolves.toBeTruthy()
   })
 
-  it("rejects updating a session to a conflicting date and time", async () => {
+  it("allows updating a session to a date and time used by another session", async () => {
     const sessionTime = new Date(Date.now() + 3 * 60 * 60 * 1000)
     const otherTime = new Date(Date.now() + 4 * 60 * 60 * 1000)
 
@@ -75,10 +74,50 @@ describe("sessions data-access", () => {
 
     await expect(
       updateSession(sessionB.id, { dateTime: sessionTime })
-    ).rejects.toBeInstanceOf(ConflictError)
+    ).resolves.toBeTruthy()
 
     await expect(
       updateSession(sessionA.id, { dateTime: sessionTime })
     ).resolves.toBeTruthy()
+  })
+
+  it("enforces valid session status transitions", async () => {
+    const session = await createSession(organizationId, userId, {
+      title: "Status Flow",
+      dateTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      maxCapacity: 10,
+      maxWaitlist: 0,
+      joinMode: "open",
+    })
+
+    await expect(
+      updateSessionStatus(session.id, "completed")
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+
+    const published = await updateSessionStatus(session.id, "published")
+    expect(published.status).toBe("published")
+
+    const completed = await updateSessionStatus(session.id, "completed")
+    expect(completed.status).toBe("completed")
+  })
+
+  it("soft deletes session and excludes it from active lookup", async () => {
+    const session = await createSession(organizationId, userId, {
+      title: "Soft Delete",
+      dateTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+      maxCapacity: 10,
+      maxWaitlist: 0,
+      joinMode: "open",
+    })
+
+    const deleted = await softDeleteSession(session.id)
+    expect(deleted.deletedAt).toBeTruthy()
+
+    const activeLookup = await getSessionById(session.id)
+    expect(activeLookup).toBeNull()
+
+    const includeDeletedLookup = await getSessionByIdWithDeleted(session.id)
+    expect(includeDeletedLookup?.id).toBe(session.id)
+    expect(includeDeletedLookup?.deletedAt).toBeTruthy()
   })
 })

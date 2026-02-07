@@ -1,11 +1,11 @@
-import type { user, session, organization, member, invitation } from "./auth-schema";
+import type { user, session, organization, member, invitation } from "@/db/auth-schema";
 import type {
   organizationSettings,
   eventSession,
   participation,
   groupMemberProfile,
   joinRequest,
-} from "./schema";
+} from "@/db/schema";
 
 // Auth types (from Better Auth)
 export type User = typeof user.$inferSelect;

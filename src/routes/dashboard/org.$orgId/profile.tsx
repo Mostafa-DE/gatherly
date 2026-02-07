@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
 import { User, Save, Calendar, History, ChevronDown } from "lucide-react"
 import { Link } from "@tanstack/react-router"
 import type { FormField } from "@/types/form"

@@ -56,6 +56,10 @@ function CreateGroupPage() {
   const utils = trpc.useUtils()
   const createOrg = trpc.user.createOrg.useMutation({
     onSuccess: async (data) => {
+      if (!data?.id) {
+        setError("Failed to create group")
+        return
+      }
       await utils.user.myOrgs.invalidate()
       await orgClient.setActive({ organizationId: data.id })
       await utils.invalidate()

@@ -1,7 +1,6 @@
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { z } from "zod"
 import { joinRequest } from "@/db/schema"
-import { commonFieldsOmit } from "./shared"
 
 // Schema generated from Drizzle table
 export const joinRequestSelectSchema = createSelectSchema(joinRequest)
@@ -15,7 +14,7 @@ export type JoinRequestStatus = z.infer<typeof joinRequestStatusSchema>
 export const createJoinRequestSchema = z.object({
   organizationId: z.string(),
   message: z.string().max(500).optional(),
-  formAnswers: z.record(z.unknown()).optional(),
+  formAnswers: z.record(z.string(), z.unknown()).optional(),
 })
 
 // Cancel join request input

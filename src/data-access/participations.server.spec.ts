@@ -3,11 +3,13 @@ import { eq } from "drizzle-orm"
 import { db } from "@/db"
 import { eventSession, participation } from "@/db/schema"
 import {
+  adminAddParticipant,
   bulkUpdateAttendance,
   cancelParticipation,
   getActiveParticipation,
   getParticipationById,
   joinSession,
+  moveParticipant,
 } from "@/data-access/participations"
 import {
   cleanupTestData,
@@ -155,5 +157,113 @@ describe("participations data-access", () => {
       .limit(1)
 
     expect(updatedRow?.attendance).toBe("show")
+  })
+
+  it("adds participants as joined or waitlisted based on capacity and waitlist limits", async () => {
+    const [session] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Admin Add Capacity",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 1,
+        maxWaitlist: 1,
+        joinMode: "invite_only",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const first = await adminAddParticipant(session.id, attendeeAId)
+    expect(first.status).toBe("joined")
+
+    const second = await adminAddParticipant(session.id, attendeeBId)
+    expect(second.status).toBe("waitlisted")
+  })
+
+  it("moves participant to target session without auto-promoting source waitlist", async () => {
+    const [sourceSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Source Session",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 1,
+        maxWaitlist: 1,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const [targetSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Target Session",
+        dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        maxCapacity: 2,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const sourceJoined = await joinSession(sourceSession.id, attendeeAId)
+    const sourceWaitlisted = await joinSession(sourceSession.id, attendeeBId)
+    expect(sourceJoined.status).toBe("joined")
+    expect(sourceWaitlisted.status).toBe("waitlisted")
+
+    const moved = await moveParticipant(sourceJoined.id, targetSession.id)
+    expect(moved.cancelled.status).toBe("cancelled")
+    expect(moved.created.sessionId).toBe(targetSession.id)
+    expect(moved.created.status).toBe("joined")
+
+    const sourceWaitlistedAfterMove = await getActiveParticipation(
+      sourceSession.id,
+      attendeeBId
+    )
+    expect(sourceWaitlistedAfterMove?.status).toBe("waitlisted")
+  })
+
+  it("rolls back move when target session is full", async () => {
+    const [sourceSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Source Session Rollback",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 2,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const [targetSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Target Session Full",
+        dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        maxCapacity: 1,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const sourceParticipation = await joinSession(sourceSession.id, attendeeAId)
+    await joinSession(targetSession.id, attendeeBId)
+
+    await expect(
+      moveParticipant(sourceParticipation.id, targetSession.id)
+    ).rejects.toMatchObject({ code: "CONFLICT" })
+
+    const sourceAfterFailedMove = await getParticipationById(sourceParticipation.id)
+    expect(sourceAfterFailedMove?.status).toBe("joined")
   })
 })

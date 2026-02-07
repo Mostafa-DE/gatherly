@@ -13,9 +13,9 @@ import {
   SidebarGroupLabel,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { OrgSwitcher } from "./org-switcher"
-import { NavMain } from "./nav-main"
-import { UserMenu } from "./user-menu"
+import { OrgSwitcher } from "@/components/dashboard/org-switcher"
+import { NavMain } from "@/components/dashboard/nav-main"
+import { UserMenu } from "@/components/dashboard/user-menu"
 import { trpc } from "@/lib/trpc"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
