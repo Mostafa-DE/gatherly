@@ -4,14 +4,8 @@ import { useSession } from "@/auth/client"
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import { ShareDialog } from "@/components/share-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/ui/separator"
 import {
   Calendar,
   MapPin,
@@ -19,14 +13,45 @@ import {
   Clock,
   Tag,
   ArrowLeft,
+  ExternalLink,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
 import { buildSessionUrl } from "@/lib/share-urls"
 
-export const Route = createFileRoute("/$username/$groupSlug/sessions/$sessionId")({
+export const Route = createFileRoute(
+  "/$username/$groupSlug/sessions/$sessionId"
+)({
   component: PublicSessionPage,
 })
+
+/* ─────────────────────────── helpers ─────────────────────────── */
+
+function formatDay(date: Date) {
+  return date.getDate()
+}
+
+function formatMonth(date: Date) {
+  return date.toLocaleDateString(undefined, { month: "short" }).toUpperCase()
+}
+
+function formatFullDate(date: Date) {
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  })
+}
+
+/* ─────────────────────────── main page ─────────────────────────── */
 
 function PublicSessionPage() {
   const { username, groupSlug, sessionId } = Route.useParams()
@@ -43,48 +68,46 @@ function PublicSessionPage() {
     sessionId,
   })
 
+  /* ── Loading ── */
   if (isLoading) {
     return (
       <>
-        <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={sessionPending} />
+        <LandingNavbar
+          isLoggedIn={isLoggedIn}
+          isAuthLoading={sessionPending}
+        />
         <div className="mx-auto max-w-2xl px-4 pt-24 pb-12">
-          <Card>
-            <CardHeader>
-              <Skeleton className="h-8 w-64" />
-              <Skeleton className="mt-2 h-4 w-48" />
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-2 w-full rounded-full" />
-            </CardContent>
-          </Card>
+          <PublicSessionSkeleton />
         </div>
       </>
     )
   }
 
+  /* ── Error ── */
   if (error || !data) {
     return (
       <>
-        <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={sessionPending} />
-        <div className="flex min-h-screen items-center justify-center p-4 pt-20">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <CardTitle>Session Not Found</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                This session doesn't exist or isn't publicly available.
-              </p>
-            </CardHeader>
-            <CardFooter className="justify-center">
-              <Button asChild>
-                <Link to="/$username/$groupSlug" params={{ username, groupSlug }}>
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Group
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
+        <LandingNavbar
+          isLoggedIn={isLoggedIn}
+          isAuthLoading={sessionPending}
+        />
+        <div className="flex min-h-[70vh] flex-col items-center justify-center p-4 pt-20 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted mb-4">
+            <Calendar className="h-7 w-7 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">Session Not Found</h2>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm">
+            This session doesn't exist or isn't publicly available.
+          </p>
+          <Button asChild>
+            <Link
+              to="/$username/$groupSlug"
+              params={{ username, groupSlug }}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Group
+            </Link>
+          </Button>
         </div>
       </>
     )
@@ -93,152 +116,258 @@ function PublicSessionPage() {
   const { session: sessionData, organization: org } = data
   const dateObj = new Date(sessionData.dateTime)
   const spotsLeft = sessionData.maxCapacity - sessionData.joinedCount
-  const capacityPercent = (sessionData.joinedCount / sessionData.maxCapacity) * 100
+  const capacityPercent =
+    (sessionData.joinedCount / sessionData.maxCapacity) * 100
   const shareUrl = buildSessionUrl(username, groupSlug, sessionId)
 
   return (
     <>
-      <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={sessionPending} />
-      <div className="mx-auto max-w-2xl px-4 pt-24 pb-12">
-        {/* Back link */}
+      <LandingNavbar
+        isLoggedIn={isLoggedIn}
+        isAuthLoading={sessionPending}
+      />
+      <div className="mx-auto max-w-2xl px-4 pt-24 pb-12 space-y-6">
+        {/* ── Back link ── */}
         <Link
           to="/$username/$groupSlug"
           params={{ username, groupSlug }}
-          className="mb-6 inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ArrowLeft className="mr-1 h-4 w-4" />
+          <ArrowLeft className="mr-1.5 h-4 w-4" />
           {org.name}
         </Link>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                  <Calendar className="h-7 w-7 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl">{sessionData.title}</CardTitle>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Hosted by {org.name}
-                  </p>
-                </div>
+        {/* ── Hero card ── */}
+        <div className="rounded-xl border bg-card overflow-hidden">
+          <div className="p-6 sm:p-8">
+            {/* Header: date badge + title */}
+            <div className="flex gap-5">
+              <div className="flex flex-col items-center justify-center rounded-xl bg-primary/10 px-4 py-3 min-w-[4.5rem] shrink-0">
+                <span className="text-2xl font-bold text-primary leading-none">
+                  {formatDay(dateObj)}
+                </span>
+                <span className="text-xs font-semibold text-primary/70 mt-0.5">
+                  {formatMonth(dateObj)}
+                </span>
               </div>
-              <ShareDialog url={shareUrl} title={sessionData.title} type="session" groupName={org.name} username={username} />
+              <div className="flex-1 min-w-0">
+                <h1 className="text-2xl font-bold leading-tight mb-1">
+                  {sessionData.title}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Hosted by{" "}
+                  <Link
+                    to="/$username/$groupSlug"
+                    params={{ username, groupSlug }}
+                    className="font-medium text-foreground hover:text-primary transition-colors"
+                  >
+                    {org.name}
+                  </Link>
+                </p>
+              </div>
+              <div className="shrink-0 hidden sm:block">
+                <ShareDialog
+                  url={shareUrl}
+                  title={sessionData.title}
+                  type="session"
+                  groupName={org.name}
+                  username={username}
+                />
+              </div>
             </div>
-          </CardHeader>
 
-          <CardContent className="space-y-6">
-            {/* Details grid */}
+            <Separator className="my-5" />
+
+            {/* ── Details grid ── */}
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                <Clock className="h-5 w-5 text-muted-foreground" />
+              {/* Date & time */}
+              <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <Clock className="h-4 w-4 text-primary" />
+                </div>
                 <div>
                   <p className="text-sm font-medium">
-                    {dateObj.toLocaleDateString(undefined, {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatFullDate(dateObj)}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {dateObj.toLocaleTimeString(undefined, {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
+                    {formatTime(dateObj)}
                   </p>
                 </div>
               </div>
 
+              {/* Location */}
               {sessionData.location && (
-                <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
-                  <p className="text-sm font-medium">{sessionData.location}</p>
+                <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                    <MapPin className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">
+                      {sessionData.location}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Location</p>
+                  </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                <Users className="h-5 w-5 text-muted-foreground" />
+              {/* Capacity */}
+              <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <Users className="h-4 w-4 text-primary" />
+                </div>
                 <div>
                   <p className="text-sm font-medium">
-                    {sessionData.joinedCount}/{sessionData.maxCapacity} spots filled
+                    {sessionData.joinedCount}/{sessionData.maxCapacity}{" "}
+                    joined
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p
+                    className={cn(
+                      "text-sm",
+                      spotsLeft === 0
+                        ? "text-[var(--color-status-danger)] font-medium"
+                        : spotsLeft <= 3
+                          ? "text-[var(--color-status-warning)] font-medium"
+                          : "text-muted-foreground"
+                    )}
+                  >
                     {spotsLeft > 0
-                      ? `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left`
+                      ? `${spotsLeft} ${spotsLeft === 1 ? "spot" : "spots"} left`
                       : "Full"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                <Tag className="h-5 w-5 text-muted-foreground" />
-                <p
-                  className={cn(
-                    "text-sm font-medium",
-                    hasPrice(sessionData.price)
-                      ? "text-primary"
-                      : "text-green-600"
-                  )}
-                >
-                  {formatPrice(sessionData.price, null)}
-                </p>
+              {/* Price */}
+              <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <Tag className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p
+                    className={cn(
+                      "text-sm font-medium",
+                      hasPrice(sessionData.price)
+                        ? "text-foreground"
+                        : "text-[var(--color-status-success)]"
+                    )}
+                  >
+                    {formatPrice(sessionData.price, null)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Price</p>
+                </div>
               </div>
             </div>
 
-            {/* Capacity bar */}
-            <div>
-              <div className="mb-1 flex justify-between text-sm">
-                <span className="text-muted-foreground">Capacity</span>
-                <span className="font-medium">
-                  {sessionData.joinedCount}/{sessionData.maxCapacity}
+            {/* ── Capacity bar ── */}
+            <div className="mt-5">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+                <span>Capacity</span>
+                <span className="font-medium tabular-nums">
+                  {Math.round(capacityPercent)}%
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
                   className={cn(
-                    "h-full rounded-full transition-all",
+                    "h-full rounded-full transition-all duration-500",
                     capacityPercent >= 100
-                      ? "bg-destructive"
+                      ? "bg-[var(--color-status-danger)]"
                       : capacityPercent >= 80
-                        ? "bg-yellow-500"
+                        ? "bg-[var(--color-status-warning)]"
                         : "bg-primary"
                   )}
-                  style={{ width: `${Math.min(capacityPercent, 100)}%` }}
+                  style={{
+                    width: `${Math.min(capacityPercent, 100)}%`,
+                  }}
                 />
               </div>
             </div>
 
-            {/* Description */}
+            {/* ── Description ── */}
             {sessionData.description && (
-              <div>
-                <h3 className="mb-2 text-sm font-medium">About this session</h3>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {sessionData.description}
-                </p>
-              </div>
+              <>
+                <Separator className="my-5" />
+                <div>
+                  <h3 className="text-sm font-medium mb-2">
+                    About this session
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {sessionData.description}
+                  </p>
+                </div>
+              </>
             )}
-          </CardContent>
+          </div>
 
-          <CardFooter className="flex-col gap-3">
-            {!isLoggedIn ? (
-              <Button asChild className="w-full">
-                <Link to="/login">Sign in to join</Link>
-              </Button>
-            ) : (
-              <Button asChild className="w-full">
-                <Link to="/dashboard">Go to Dashboard</Link>
-              </Button>
-            )}
-            <Button variant="ghost" asChild>
-              <Link to="/$username/$groupSlug" params={{ username, groupSlug }}>
-                View Group
-              </Link>
-            </Button>
-          </CardFooter>
-        </Card>
+          {/* ── CTA footer ── */}
+          <div className="border-t bg-muted/30 px-6 sm:px-8 py-5">
+            <div className="flex flex-col gap-3">
+              {!isLoggedIn ? (
+                <Button asChild size="lg" className="w-full">
+                  <Link to="/login">Sign in to join this session</Link>
+                </Button>
+              ) : (
+                <Button asChild size="lg" className="w-full">
+                  <Link to="/dashboard">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open in Dashboard
+                  </Link>
+                </Button>
+              )}
+              <div className="flex items-center justify-center gap-2">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link
+                    to="/$username/$groupSlug"
+                    params={{ username, groupSlug }}
+                  >
+                    View Group
+                  </Link>
+                </Button>
+                <div className="sm:hidden">
+                  <ShareDialog
+                    url={shareUrl}
+                    title={sessionData.title}
+                    type="session"
+                    groupName={org.name}
+                    username={username}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </>
+  )
+}
+
+/* ─────────────────────────── Skeleton ─────────────────────────── */
+
+function PublicSessionSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-5 w-32" />
+      <div className="rounded-xl border bg-card overflow-hidden">
+        <div className="p-6 sm:p-8 space-y-5">
+          <div className="flex gap-5">
+            <Skeleton className="h-[72px] w-[72px] rounded-xl shrink-0" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-7 w-56" />
+              <Skeleton className="h-4 w-36" />
+            </div>
+          </div>
+          <Skeleton className="h-px w-full" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-16 rounded-lg" />
+            ))}
+          </div>
+          <Skeleton className="h-1.5 w-full rounded-full" />
+        </div>
+        <div className="border-t bg-muted/30 px-6 py-5">
+          <Skeleton className="h-11 w-full rounded-lg" />
+        </div>
+      </div>
+    </div>
   )
 }

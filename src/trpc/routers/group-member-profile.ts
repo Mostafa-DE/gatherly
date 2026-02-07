@@ -19,8 +19,8 @@ import { validateAndUpsertGroupMemberProfile } from "@/use-cases/group-member-pr
 // =============================================================================
 
 function assertAdmin(role: string): void {
-  if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action")
+  if (role !== "owner" && role !== "admin") {
+    throw new ForbiddenError("Only organization owners and admins can perform this action")
   }
 }
 

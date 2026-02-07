@@ -112,19 +112,47 @@ function OrgLayout() {
   const profileData = (myProfile?.answers as Record<string, unknown>) || {}
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
 
-  const unfilledOptionalFields = formFields.filter((f) => {
-    if (f.required) return false
-    const value = profileData[f.id]
-    return value === undefined || value === null || value === "" ||
-           (Array.isArray(value) && value.length === 0)
-  })
+  const isFieldEmpty = (value: unknown) =>
+    value === undefined || value === null || value === "" ||
+    (Array.isArray(value) && value.length === 0)
 
-  // Only show banner for regular members, not admins/owners
-  const showProfileBanner = !isAdmin && !bannerDismissed && unfilledOptionalFields.length > 0
+  const unfilledRequiredFields = formFields.filter((f) =>
+    f.required && isFieldEmpty(profileData[f.id])
+  )
+
+  const unfilledOptionalFields = formFields.filter((f) =>
+    !f.required && isFieldEmpty(profileData[f.id])
+  )
+
+  const hasUnfilledRequired = unfilledRequiredFields.length > 0
+  const hasUnfilledOptional = unfilledOptionalFields.length > 0
+
+  // Required fields: always show (not dismissable), for all members
+  // Optional fields: dismissable, non-admins only
+  const showRequiredBanner = hasUnfilledRequired
+  const showOptionalBanner = !isAdmin && !bannerDismissed && !hasUnfilledRequired && hasUnfilledOptional
 
   return (
     <>
-      {showProfileBanner && (
+      {showRequiredBanner && (
+        <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border-2 border-destructive bg-destructive/20 p-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+            <span className="text-sm font-medium">
+              Complete your profile — <strong>{unfilledRequiredFields.length} required field{unfilledRequiredFields.length !== 1 ? "s" : ""}</strong>
+              {hasUnfilledOptional && ` and ${unfilledOptionalFields.length} optional`} remaining
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button size="sm" variant="destructive" asChild>
+              <Link to="/dashboard/org/$orgId/profile" params={{ orgId }} hash="group-profile">
+                Update Profile
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
+      {showOptionalBanner && (
         <div className="mb-4 flex items-center justify-between gap-4 rounded-lg border-2 border-primary bg-primary/20 p-4">
           <div className="flex items-center gap-3">
             <AlertCircle className="h-5 w-5 text-primary flex-shrink-0" />
@@ -134,7 +162,7 @@ function OrgLayout() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Button size="sm" asChild>
-              <Link to="/dashboard/org/$orgId/profile" params={{ orgId }}>
+              <Link to="/dashboard/org/$orgId/profile" params={{ orgId }} hash="group-profile">
                 Update Profile
               </Link>
             </Button>

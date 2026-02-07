@@ -30,7 +30,7 @@ const mainNavItems: NavItem[] = [
     icon: Calendar,
   },
   {
-    title: "My Profile",
+    title: "Group Profile",
     url: "/dashboard/org/$orgId/profile",
     icon: User,
   },

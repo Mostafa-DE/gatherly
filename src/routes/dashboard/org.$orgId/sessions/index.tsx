@@ -2,8 +2,16 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Plus, Calendar, MapPin, ChevronDown, Tag } from "lucide-react"
+import {
+  Plus,
+  Calendar,
+  MapPin,
+  ChevronDown,
+  Tag,
+  ArrowRight,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
 
@@ -11,51 +19,62 @@ export const Route = createFileRoute("/dashboard/org/$orgId/sessions/")({
   component: SessionsPage,
 })
 
+/* ─────────────────────────── helpers ─────────────────────────── */
+
+const avatarColors = [
+  "bg-blue-500",
+  "bg-green-500",
+  "bg-purple-500",
+  "bg-orange-500",
+]
+
+function getInitials(name: string | null) {
+  if (!name) return "?"
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+/* ─────────────────────────── main page ─────────────────────────── */
+
 function SessionsPage() {
   const { orgId } = Route.useParams()
   const { data: whoami } = trpc.user.whoami.useQuery()
-  const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+  const isAdmin =
+    whoami?.membership?.role === "owner" ||
+    whoami?.membership?.role === "admin"
   const isOwner = whoami?.membership?.role === "owner"
-  const org = whoami?.activeOrganization
 
   const { data: orgSettings } = trpc.organizationSettings.get.useQuery({})
   const orgCurrency = orgSettings?.currency || null
 
   return (
-    <div className="space-y-10 py-6">
-      {/* Hero Section */}
-      <div>
-        {/* Badge */}
-        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-          <Calendar className="mr-2 h-3.5 w-3.5" />
-          Sessions
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Manage{" "}
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Sessions
-              </span>
-            </h1>
-            <p className="mt-2 text-lg text-muted-foreground">
-              Browse, join, and manage all sessions in {org?.name}
-            </p>
-          </div>
-          {isAdmin && (
-            <Button asChild>
-              <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Session
-              </Link>
-            </Button>
-          )}
-        </div>
+    <div className="space-y-8 py-6">
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Sessions</h1>
+        {isAdmin && (
+          <Button asChild>
+            <Link
+              to="/dashboard/org/$orgId/sessions/create"
+              params={{ orgId }}
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              New Session
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Draft Sessions */}
-      <DraftSessions orgId={orgId} isOwner={isOwner} currency={orgCurrency} />
+      <DraftSessions
+        orgId={orgId}
+        isOwner={isOwner}
+        currency={orgCurrency}
+      />
 
       {/* Upcoming Sessions */}
       <UpcomingSessions orgId={orgId} currency={orgCurrency} />
@@ -66,204 +85,262 @@ function SessionsPage() {
   )
 }
 
+/* ─────────────────────────── section components ─────────────────────────── */
+
 const PAGE_SIZE = 10
 
-function DraftSessions({ orgId, isOwner, currency }: { orgId: string; isOwner: boolean; currency: string | null }) {
+function DraftSessions({
+  orgId,
+  isOwner,
+  currency,
+}: {
+  orgId: string
+  isOwner: boolean
+  currency: string | null
+}) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
-  const { data: sessions, isLoading, error, isFetching } =
-    trpc.session.listDraftsWithCounts.useQuery(
-      { limit },
-      { enabled: isOwner }
-    )
+  const {
+    data: sessions,
+    isLoading,
+    error,
+    isFetching,
+  } = trpc.session.listDraftsWithCounts.useQuery(
+    { limit },
+    { enabled: isOwner }
+  )
 
-  if (!isOwner) {
-    return null
-  }
+  if (!isOwner) return null
 
   const hasMore = sessions && sessions.length === limit
 
   if (isLoading) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Draft Sessions</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+      <SessionSection title="Drafts">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2].map((i) => (
             <SessionCardSkeleton key={i} />
           ))}
         </div>
-      </div>
+      </SessionSection>
     )
   }
 
   if (error) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Draft Sessions</h2>
+      <SessionSection title="Drafts">
         <p className="text-sm text-destructive">{error.message}</p>
-      </div>
+      </SessionSection>
     )
   }
 
-  if (!sessions || sessions.length === 0) {
-    return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Draft Sessions</h2>
-        <p className="text-muted-foreground">No draft sessions</p>
-      </div>
-    )
-  }
+  if (!sessions || sessions.length === 0) return null
 
   return (
-    <div>
-      <h2 className="mb-4 text-sm font-medium text-muted-foreground">
-        {sessions.length} draft session{sessions.length !== 1 ? "s" : ""}
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <SessionSection title="Drafts" count={sessions.length}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sessions.map((session) => (
-          <SessionCard key={session.id} session={session} orgId={orgId} currency={currency} />
+          <SessionCard
+            key={session.id}
+            session={session}
+            orgId={orgId}
+            currency={currency}
+          />
         ))}
       </div>
       {hasMore && (
-        <div className="mt-4 text-center">
-          <Button
-            variant="ghost"
-            onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
-            disabled={isFetching}
-          >
-            <ChevronDown className="h-4 w-4 mr-2" />
-            {isFetching ? "Loading..." : "Load More"}
-          </Button>
-        </div>
+        <LoadMoreButton
+          onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+          loading={isFetching}
+        />
       )}
-    </div>
+    </SessionSection>
   )
 }
 
-function UpcomingSessions({ orgId, currency }: { orgId: string; currency: string | null }) {
+function UpcomingSessions({
+  orgId,
+  currency,
+}: {
+  orgId: string
+  currency: string | null
+}) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
-  const { data: sessions, isLoading, error, isFetching } = trpc.session.listUpcomingWithCounts.useQuery({
-    limit,
-  })
+  const {
+    data: sessions,
+    isLoading,
+    error,
+    isFetching,
+  } = trpc.session.listUpcomingWithCounts.useQuery({ limit })
 
   const hasMore = sessions && sessions.length === limit
 
   if (isLoading) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Upcoming Sessions</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {[1, 2].map((i) => (
+      <SessionSection title="Upcoming">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
             <SessionCardSkeleton key={i} />
           ))}
         </div>
-      </div>
+      </SessionSection>
     )
   }
 
   if (error) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Upcoming Sessions</h2>
+      <SessionSection title="Upcoming">
         <p className="text-sm text-destructive">{error.message}</p>
-      </div>
+      </SessionSection>
     )
   }
 
   if (!sessions || sessions.length === 0) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Upcoming Sessions</h2>
-        <p className="text-muted-foreground">No upcoming sessions</p>
-      </div>
+      <SessionSection title="Upcoming">
+        <div className="rounded-xl border bg-card p-10 text-center">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+            <Calendar className="h-5 w-5 text-primary" />
+          </div>
+          <p className="font-medium">No upcoming sessions</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Check back later for new sessions
+          </p>
+        </div>
+      </SessionSection>
     )
   }
 
   return (
-    <div>
-      <h2 className="mb-4 text-sm font-medium text-muted-foreground">
-        {sessions.length} upcoming session{sessions.length !== 1 ? "s" : ""}
-      </h2>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <SessionSection title="Upcoming" count={sessions.length}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sessions.map((session) => (
-          <SessionCard key={session.id} session={session} orgId={orgId} currency={currency} />
+          <SessionCard
+            key={session.id}
+            session={session}
+            orgId={orgId}
+            currency={currency}
+          />
         ))}
       </div>
       {hasMore && (
-        <div className="mt-4 text-center">
-          <Button
-            variant="ghost"
-            onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
-            disabled={isFetching}
-          >
-            <ChevronDown className="h-4 w-4 mr-2" />
-            {isFetching ? "Loading..." : "Load More"}
-          </Button>
-        </div>
+        <LoadMoreButton
+          onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+          loading={isFetching}
+        />
       )}
-    </div>
+    </SessionSection>
   )
 }
 
-function PastSessions({ orgId, currency }: { orgId: string; currency: string | null }) {
+function PastSessions({
+  orgId,
+  currency,
+}: {
+  orgId: string
+  currency: string | null
+}) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
-  const { data: sessions, isLoading, error, isFetching } = trpc.session.listPastWithCounts.useQuery({
-    limit,
-  })
+  const {
+    data: sessions,
+    isLoading,
+    error,
+    isFetching,
+  } = trpc.session.listPastWithCounts.useQuery({ limit })
 
   const hasMore = sessions && sessions.length === limit
 
   if (isLoading) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Past Sessions</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+      <SessionSection title="Past">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2].map((i) => (
             <SessionCardSkeleton key={i} />
           ))}
         </div>
-      </div>
+      </SessionSection>
     )
   }
 
   if (error) {
     return (
-      <div>
-        <h2 className="mb-4 text-sm font-medium text-muted-foreground">Past Sessions</h2>
+      <SessionSection title="Past">
         <p className="text-sm text-destructive">{error.message}</p>
-      </div>
+      </SessionSection>
     )
   }
 
-  if (!sessions || sessions.length === 0) {
-    return null // Don't show past sessions section if empty
-  }
+  if (!sessions || sessions.length === 0) return null
 
   return (
-    <div>
-      <h2 className="mb-4 text-sm font-medium text-muted-foreground">Past Sessions</h2>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <SessionSection title="Past" count={sessions.length}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {sessions.map((session) => (
-          <SessionCard key={session.id} session={session} orgId={orgId} isPast currency={currency} />
+          <SessionCard
+            key={session.id}
+            session={session}
+            orgId={orgId}
+            isPast
+            currency={currency}
+          />
         ))}
       </div>
       {hasMore && (
-        <div className="mt-4 text-center">
-          <Button
-            variant="ghost"
-            onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
-            disabled={isFetching}
-          >
-            <ChevronDown className="h-4 w-4 mr-2" />
-            {isFetching ? "Loading..." : "Load More"}
-          </Button>
-        </div>
+        <LoadMoreButton
+          onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+          loading={isFetching}
+        />
       )}
+    </SessionSection>
+  )
+}
+
+/* ─────────────────────────── shared components ─────────────────────────── */
+
+function SessionSection({
+  title,
+  count,
+  children,
+}: {
+  title: string
+  count?: number
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="mb-4 flex items-baseline gap-2">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {count !== undefined && (
+          <span className="text-sm text-muted-foreground">
+            {count} session{count !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+      {children}
     </div>
   )
 }
+
+function LoadMoreButton({
+  onClick,
+  loading,
+}: {
+  onClick: () => void
+  loading: boolean
+}) {
+  return (
+    <div className="mt-4 text-center">
+      <Button variant="ghost" size="sm" onClick={onClick} disabled={loading}>
+        <ChevronDown className="h-4 w-4 mr-1.5" />
+        {loading ? "Loading..." : "Load More"}
+      </Button>
+    </div>
+  )
+}
+
+/* ─────────────────────────── session card ─────────────────────────── */
 
 type SessionWithCounts = {
   id: string
@@ -297,77 +374,31 @@ function SessionCard({
 }) {
   const spotsLeft = session.maxCapacity - session.joinedCount
   const capacityPercent = (session.joinedCount / session.maxCapacity) * 100
-
-  // Determine status badge
-  const getStatusBadge = () => {
-  if (session.status === "cancelled") {
-    return { text: "Cancelled", className: "bg-destructive/10 text-destructive" }
-  }
-  if (session.status === "completed") {
-    return { text: "Completed", className: "bg-muted text-muted-foreground" }
-  }
-  if (session.status === "draft") {
-    return { text: "Draft", className: "bg-yellow-500/10 text-yellow-600" }
-  }
-  if (isPast) {
-    return { text: "Past", className: "bg-muted text-muted-foreground" }
-  }
-    if (spotsLeft === 0) {
-      return { text: "Full", className: "bg-destructive/10 text-destructive" }
-    }
-    if (spotsLeft <= 2) {
-      return { text: `${spotsLeft} spot${spotsLeft !== 1 ? "s" : ""} left`, className: "bg-yellow-500/10 text-yellow-600" }
-    }
-    return { text: "Open", className: "bg-green-500/10 text-green-600" }
-  }
-
-  const statusBadge = getStatusBadge()
   const dateObj = new Date(session.dateTime)
-
-  // Avatar colors for participants without images
-  const avatarColors = [
-    "bg-blue-500",
-    "bg-green-500",
-    "bg-purple-500",
-    "bg-orange-500",
-    "bg-pink-500",
-    "bg-cyan-500",
-    "bg-amber-500",
-    "bg-rose-500",
-  ]
-
-  // Get initials from name
-  const getInitials = (name: string | null) => {
-    if (!name) return "?"
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
 
   return (
     <Link
       to="/dashboard/org/$orgId/sessions/$sessionId"
       params={{ orgId, sessionId: session.id }}
-      className="group block rounded-xl border border-border/50 bg-card/50 p-4 backdrop-blur-sm transition-all hover:border-primary/50 hover:shadow-lg"
+      className="group block rounded-xl border bg-card p-4 transition-all hover:border-primary/50 hover:shadow-md"
     >
-      {/* Header: Date and Status */}
-      <div className="mb-3 flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-            <Calendar className="h-5 w-5 text-primary group-hover:text-primary-foreground" />
+      {/* Header: date badge + title + status */}
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex flex-col items-center justify-center rounded-lg bg-primary/10 px-2.5 py-1.5 min-w-[3rem] shrink-0">
+            <span className="text-base font-bold text-primary leading-none">
+              {dateObj.getDate()}
+            </span>
+            <span className="text-[10px] font-semibold text-primary/70 mt-0.5">
+              {dateObj
+                .toLocaleDateString(undefined, { month: "short" })
+                .toUpperCase()}
+            </span>
           </div>
-          <div>
-            <p className="font-medium">
-              {dateObj.toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
-            </p>
+          <div className="min-w-0">
+            <p className="font-medium truncate">{session.title}</p>
             <p className="text-sm text-muted-foreground">
+              {dateObj.toLocaleDateString(undefined, { weekday: "short" })}{" "}
               {dateObj.toLocaleTimeString(undefined, {
                 hour: "numeric",
                 minute: "2-digit",
@@ -375,66 +406,69 @@ function SessionCard({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "rounded-full px-2 py-0.5 text-xs font-medium",
-              statusBadge.className
-            )}
-          >
-            {statusBadge.text}
-          </span>
-          <span
-            className={cn(
-              "flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-              hasPrice(session.price)
-                ? "bg-primary/10 text-primary"
-                : "bg-green-500/10 text-green-600"
-            )}
-          >
-            <Tag className="h-3 w-3" />
-            {formatPrice(session.price, currency)}
-          </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <SessionStatusBadge
+            status={session.status}
+            spotsLeft={spotsLeft}
+            isPast={isPast}
+          />
         </div>
       </div>
 
-      {/* Location */}
-      {session.location && (
-        <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
-          <MapPin className="h-4 w-4" />
-          <span>{session.location}</span>
-        </div>
-      )}
+      {/* Location + price row */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+        {session.location && (
+          <span className="flex items-center gap-1.5">
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{session.location}</span>
+          </span>
+        )}
+        <span
+          className={cn(
+            "flex items-center gap-1 font-medium",
+            hasPrice(session.price)
+              ? "text-foreground"
+              : "text-[var(--color-status-success)]"
+          )}
+        >
+          <Tag className="h-3 w-3" />
+          {formatPrice(session.price, currency)}
+        </span>
+      </div>
 
-      {/* Capacity bar */}
+      {/* Capacity */}
       <div className="mb-3">
         <div className="mb-1 flex justify-between text-sm">
           <span className="text-muted-foreground">Capacity</span>
-          <span className="font-medium">
+          <span className="font-medium tabular-nums">
             {session.joinedCount}/{session.maxCapacity}
           </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-muted">
           <div
             className={cn(
-              "h-full rounded-full transition-all",
+              "h-full rounded-full transition-all duration-500",
               isPast || session.status === "cancelled"
                 ? "bg-muted-foreground/50"
-                : "bg-primary"
+                : capacityPercent >= 100
+                  ? "bg-[var(--color-status-danger)]"
+                  : capacityPercent >= 80
+                    ? "bg-[var(--color-status-warning)]"
+                    : "bg-primary"
             )}
             style={{ width: `${Math.min(capacityPercent, 100)}%` }}
           />
         </div>
       </div>
 
-      {/* Attendees and View roster */}
+      {/* Participants + arrow */}
       <div className="flex items-center justify-between">
         <div className="flex -space-x-2">
           {session.participants.slice(0, 4).map((participant, i) => (
             <div
               key={participant.id}
               className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full border-2 border-background text-xs font-medium",
+                "flex h-7 w-7 items-center justify-center rounded-full border-2 border-card text-[10px] font-medium",
                 participant.image
                   ? ""
                   : `${avatarColors[i % avatarColors.length]} text-white`
@@ -452,47 +486,107 @@ function SessionCard({
             </div>
           ))}
           {session.joinedCount > 4 && (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-medium">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-card bg-muted text-[10px] font-medium tabular-nums">
               +{session.joinedCount - 4}
             </div>
           )}
         </div>
-        <span className="text-sm font-medium text-primary">
-          View roster &rarr
-        </span>
+        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
       </div>
     </Link>
   )
 }
 
+/* ─────────────────────────── status badge ─────────────────────────── */
+
+function SessionStatusBadge({
+  status,
+  spotsLeft,
+  isPast,
+}: {
+  status: string
+  spotsLeft: number
+  isPast: boolean
+}) {
+  if (status === "cancelled") {
+    return (
+      <Badge className="bg-[var(--color-badge-danger-bg)] text-[var(--color-status-danger)] border-0 text-xs">
+        Cancelled
+      </Badge>
+    )
+  }
+  if (status === "completed") {
+    return (
+      <Badge className="bg-[var(--color-badge-inactive-bg)] text-[var(--color-status-inactive)] border-0 text-xs">
+        Completed
+      </Badge>
+    )
+  }
+  if (status === "draft") {
+    return (
+      <Badge className="bg-[var(--color-badge-warning-bg)] text-[var(--color-status-warning)] border-0 text-xs">
+        Draft
+      </Badge>
+    )
+  }
+  if (isPast) {
+    return (
+      <Badge className="bg-[var(--color-badge-inactive-bg)] text-[var(--color-status-inactive)] border-0 text-xs">
+        Past
+      </Badge>
+    )
+  }
+  if (spotsLeft === 0) {
+    return (
+      <Badge className="bg-[var(--color-badge-danger-bg)] text-[var(--color-status-danger)] border-0 text-xs">
+        Full
+      </Badge>
+    )
+  }
+  if (spotsLeft <= 3) {
+    return (
+      <Badge className="bg-[var(--color-badge-warning-bg)] text-[var(--color-status-warning)] border-0 text-xs">
+        {spotsLeft} left
+      </Badge>
+    )
+  }
+  return (
+    <Badge className="bg-[var(--color-badge-success-bg)] text-[var(--color-status-success)] border-0 text-xs">
+      Open
+    </Badge>
+  )
+}
+
+/* ─────────────────────────── skeleton ─────────────────────────── */
+
 function SessionCardSkeleton() {
   return (
-    <div className="rounded-xl border border-border/50 bg-card/50 p-4 backdrop-blur-sm">
+    <div className="rounded-xl border bg-card p-4">
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-10 rounded-lg" />
+          <Skeleton className="h-[46px] w-12 rounded-lg" />
           <div>
             <Skeleton className="h-5 w-32" />
-            <Skeleton className="mt-1 h-4 w-16" />
+            <Skeleton className="mt-1 h-4 w-20" />
           </div>
         </div>
-        <Skeleton className="h-5 w-16 rounded-full" />
+        <Skeleton className="h-5 w-14 rounded-full" />
       </div>
-      <Skeleton className="mb-3 h-4 w-40" />
+      <Skeleton className="mb-3 h-4 w-28" />
       <div className="mb-3">
         <div className="mb-1 flex justify-between">
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-4 w-12" />
+          <Skeleton className="h-3 w-14" />
+          <Skeleton className="h-3 w-10" />
         </div>
-        <Skeleton className="h-2 w-full rounded-full" />
+        <Skeleton className="h-1.5 w-full rounded-full" />
       </div>
       <div className="flex items-center justify-between">
         <div className="flex -space-x-2">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-8 w-8 rounded-full" />
+            <Skeleton key={i} className="h-7 w-7 rounded-full" />
           ))}
         </div>
-        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-4" />
       </div>
     </div>
   )

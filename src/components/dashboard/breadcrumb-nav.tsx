@@ -16,7 +16,7 @@ type BreadcrumbSegment = {
 }
 
 export function BreadcrumbNav() {
-  const { orgId, sessionId } = useParams({ strict: false })
+  const { orgId, sessionId, userId } = useParams({ strict: false })
   const routerState = useRouterState()
   const pathname = routerState.location.pathname
   const isOrgRoute = pathname.includes("/dashboard/org/")
@@ -47,8 +47,8 @@ export function BreadcrumbNav() {
       let currentPath = `/dashboard/org/${orgId}`
 
       afterOrgParts.forEach((part, index) => {
-        // Skip IDs (session IDs, etc.)
-        if (part === sessionId) {
+        // Skip IDs (session IDs, user IDs, etc.)
+        if (part === sessionId || part === userId) {
           return
         }
 
@@ -115,7 +115,7 @@ function formatLabel(segment: string): string {
     create: "Create",
     members: "Members",
     settings: "Settings",
-    profile: "My Profile",
+    profile: "Group Profile",
     roster: "Roster",
   }
 

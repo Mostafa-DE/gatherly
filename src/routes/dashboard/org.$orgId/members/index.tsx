@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,12 +22,13 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export const Route = createFileRoute("/dashboard/org/$orgId/members")({
+export const Route = createFileRoute("/dashboard/org/$orgId/members/")({
   component: MembersPage,
 })
 
 function MembersPage() {
   const { orgId } = Route.useParams()
+  const navigate = useNavigate()
   const utils = trpc.useUtils()
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
@@ -184,7 +185,18 @@ function MembersPage() {
               return (
                 <div
                   key={member.id}
-                  className="flex items-center gap-4 rounded-lg border border-border/50 bg-background/50 p-4 transition-all hover:border-primary/30"
+                  className={cn(
+                    "flex items-center gap-4 rounded-lg border border-border/50 bg-background/50 p-4 transition-all hover:border-primary/30",
+                    isAdmin && "cursor-pointer"
+                  )}
+                  onClick={() => {
+                    if (isAdmin) {
+                      navigate({
+                        to: "/dashboard/org/$orgId/members/$userId",
+                        params: { orgId, userId: user.id },
+                      })
+                    }
+                  }}
                 >
                   <Avatar className="h-12 w-12">
                     <AvatarImage src={user.image ?? undefined} alt={user.name} />
@@ -203,7 +215,7 @@ function MembersPage() {
                       {user.email}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <span className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
                       role.className
@@ -291,6 +303,7 @@ function MembersPage() {
           </p>
         )}
       </div>
+
     </div>
   )
 }

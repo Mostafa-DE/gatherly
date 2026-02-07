@@ -174,6 +174,7 @@ export function ShareDialog({
         <InviteLinkSection
           username={inviteLink.username}
           groupSlug={inviteLink.groupSlug}
+          orgId={inviteLink.orgId}
         />
       )}
     </div>
@@ -226,14 +227,30 @@ const EXPIRY_OPTIONS = [
   { value: "30", label: "30 days" },
 ] as const;
 
+const ROLE_OPTIONS = [
+  { value: "member", label: "Member" },
+  { value: "admin", label: "Admin" },
+] as const;
+
+const MAX_USES_OPTIONS = [
+  { value: "1", label: "1 use" },
+  { value: "5", label: "5 uses" },
+  { value: "10", label: "10 uses" },
+  { value: "unlimited", label: "Unlimited" },
+] as const;
+
 function InviteLinkSection({
   username,
   groupSlug,
+  orgId,
 }: {
   username: string;
   groupSlug: string;
+  orgId?: string;
 }) {
   const [expiryDays, setExpiryDays] = useState("7");
+  const [role, setRole] = useState<"member" | "admin">("member");
+  const [maxUses, setMaxUses] = useState("1");
 
   const createInviteLink = trpc.inviteLink.create.useMutation({
     onSuccess: (data) => {
@@ -248,7 +265,11 @@ function InviteLinkSection({
   const handleGenerate = () => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + Number(expiryDays));
-    createInviteLink.mutate({ role: "member", expiresAt, maxUses: 1 });
+    createInviteLink.mutate({
+      role,
+      expiresAt,
+      maxUses: maxUses === "unlimited" ? undefined : Number(maxUses),
+    });
   };
 
   return (
@@ -259,8 +280,42 @@ function InviteLinkSection({
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
         <span>
           Anyone with this link can join your group directly, bypassing join
-          restrictions. Each link can only be used once.
+          restrictions.
         </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Role</span>
+          <Select value={role} onValueChange={(v) => setRole(v as "member" | "admin")}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROLE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <span className="text-xs text-muted-foreground">Max uses</span>
+          <Select value={maxUses} onValueChange={setMaxUses}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MAX_USES_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
@@ -291,6 +346,17 @@ function InviteLinkSection({
         <LinkIcon className="mr-2 h-4 w-4" />
         {createInviteLink.isPending ? "Generating..." : "Generate Invite Link"}
       </Button>
+
+      {orgId && (
+        <div className="text-center">
+          <a
+            href={`/dashboard/org/${orgId}/invite-links`}
+            className="text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            Manage invite links
+          </a>
+        </div>
+      )}
     </div>
   );
 }

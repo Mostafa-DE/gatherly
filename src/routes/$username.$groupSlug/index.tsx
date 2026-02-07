@@ -112,6 +112,7 @@ function PublicOrgPage() {
 
   const handleJoinViaInvite = () => {
     if (!inviteToken) return
+    if (!validateForm()) return
     const answers = Object.keys(formAnswers).length > 0 ? formAnswers : undefined
     useTokenMutation.mutate({ token: inviteToken, formAnswers: answers })
   }

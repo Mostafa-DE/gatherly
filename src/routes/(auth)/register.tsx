@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PhoneInput } from "@/components/ui/phone-input"
-import { Calendar, UserPlus } from "lucide-react"
+import { Calendar, UserPlus, Check, X, Loader2 } from "lucide-react"
+import { useUsernameAvailable } from "@/hooks/use-username-available"
 
 export const Route = createFileRoute("/(auth)/register")({
   component: RegisterPage,
@@ -21,6 +22,8 @@ function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const { isAvailable, isChecking, isValidFormat } = useUsernameAvailable(username)
 
   const handleNameChange = (value: string) => {
     setName(value)
@@ -149,9 +152,36 @@ function RegisterPage() {
                 maxLength={30}
                 className="bg-background/50"
               />
-              <p className="text-xs text-muted-foreground">
-                This will be part of your profile URL: /{username || "username"}
-              </p>
+              <div className="flex items-center gap-1.5">
+                {username.length >= 3 && isChecking && (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Checking...</span>
+                  </>
+                )}
+                {username.length >= 3 && !isChecking && isAvailable === true && (
+                  <>
+                    <Check className="h-3 w-3 text-green-600" />
+                    <span className="text-xs text-green-600">Username available</span>
+                  </>
+                )}
+                {username.length >= 3 && !isChecking && isAvailable === false && (
+                  <>
+                    <X className="h-3 w-3 text-destructive" />
+                    <span className="text-xs text-destructive">Username already taken</span>
+                  </>
+                )}
+                {username.length >= 3 && !isChecking && isAvailable === null && !isValidFormat && (
+                  <span className="text-xs text-muted-foreground">
+                    Must start with a letter, only lowercase letters, numbers, and hyphens
+                  </span>
+                )}
+                {username.length < 3 && (
+                  <span className="text-xs text-muted-foreground">
+                    /{username || "username"}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -209,7 +239,7 @@ function RegisterPage() {
               Password must be at least 8 characters
             </p>
 
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
+            <Button type="submit" className="w-full" size="lg" disabled={loading || isAvailable === false}>
               {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
