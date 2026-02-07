@@ -29,6 +29,8 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
+import { ShareDialog } from "@/components/share-dialog"
+import { buildSessionUrl } from "@/lib/share-urls"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/"
@@ -223,9 +225,27 @@ function SessionDetailPage() {
           Back to Sessions
         </Link>
 
-        {/* Admin Actions Dropdown - Always visible in header for admins */}
-        {isAdmin && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {/* Share button (visible to all when session is published) */}
+          {whoami?.activeOrganization?.ownerUsername &&
+            whoami.activeOrganization.userSlug &&
+            sessionData?.status === "published" && (
+            <ShareDialog
+              url={buildSessionUrl(
+                whoami.activeOrganization.ownerUsername,
+                whoami.activeOrganization.userSlug,
+                sessionId
+              )}
+              title={sessionData.title}
+              type="session"
+              groupName={whoami.activeOrganization.name}
+              username={whoami.activeOrganization.ownerUsername}
+            />
+          )}
+
+          {/* Admin Actions Dropdown */}
+          {isAdmin && (
+            <>
             {/* Primary admin action based on status */}
             {canPublish && (
               <Button
@@ -317,8 +337,9 @@ function SessionDetailPage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Delete Confirmation Banner */}

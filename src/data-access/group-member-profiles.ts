@@ -1,8 +1,8 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "@/db";
-import { groupMemberProfile } from "@/db/schema";
-import type { GroupMemberProfile } from "@/db/types";
-import { NotFoundError } from "@/exceptions";
+import { and, eq } from "drizzle-orm"
+import { db } from "@/db"
+import { groupMemberProfile } from "@/db/schema"
+import type { GroupMemberProfile } from "@/db/types"
+import { NotFoundError } from "@/exceptions"
 
 // =============================================================================
 // Queries
@@ -21,8 +21,8 @@ export async function getProfileByOrgAndUser(
         eq(groupMemberProfile.userId, userId)
       )
     )
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getProfileById(
@@ -32,8 +32,8 @@ export async function getProfileById(
     .select()
     .from(groupMemberProfile)
     .where(eq(groupMemberProfile.id, profileId))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 // =============================================================================
@@ -48,7 +48,7 @@ export async function upsertProfile(
   userId: string,
   answers: Record<string, unknown>
 ): Promise<GroupMemberProfile> {
-  const existing = await getProfileByOrgAndUser(organizationId, userId);
+  const existing = await getProfileByOrgAndUser(organizationId, userId)
 
   if (existing) {
     // Update existing profile
@@ -59,8 +59,8 @@ export async function upsertProfile(
         updatedAt: new Date(),
       })
       .where(eq(groupMemberProfile.id, existing.id))
-      .returning();
-    return updated;
+      .returning()
+    return updated
   }
 
   // Create new profile
@@ -71,9 +71,9 @@ export async function upsertProfile(
       userId,
       answers,
     })
-    .returning();
+    .returning()
 
-  return created;
+  return created
 }
 
 /**
@@ -84,7 +84,7 @@ export async function updateMyProfile(
   userId: string,
   answers: Record<string, unknown>
 ): Promise<GroupMemberProfile> {
-  return upsertProfile(organizationId, userId, answers);
+  return upsertProfile(organizationId, userId, answers)
 }
 
 /**
@@ -95,7 +95,7 @@ export async function submitJoinForm(
   userId: string,
   answers: Record<string, unknown>
 ): Promise<GroupMemberProfile> {
-  return upsertProfile(organizationId, userId, answers);
+  return upsertProfile(organizationId, userId, answers)
 }
 
 /**
@@ -105,9 +105,9 @@ export async function getUserProfile(
   organizationId: string,
   userId: string
 ): Promise<GroupMemberProfile> {
-  const profile = await getProfileByOrgAndUser(organizationId, userId);
+  const profile = await getProfileByOrgAndUser(organizationId, userId)
   if (!profile) {
-    throw new NotFoundError("Profile not found");
+    throw new NotFoundError("Profile not found")
   }
-  return profile;
+  return profile
 }

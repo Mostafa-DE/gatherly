@@ -1,12 +1,12 @@
-import { and, count, eq, ne, sql, desc, asc, isNull } from "drizzle-orm";
-import { db } from "@/db";
-import { eventSession, participation, user } from "@/db/schema";
-import type { Participation } from "@/db/types";
-import { NotFoundError, BadRequestError, ConflictError } from "@/exceptions";
+import { and, count, eq, ne, sql, desc, asc, isNull } from "drizzle-orm"
+import { db } from "@/db"
+import { eventSession, participation, user } from "@/db/schema"
+import type { Participation } from "@/db/types"
+import { NotFoundError, BadRequestError, ConflictError } from "@/exceptions"
 import type {
   AttendanceStatus,
   PaymentStatus,
-} from "@/lib/sessions/state-machine";
+} from "@/lib/sessions/state-machine"
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -15,7 +15,7 @@ type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 // =============================================================================
 
 function isUniqueConstraintError(error: unknown): boolean {
-  return (error as { code?: string })?.code === "23505";
+  return (error as { code?: string })?.code === "23505"
 }
 
 /**
@@ -31,7 +31,7 @@ async function assertNoConflictingParticipation(
   // Ensure we have a proper Date object (raw SQL returns string)
   const dateTime = sessionDateTime instanceof Date
     ? sessionDateTime
-    : new Date(sessionDateTime);
+    : new Date(sessionDateTime)
 
   const [conflict] = await tx
     .select({
@@ -49,12 +49,12 @@ async function assertNoConflictingParticipation(
         isNull(eventSession.deletedAt)
       )
     )
-    .limit(1);
+    .limit(1)
 
   if (conflict) {
     throw new ConflictError(
       `User is already registered for another session "${conflict.sessionTitle}" at this time`
-    );
+    )
   }
 }
 
@@ -67,8 +67,8 @@ export async function getParticipationById(participationId: string) {
     .select()
     .from(participation)
     .where(eq(participation.id, participationId))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getActiveParticipation(sessionId: string, userId: string) {
@@ -82,12 +82,12 @@ export async function getActiveParticipation(sessionId: string, userId: string) 
         ne(participation.status, "cancelled")
       )
     )
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getMyParticipation(sessionId: string, userId: string) {
-  return getActiveParticipation(sessionId, userId);
+  return getActiveParticipation(sessionId, userId)
 }
 
 export async function getMyHistory(
@@ -110,21 +110,21 @@ export async function getMyHistory(
     )
     .orderBy(desc(participation.joinedAt))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 }
 
 export async function getSessionRoster(
   sessionId: string,
   options: {
-    status?: "joined" | "waitlisted" | "cancelled";
-    limit: number;
-    offset: number;
+    status?: "joined" | "waitlisted" | "cancelled"
+    limit: number
+    offset: number
   }
 ) {
-  const conditions = [eq(participation.sessionId, sessionId)];
+  const conditions = [eq(participation.sessionId, sessionId)]
 
   if (options.status) {
-    conditions.push(eq(participation.status, options.status));
+    conditions.push(eq(participation.status, options.status))
   }
 
   return db
@@ -143,7 +143,7 @@ export async function getSessionRoster(
     .where(and(...conditions))
     .orderBy(asc(participation.joinedAt), asc(participation.id))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 }
 
 export async function getUserHistory(
@@ -166,7 +166,7 @@ export async function getUserHistory(
     )
     .orderBy(desc(participation.joinedAt))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 }
 
 export async function getWaitlistPosition(
@@ -175,9 +175,9 @@ export async function getWaitlistPosition(
   joinedAt: Date,
   participationId: string
 ): Promise<number | null> {
-  const active = await getActiveParticipation(sessionId, userId);
+  const active = await getActiveParticipation(sessionId, userId)
   if (!active || active.status !== "waitlisted") {
-    return null;
+    return null
   }
 
   const [result] = await db
@@ -189,9 +189,9 @@ export async function getWaitlistPosition(
         eq(participation.status, "waitlisted"),
         sql`(${participation.joinedAt}, ${participation.id}) < (${joinedAt}, ${participationId})`
       )
-    );
+    )
 
-  return (result?.position ?? 0) + 1;
+  return (result?.position ?? 0) + 1
 }
 
 // =============================================================================
@@ -212,38 +212,38 @@ export async function joinSession(
   return await db.transaction(async (tx) => {
     // 1. Lock session row — concurrent requests serialize here
     const sessionResult = await tx.execute<{
-      id: string;
-      deleted_at: Date | null;
-      status: string;
-      join_mode: string;
-      max_capacity: number;
-      max_waitlist: number;
-      date_time: Date;
+      id: string
+      deleted_at: Date | null
+      status: string
+      join_mode: string
+      max_capacity: number
+      max_waitlist: number
+      date_time: Date
     }>(sql`
       SELECT id, deleted_at, status, join_mode, max_capacity, max_waitlist, date_time
       FROM event_session
       WHERE id = ${sessionId}
       FOR UPDATE
-    `);
-    const session = sessionResult.rows[0];
+    `)
+    const session = sessionResult.rows[0]
 
     // 2. Check session exists and is joinable
     if (!session) {
-      throw new NotFoundError("Session not found");
+      throw new NotFoundError("Session not found")
     }
     if (session.deleted_at) {
-      throw new NotFoundError("Session not found");
+      throw new NotFoundError("Session not found")
     }
     if (session.status !== "published") {
-      throw new BadRequestError("Session is not open for joining");
+      throw new BadRequestError("Session is not open for joining")
     }
 
     // 3. Check join mode (MVP: only 'open' works)
     if (session.join_mode === "approval_required") {
-      throw new BadRequestError("Approval-based joining coming soon");
+      throw new BadRequestError("Approval-based joining coming soon")
     }
     if (session.join_mode === "invite_only") {
-      throw new BadRequestError("Invite-only sessions coming soon");
+      throw new BadRequestError("Invite-only sessions coming soon")
     }
 
     // 4. Check for existing active participation (idempotent)
@@ -256,14 +256,14 @@ export async function joinSession(
           eq(participation.userId, userId),
           ne(participation.status, "cancelled")
         )
-      );
+      )
 
     if (existing) {
       return existing; // Idempotent: return existing
     }
 
     // 5. Check for conflicting participation at same date/time
-    await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId);
+    await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId)
 
     // 6. Count current participants (inside lock = accurate)
     const [counts] = await tx
@@ -272,20 +272,20 @@ export async function joinSession(
         waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
       })
       .from(participation)
-      .where(eq(participation.sessionId, sessionId));
+      .where(eq(participation.sessionId, sessionId))
 
-    const joinedCount = counts?.joined ?? 0;
-    const waitlistedCount = counts?.waitlisted ?? 0;
+    const joinedCount = counts?.joined ?? 0
+    const waitlistedCount = counts?.waitlisted ?? 0
 
     // 7. Determine status
-    let status: "joined" | "waitlisted";
+    let status: "joined" | "waitlisted"
 
     if (joinedCount < session.max_capacity) {
-      status = "joined";
+      status = "joined"
     } else if (waitlistedCount < session.max_waitlist) {
-      status = "waitlisted";
+      status = "waitlisted"
     } else {
-      throw new BadRequestError("Session and waitlist are full");
+      throw new BadRequestError("Session and waitlist are full")
     }
 
     // 7. Insert new participation (handle unique conflict idempotently)
@@ -298,8 +298,8 @@ export async function joinSession(
           status,
           joinedAt: new Date(),
         })
-        .returning();
-      return newParticipation;
+        .returning()
+      return newParticipation
     } catch (error) {
       // If unique constraint hit (race condition edge case), return existing
       if (isUniqueConstraintError(error)) {
@@ -312,12 +312,12 @@ export async function joinSession(
               eq(participation.userId, userId),
               ne(participation.status, "cancelled")
             )
-          );
-        if (existing) return existing;
+          )
+        if (existing) return existing
       }
-      throw error;
+      throw error
     }
-  });
+  })
 }
 
 /**
@@ -335,42 +335,42 @@ export async function cancelParticipation(
     const [current] = await tx
       .select()
       .from(participation)
-      .where(eq(participation.id, participationId));
+      .where(eq(participation.id, participationId))
 
     if (!current) {
-      throw new NotFoundError("Participation not found");
+      throw new NotFoundError("Participation not found")
     }
     if (current.userId !== userId) {
       throw new NotFoundError("Participation not found"); // Don't reveal existence
     }
     if (current.status === "cancelled") {
-      throw new BadRequestError("Participation already cancelled");
+      throw new BadRequestError("Participation already cancelled")
     }
 
     // 2. Lock the session row and check it's not deleted
     const sessionResult = await tx.execute<{
-      id: string;
-      deleted_at: Date | null;
-      status: string;
+      id: string
+      deleted_at: Date | null
+      status: string
     }>(sql`
       SELECT id, deleted_at, status
       FROM event_session
       WHERE id = ${current.sessionId}
       FOR UPDATE
-    `);
-    const session = sessionResult.rows[0];
+    `)
+    const session = sessionResult.rows[0]
 
     if (!session || session.deleted_at) {
-      throw new NotFoundError("Session not found");
+      throw new NotFoundError("Session not found")
     }
 
     // 3. Check session state - don't allow cancel after completed
     if (session.status === "completed") {
-      throw new BadRequestError("Cannot cancel participation for completed session");
+      throw new BadRequestError("Cannot cancel participation for completed session")
     }
 
     // 4. Cancel the participation
-    const wasJoined = current.status === "joined";
+    const wasJoined = current.status === "joined"
 
     const [cancelled] = await tx
       .update(participation)
@@ -380,7 +380,7 @@ export async function cancelParticipation(
         updatedAt: new Date(),
       })
       .where(eq(participation.id, participationId))
-      .returning();
+      .returning()
 
     // 5. If was joined, promote first waitlisted (FIFO)
     if (wasJoined) {
@@ -396,11 +396,11 @@ export async function cancelParticipation(
           LIMIT 1
           FOR UPDATE SKIP LOCKED
         )
-      `);
+      `)
     }
 
-    return cancelled;
-  });
+    return cancelled
+  })
 }
 
 /**
@@ -409,14 +409,14 @@ export async function cancelParticipation(
 export async function updateParticipation(
   participationId: string,
   data: {
-    attendance?: AttendanceStatus;
-    payment?: PaymentStatus;
-    notes?: string | null;
+    attendance?: AttendanceStatus
+    payment?: PaymentStatus
+    notes?: string | null
   }
 ): Promise<Participation> {
-  const current = await getParticipationById(participationId);
+  const current = await getParticipationById(participationId)
   if (!current) {
-    throw new NotFoundError("Participation not found");
+    throw new NotFoundError("Participation not found")
   }
 
   const [updated] = await db
@@ -426,9 +426,9 @@ export async function updateParticipation(
       updatedAt: new Date(),
     })
     .where(eq(participation.id, participationId))
-    .returning();
+    .returning()
 
-  return updated;
+  return updated
 }
 
 /**
@@ -452,17 +452,17 @@ export async function bulkUpdateAttendance(
             eq(participation.sessionId, sessionId)
           )
         )
-        .returning({ id: participation.id });
+        .returning({ id: participation.id })
 
       if (updated.length === 0) {
         throw new NotFoundError(
           `Participation '${update.participationId}' not found in session`
-        );
+        )
       }
     }
-  });
+  })
 
-  return updates.length;
+  return updates.length
 }
 
 /**
@@ -478,34 +478,34 @@ export async function adminAddParticipant(
   return await db.transaction(async (tx) => {
     // 1. Lock session row
     const sessionResult = await tx.execute<{
-      id: string;
-      deleted_at: Date | null;
-      status: string;
-      max_capacity: number;
-      max_waitlist: number;
-      date_time: Date;
+      id: string
+      deleted_at: Date | null
+      status: string
+      max_capacity: number
+      max_waitlist: number
+      date_time: Date
     }>(sql`
       SELECT id, deleted_at, status, max_capacity, max_waitlist, date_time
       FROM event_session
       WHERE id = ${sessionId}
       FOR UPDATE
-    `);
-    const session = sessionResult.rows[0];
+    `)
+    const session = sessionResult.rows[0]
 
     // 2. Check session exists
     if (!session) {
-      throw new NotFoundError("Session not found");
+      throw new NotFoundError("Session not found")
     }
     if (session.deleted_at) {
-      throw new NotFoundError("Session not found");
+      throw new NotFoundError("Session not found")
     }
 
     // 3. Check session is not cancelled or completed
     if (session.status === "cancelled") {
-      throw new BadRequestError("Cannot add participant to a cancelled session");
+      throw new BadRequestError("Cannot add participant to a cancelled session")
     }
     if (session.status === "completed") {
-      throw new BadRequestError("Cannot add participant to a completed session");
+      throw new BadRequestError("Cannot add participant to a completed session")
     }
 
     // 4. Check for existing active participation - throw error if already exists
@@ -518,14 +518,14 @@ export async function adminAddParticipant(
           eq(participation.userId, userId),
           ne(participation.status, "cancelled")
         )
-      );
+      )
 
     if (existing) {
-      throw new ConflictError("Participant is already in this session");
+      throw new ConflictError("Participant is already in this session")
     }
 
     // 5. Check for conflicting participation at same date/time
-    await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId);
+    await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId)
 
     // 6. Count current participants
     const [counts] = await tx
@@ -534,20 +534,20 @@ export async function adminAddParticipant(
         waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
       })
       .from(participation)
-      .where(eq(participation.sessionId, sessionId));
+      .where(eq(participation.sessionId, sessionId))
 
-    const joinedCount = counts?.joined ?? 0;
-    const waitlistedCount = counts?.waitlisted ?? 0;
+    const joinedCount = counts?.joined ?? 0
+    const waitlistedCount = counts?.waitlisted ?? 0
 
     // 7. Determine status
-    let status: "joined" | "waitlisted";
+    let status: "joined" | "waitlisted"
 
     if (joinedCount < session.max_capacity) {
-      status = "joined";
+      status = "joined"
     } else if (waitlistedCount < session.max_waitlist) {
-      status = "waitlisted";
+      status = "waitlisted"
     } else {
-      throw new ConflictError("Session and waitlist are full");
+      throw new ConflictError("Session and waitlist are full")
     }
 
     // 8. Insert new participation
@@ -560,8 +560,8 @@ export async function adminAddParticipant(
           status,
           joinedAt: new Date(),
         })
-        .returning();
-      return newParticipation;
+        .returning()
+      return newParticipation
     } catch (error) {
       // If unique constraint hit (race condition edge case), return existing
       if (isUniqueConstraintError(error)) {
@@ -574,12 +574,12 @@ export async function adminAddParticipant(
               eq(participation.userId, userId),
               ne(participation.status, "cancelled")
             )
-          );
-        if (existing) return existing;
+          )
+        if (existing) return existing
       }
-      throw error;
+      throw error
     }
-  });
+  })
 }
 
 /**
@@ -598,68 +598,68 @@ export async function moveParticipant(
     const [sourceParticipation] = await tx
       .select()
       .from(participation)
-      .where(eq(participation.id, participationId));
+      .where(eq(participation.id, participationId))
 
     if (!sourceParticipation) {
-      throw new NotFoundError("Participation not found");
+      throw new NotFoundError("Participation not found")
     }
     if (sourceParticipation.status === "cancelled") {
-      throw new BadRequestError("Participation is already cancelled");
+      throw new BadRequestError("Participation is already cancelled")
     }
 
     // 2. Lock source session
     const sourceSessionResult = await tx.execute<{
-      id: string;
-      deleted_at: Date | null;
-      organization_id: string;
+      id: string
+      deleted_at: Date | null
+      organization_id: string
     }>(sql`
       SELECT id, deleted_at, organization_id
       FROM event_session
       WHERE id = ${sourceParticipation.sessionId}
       FOR UPDATE
-    `);
-    const sourceSession = sourceSessionResult.rows[0];
+    `)
+    const sourceSession = sourceSessionResult.rows[0]
 
     if (!sourceSession || sourceSession.deleted_at) {
-      throw new NotFoundError("Source session not found");
+      throw new NotFoundError("Source session not found")
     }
 
     // 3. Prevent moving to same session
     if (sourceParticipation.sessionId === targetSessionId) {
-      throw new BadRequestError("Cannot move participant to the same session");
+      throw new BadRequestError("Cannot move participant to the same session")
     }
 
     // 4. Lock target session
     const targetSessionResult = await tx.execute<{
-      id: string;
-      deleted_at: Date | null;
-      status: string;
-      organization_id: string;
-      max_capacity: number;
-      max_waitlist: number;
+      id: string
+      deleted_at: Date | null
+      status: string
+      organization_id: string
+      max_capacity: number
+      max_waitlist: number
     }>(sql`
       SELECT id, deleted_at, status, organization_id, max_capacity, max_waitlist
       FROM event_session
       WHERE id = ${targetSessionId}
       FOR UPDATE
-    `);
-    const targetSession = targetSessionResult.rows[0];
+    `)
+    const targetSession = targetSessionResult.rows[0]
 
     if (!targetSession || targetSession.deleted_at) {
-      throw new NotFoundError("Target session not found");
+      throw new NotFoundError("Target session not found")
     }
 
     // 5. Verify both sessions are in the same organization
     if (sourceSession.organization_id !== targetSession.organization_id) {
-      throw new BadRequestError("Cannot move participant to a session in a different organization");
+      throw new BadRequestError("Cannot move participant to a session in a different organization")
     }
 
     // 6. Check target session is joinable
     if (targetSession.status === "cancelled") {
-      throw new BadRequestError("Cannot move to a cancelled session");
+      throw new BadRequestError("Cannot move to a cancelled session")
     }
     if (targetSession.status === "completed") {
-      throw new BadRequestError("Cannot move to a completed session");
+      throw new BadRequestError("Cannot move to a completed session")
     }
 
     // 7. Check for existing participation in target session
@@ -672,10 +672,10 @@ export async function moveParticipant(
           eq(participation.userId, sourceParticipation.userId),
           ne(participation.status, "cancelled")
         )
-      );
+      )
 
     if (existingTarget) {
-      throw new BadRequestError("User already has an active participation in the target session");
+      throw new BadRequestError("User already has an active participation in the target session")
     }
 
     // 8. Cancel source participation (NO auto-promote per requirement)
@@ -687,7 +687,7 @@ export async function moveParticipant(
         updatedAt: new Date(),
       })
       .where(eq(participation.id, participationId))
-      .returning();
+      .returning()
 
     // 9. Count current participants in target session
     const [counts] = await tx
@@ -696,20 +696,20 @@ export async function moveParticipant(
         waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
       })
       .from(participation)
-      .where(eq(participation.sessionId, targetSessionId));
+      .where(eq(participation.sessionId, targetSessionId))
 
-    const joinedCount = counts?.joined ?? 0;
-    const waitlistedCount = counts?.waitlisted ?? 0;
+    const joinedCount = counts?.joined ?? 0
+    const waitlistedCount = counts?.waitlisted ?? 0
 
     // 10. Determine status for target
-    let newStatus: "joined" | "waitlisted";
+    let newStatus: "joined" | "waitlisted"
 
     if (joinedCount < targetSession.max_capacity) {
-      newStatus = "joined";
+      newStatus = "joined"
     } else if (waitlistedCount < targetSession.max_waitlist) {
-      newStatus = "waitlisted";
+      newStatus = "waitlisted"
     } else {
-      throw new ConflictError("Target session and waitlist are full");
+      throw new ConflictError("Target session and waitlist are full")
     }
 
     // 11. Create new participation in target session
@@ -721,8 +721,8 @@ export async function moveParticipant(
         status: newStatus,
         joinedAt: new Date(),
       })
-      .returning();
+      .returning()
 
-    return { cancelled, created };
-  });
+    return { cancelled, created }
+  })
 }

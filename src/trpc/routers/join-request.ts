@@ -1,7 +1,7 @@
-import { z } from "zod";
-import { router, protectedProcedure, orgProcedure } from "@/trpc";
-import { ForbiddenError, NotFoundError, BadRequestError } from "@/exceptions";
-import { auth } from "@/auth";
+import { z } from "zod"
+import { router, protectedProcedure, orgProcedure } from "@/trpc"
+import { ForbiddenError, NotFoundError, BadRequestError } from "@/exceptions"
+import { auth } from "@/auth"
 import {
   createJoinRequest,
   cancelJoinRequest,
@@ -12,17 +12,17 @@ import {
   getPendingRequest,
   listPendingRequestsForOrg,
   listMyJoinRequests,
-} from "@/data-access/join-requests";
+} from "@/data-access/join-requests"
 import {
   getOrganizationById,
   getOrganizationMemberByUserId,
-} from "@/data-access/organizations";
+} from "@/data-access/organizations"
 import {
   createJoinRequestSchema,
   cancelJoinRequestSchema,
   reviewJoinRequestSchema,
-} from "@/schemas/join-request";
-import { upsertProfile } from "@/data-access/group-member-profiles";
+} from "@/schemas/join-request"
+import { upsertProfile } from "@/data-access/group-member-profiles"
 
 // =============================================================================
 // Helper: Check if user is admin (owner or admin role)
@@ -30,7 +30,7 @@ import { upsertProfile } from "@/data-access/group-member-profiles";
 
 function assertAdmin(role: string): void {
   if (role !== "owner" && role !== "admin") {
-    throw new ForbiddenError("Only organization admins can perform this action");
+    throw new ForbiddenError("Only organization admins can perform this action")
   }
 }
 
@@ -47,10 +47,10 @@ export const joinRequestRouter = router({
     .input(createJoinRequestSchema)
     .mutation(async ({ ctx, input }) => {
       // Get organization info
-      const org = await getOrganizationById(input.organizationId);
+      const org = await getOrganizationById(input.organizationId)
 
       if (!org) {
-        throw new NotFoundError("Organization not found");
+        throw new NotFoundError("Organization not found")
       }
 
       // Check join mode
@@ -58,12 +58,12 @@ export const joinRequestRouter = router({
         if (org.defaultJoinMode === "open") {
           throw new BadRequestError(
             "This organization allows direct joining. Use the join endpoint instead."
-          );
+          )
         }
         if (org.defaultJoinMode === "invite") {
           throw new BadRequestError(
             "This organization is invite-only. You need an invitation to join."
-          );
+          )
         }
       }
 
@@ -71,14 +71,14 @@ export const joinRequestRouter = router({
       const existingMember = await getOrganizationMemberByUserId(
         input.organizationId,
         ctx.user.id
-      );
+      )
 
       if (existingMember) {
-        throw new BadRequestError("You are already a member of this organization");
+        throw new BadRequestError("You are already a member of this organization")
       }
 
       // Create the join request
-      return createJoinRequest(input.organizationId, ctx.user.id, input.message, input.formAnswers);
+      return createJoinRequest(input.organizationId, ctx.user.id, input.message, input.formAnswers)
     }),
 
   /**
@@ -87,14 +87,14 @@ export const joinRequestRouter = router({
   cancel: protectedProcedure
     .input(cancelJoinRequestSchema)
     .mutation(async ({ ctx, input }) => {
-      return cancelJoinRequest(input.requestId, ctx.user.id);
+      return cancelJoinRequest(input.requestId, ctx.user.id)
     }),
 
   /**
    * Get current user's join requests across all orgs
    */
   myRequests: protectedProcedure.query(async ({ ctx }) => {
-    return listMyJoinRequests(ctx.user.id);
+    return listMyJoinRequests(ctx.user.id)
   }),
 
   /**
@@ -103,15 +103,15 @@ export const joinRequestRouter = router({
   myPendingRequest: protectedProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ ctx, input }) => {
-      return getPendingRequest(input.organizationId, ctx.user.id);
+      return getPendingRequest(input.organizationId, ctx.user.id)
     }),
 
   /**
    * List pending requests for organization (Admin only)
    */
   listPending: orgProcedure.query(async ({ ctx }) => {
-    assertAdmin(ctx.membership.role);
-    return listPendingRequestsForOrg(ctx.activeOrganization.id);
+    assertAdmin(ctx.membership.role)
+    return listPendingRequestsForOrg(ctx.activeOrganization.id)
   }),
 
   /**
@@ -121,21 +121,21 @@ export const joinRequestRouter = router({
   approve: orgProcedure
     .input(reviewJoinRequestSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
 
       // Get the request with details
-      const requestData = await getJoinRequestWithDetails(input.requestId);
+      const requestData = await getJoinRequestWithDetails(input.requestId)
       if (!requestData) {
-        throw new NotFoundError("Join request not found");
+        throw new NotFoundError("Join request not found")
       }
 
       // Verify request belongs to this org
       if (requestData.request.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Request does not belong to this organization");
+        throw new ForbiddenError("Request does not belong to this organization")
       }
 
       // Update request status first
-      const updatedRequest = await approveJoinRequest(input.requestId, ctx.user.id);
+      const updatedRequest = await approveJoinRequest(input.requestId, ctx.user.id)
 
       // Add user as member via Better Auth
       await auth.api.addMember({
@@ -144,19 +144,19 @@ export const joinRequestRouter = router({
           role: "member",
           organizationId: ctx.activeOrganization.id,
         },
-      });
+      })
 
       // Save form answers as profile if present
-      const formAnswers = requestData.request.formAnswers as Record<string, unknown> | null;
+      const formAnswers = requestData.request.formAnswers as Record<string, unknown> | null
       if (formAnswers && Object.keys(formAnswers).length > 0) {
         await upsertProfile(
           ctx.activeOrganization.id,
           requestData.request.userId,
           formAnswers
-        );
+        )
       }
 
-      return updatedRequest;
+      return updatedRequest
     }),
 
   /**
@@ -165,19 +165,19 @@ export const joinRequestRouter = router({
   reject: orgProcedure
     .input(reviewJoinRequestSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
 
       // Get the request
-      const request = await getJoinRequestById(input.requestId);
+      const request = await getJoinRequestById(input.requestId)
       if (!request) {
-        throw new NotFoundError("Join request not found");
+        throw new NotFoundError("Join request not found")
       }
 
       // Verify request belongs to this org
       if (request.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Request does not belong to this organization");
+        throw new ForbiddenError("Request does not belong to this organization")
       }
 
-      return rejectJoinRequest(input.requestId, ctx.user.id);
+      return rejectJoinRequest(input.requestId, ctx.user.id)
     }),
-});
+})

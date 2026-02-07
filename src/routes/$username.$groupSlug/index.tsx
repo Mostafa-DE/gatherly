@@ -3,6 +3,7 @@ import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { useSession } from "@/auth/client"
 import { LandingNavbar } from "@/components/landing/landing-navbar"
+import { ShareDialog } from "@/components/share-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -26,15 +27,25 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { Users, Lock, UserPlus, Clock, CheckCircle, AlertCircle } from "lucide-react"
+import { Users, Lock, UserPlus, Clock, CheckCircle, LinkIcon } from "lucide-react"
 import type { FormField } from "@/types/form"
+import { buildOrgUrl } from "@/lib/share-urls"
+import { toast } from "sonner"
+
+type OrgSearchParams = {
+  invite?: string
+}
 
 export const Route = createFileRoute("/$username/$groupSlug/")({
   component: PublicOrgPage,
+  validateSearch: (search: Record<string, unknown>): OrgSearchParams => ({
+    invite: typeof search.invite === "string" ? search.invite : undefined,
+  }),
 })
 
 function PublicOrgPage() {
   const { username, groupSlug } = Route.useParams()
+  const { invite: inviteToken } = Route.useSearch()
   const navigate = useNavigate()
   const { data: session, isPending: sessionPending } = useSession()
   const isLoggedIn = !sessionPending && !!session?.user
@@ -80,20 +91,38 @@ function PublicOrgPage() {
     },
   })
 
+  // Invite token validation
+  const { data: inviteValidation } = trpc.inviteLink.validate.useQuery(
+    { token: inviteToken ?? "" },
+    { enabled: !!inviteToken }
+  )
+  const isInviteValid = !!inviteToken && !!inviteValidation?.valid
+
+  // Use invite token mutation
+  const useTokenMutation = trpc.inviteLink.useToken.useMutation({
+    onSuccess: () => {
+      utils.user.myOrgs.invalidate()
+      toast.success("You've joined the group!")
+      navigate({ to: "/dashboard" })
+    },
+    onError: (err) => {
+      toast.error(err.message)
+    },
+  })
+
+  const handleJoinViaInvite = () => {
+    if (!inviteToken) return
+    const answers = Object.keys(formAnswers).length > 0 ? formAnswers : undefined
+    useTokenMutation.mutate({ token: inviteToken, formAnswers: answers })
+  }
+
   const formFields = (formSchemaData?.joinFormSchema as { fields?: FormField[] } | null)?.fields || []
 
-  // Check for unanswered optional fields to show reminder banner
-  const unfilledOptionalFields = formFields.filter((f) => {
-    if (f.required) return false
-    const value = formAnswers[f.id]
-    return value === undefined || value === null || value === "" ||
-           (Array.isArray(value) && value.length === 0)
-  })
-  const hasUnfilledOptionalFields = unfilledOptionalFields.length > 0
-
   // Check if user can join (show form)
-  const canJoin = session?.user && !isMember && !pendingRequest &&
+  const canJoinNormally = session?.user && !isMember && !pendingRequest &&
     (org?.defaultJoinMode === "open" || org?.defaultJoinMode === "approval")
+  const canJoinViaInvite = session?.user && !isMember && isInviteValid
+  const canJoin = canJoinNormally || canJoinViaInvite
 
   const handleAnswerChange = (fieldId: string, value: unknown) => {
     setFormAnswers((prev) => ({ ...prev, [fieldId]: value }))
@@ -137,7 +166,7 @@ function PublicOrgPage() {
   if (orgLoading) {
     return (
       <>
-        <LandingNavbar isLoggedIn={isLoggedIn} />
+        <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={sessionPending} />
         <div className="flex min-h-screen items-center justify-center p-4 pt-20">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
@@ -157,7 +186,7 @@ function PublicOrgPage() {
   if (orgError || !org) {
     return (
       <>
-        <LandingNavbar isLoggedIn={isLoggedIn} />
+        <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={sessionPending} />
         <div className="flex min-h-screen items-center justify-center p-4 pt-20">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
@@ -191,6 +220,19 @@ function PublicOrgPage() {
   }
 
   const renderJoinButton = () => {
+    // Invite token takes priority — direct join regardless of org join mode
+    if (canJoinViaInvite) {
+      return (
+        <Button
+          onClick={handleJoinViaInvite}
+          disabled={useTokenMutation.isPending}
+          className="w-full"
+        >
+          <LinkIcon className="mr-2 h-4 w-4" />
+          {useTokenMutation.isPending ? "Joining..." : "Join via Invite"}
+        </Button>
+      )
+    }
     if (org.defaultJoinMode === "open") {
       return (
         <Button
@@ -220,7 +262,7 @@ function PublicOrgPage() {
 
   return (
     <>
-      <LandingNavbar isLoggedIn={isLoggedIn} />
+      <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={sessionPending} />
       <div className="flex min-h-screen items-center justify-center p-4 pt-20">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
@@ -242,11 +284,21 @@ function PublicOrgPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
+          {/* Invite banner */}
+          {isInviteValid && !isMember && (
+            <div className="flex items-center gap-2 p-3 rounded-md border border-primary/30 bg-primary/5 text-sm">
+              <LinkIcon className="h-4 w-4 text-primary flex-shrink-0" />
+              <span className="text-primary font-medium">
+                You've been invited to join this group
+              </span>
+            </div>
+          )}
+
           {/* Not authenticated */}
           {!session?.user && (
             <Button onClick={() => navigate({ to: "/login" })} className="w-full">
               <UserPlus className="mr-2 h-4 w-4" />
-              Sign in to Join
+              {isInviteValid ? "Sign in to Accept Invite" : "Sign in to Join"}
             </Button>
           )}
 
@@ -261,15 +313,15 @@ function PublicOrgPage() {
           )}
 
           {/* Pending request */}
-          {session?.user && !isMember && pendingRequest && (
+          {session?.user && !isMember && pendingRequest && !isInviteValid && (
             <Button disabled className="w-full">
               <Clock className="mr-2 h-4 w-4" />
               Request Pending
             </Button>
           )}
 
-          {/* Invite only */}
-          {session?.user && !isMember && !pendingRequest && org.defaultJoinMode === "invite" && (
+          {/* Invite only (no invite token) */}
+          {session?.user && !isMember && !pendingRequest && !isInviteValid && org.defaultJoinMode === "invite" && (
             <Button disabled className="w-full">
               <Lock className="mr-2 h-4 w-4" />
               Invite Only
@@ -286,15 +338,6 @@ function PublicOrgPage() {
                     <p className="text-sm font-medium text-center">
                       Complete your profile to join
                     </p>
-
-                    {hasUnfilledOptionalFields && (
-                      <div className="flex items-center gap-2 p-3 rounded-md border bg-muted/50 text-sm">
-                        <AlertCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-muted-foreground">
-                          {unfilledOptionalFields.length} optional field{unfilledOptionalFields.length !== 1 ? "s" : ""} remaining — helps the group know you better.
-                        </span>
-                      </div>
-                    )}
 
                     {formError && (
                       <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
@@ -337,7 +380,8 @@ function PublicOrgPage() {
           )}
         </CardContent>
 
-        <CardFooter className="justify-center">
+        <CardFooter className="justify-center gap-2">
+          <ShareDialog url={buildOrgUrl(username, groupSlug)} title={org.name} username={username} />
           <Button variant="ghost" asChild>
             <Link to="/">Back to Home</Link>
           </Button>

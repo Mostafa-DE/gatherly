@@ -1,12 +1,12 @@
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { z } from "zod";
-import { organizationSettings } from "@/db/schema";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
+import { z } from "zod"
+import { organizationSettings } from "@/db/schema"
 import {
   FORM_FIELD_TYPES,
   type FormField,
   type FormFieldType,
   type JoinFormSchema,
-} from "@/types/form";
+} from "@/types/form"
 
 // =============================================================================
 // Supported Currencies
@@ -14,17 +14,17 @@ import {
 
 export const SUPPORTED_CURRENCIES = [
   "USD", "EUR", "GBP", "JOD", "AED", "SAR", "EGP", "CAD", "AUD", "CHF"
-] as const;
+] as const
 
-export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number];
+export type SupportedCurrency = typeof SUPPORTED_CURRENCIES[number]
 
-export const currencySchema = z.enum(SUPPORTED_CURRENCIES);
+export const currencySchema = z.enum(SUPPORTED_CURRENCIES)
 
 // =============================================================================
 // Form Field Types (for join form schema)
 // =============================================================================
 
-export const formFieldTypeSchema: z.ZodType<FormFieldType> = z.enum(FORM_FIELD_TYPES);
+export const formFieldTypeSchema: z.ZodType<FormFieldType> = z.enum(FORM_FIELD_TYPES)
 
 export const formFieldSchema: z.ZodType<FormField> = z.object({
   id: z.string(),
@@ -40,18 +40,18 @@ export const formFieldSchema: z.ZodType<FormField> = z.object({
       pattern: z.string().optional(),
     })
     .optional(),
-});
+})
 
 export const joinFormSchemaSchema: z.ZodType<JoinFormSchema> = z.object({
   fields: z.array(formFieldSchema).max(50),
-});
+})
 
 // =============================================================================
 // Schema generated from Drizzle table
 // =============================================================================
 
-export const organizationSettingsSelectSchema = createSelectSchema(organizationSettings);
-export const organizationSettingsInsertSchema = createInsertSchema(organizationSettings);
+export const organizationSettingsSelectSchema = createSelectSchema(organizationSettings)
+export const organizationSettingsInsertSchema = createInsertSchema(organizationSettings)
 
 // =============================================================================
 // Input Schemas
@@ -60,25 +60,25 @@ export const organizationSettingsInsertSchema = createInsertSchema(organizationS
 /** Get organization settings */
 export const getOrgSettingsSchema = z.object({
   // organizationId comes from context (activeOrganization)
-});
+})
 
 /** Update join form schema */
 export const updateJoinFormSchema = z.object({
   joinFormSchema: joinFormSchemaSchema.nullable(),
-});
+})
 
 /** Update organization currency */
 export const updateCurrencySchema = z.object({
   currency: currencySchema.nullable(),
-});
+})
 
 // =============================================================================
 // Types
 // =============================================================================
 
-export type OrganizationSettingsSelect = z.infer<typeof organizationSettingsSelectSchema>;
-export type OrganizationSettingsInsert = z.infer<typeof organizationSettingsInsertSchema>;
-export type GetOrgSettingsInput = z.infer<typeof getOrgSettingsSchema>;
-export type UpdateJoinFormInput = z.infer<typeof updateJoinFormSchema>;
-export type UpdateCurrencyInput = z.infer<typeof updateCurrencySchema>;
-export type { FormFieldType, FormField, JoinFormSchema };
+export type OrganizationSettingsSelect = z.infer<typeof organizationSettingsSelectSchema>
+export type OrganizationSettingsInsert = z.infer<typeof organizationSettingsInsertSchema>
+export type GetOrgSettingsInput = z.infer<typeof getOrgSettingsSchema>
+export type UpdateJoinFormInput = z.infer<typeof updateJoinFormSchema>
+export type UpdateCurrencyInput = z.infer<typeof updateCurrencySchema>
+export type { FormFieldType, FormField, JoinFormSchema }

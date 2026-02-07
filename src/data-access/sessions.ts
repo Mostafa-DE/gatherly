@@ -1,16 +1,16 @@
-import { and, count, eq, gt, isNull, lt, or, sql, desc, asc } from "drizzle-orm";
-import { db } from "@/db";
-import { eventSession, participation, user } from "@/db/schema";
-import type { EventSession } from "@/db/types";
-import { NotFoundError, BadRequestError } from "@/exceptions";
+import { and, count, eq, gt, isNull, lt, or, sql, desc, asc } from "drizzle-orm"
+import { db } from "@/db"
+import { eventSession, participation, user } from "@/db/schema"
+import type { EventSession } from "@/db/types"
+import { NotFoundError, BadRequestError } from "@/exceptions"
 import {
   assertSessionTransition,
   type SessionStatus,
-} from "@/lib/sessions/state-machine";
+} from "@/lib/sessions/state-machine"
 import type {
   CreateSessionInput,
   UpdateSessionInput,
-} from "@/schemas/session";
+} from "@/schemas/session"
 
 // =============================================================================
 // Queries
@@ -21,8 +21,8 @@ export async function getSessionById(sessionId: string) {
     .select()
     .from(eventSession)
     .where(and(eq(eventSession.id, sessionId), isNull(eventSession.deletedAt)))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getSessionByIdWithDeleted(sessionId: string) {
@@ -30,13 +30,13 @@ export async function getSessionByIdWithDeleted(sessionId: string) {
     .select()
     .from(eventSession)
     .where(eq(eventSession.id, sessionId))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getSessionWithCounts(sessionId: string) {
-  const session = await getSessionById(sessionId);
-  if (!session) return null;
+  const session = await getSessionById(sessionId)
+  if (!session) return null
 
   const [counts] = await db
     .select({
@@ -48,32 +48,32 @@ export async function getSessionWithCounts(sessionId: string) {
       ),
     })
     .from(participation)
-    .where(eq(participation.sessionId, sessionId));
+    .where(eq(participation.sessionId, sessionId))
 
   return {
     ...session,
     joinedCount: counts?.joinedCount ?? 0,
     waitlistCount: counts?.waitlistCount ?? 0,
-  };
+  }
 }
 
 export async function listSessions(
   organizationId: string,
   options: {
-    limit: number;
-    offset: number;
-    status?: SessionStatus;
-    includeDeleted?: boolean;
+    limit: number
+    offset: number
+    status?: SessionStatus
+    includeDeleted?: boolean
   }
 ) {
-  const conditions = [eq(eventSession.organizationId, organizationId)];
+  const conditions = [eq(eventSession.organizationId, organizationId)]
 
   if (!options.includeDeleted) {
-    conditions.push(isNull(eventSession.deletedAt));
+    conditions.push(isNull(eventSession.deletedAt))
   }
 
   if (options.status) {
-    conditions.push(eq(eventSession.status, options.status));
+    conditions.push(eq(eventSession.status, options.status))
   }
 
   return db
@@ -82,14 +82,14 @@ export async function listSessions(
     .where(and(...conditions))
     .orderBy(desc(eventSession.dateTime))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 }
 
 export async function listUpcomingSessions(
   organizationId: string,
   options: { limit: number; offset: number }
 ) {
-  const now = new Date();
+  const now = new Date()
   return db
     .select()
     .from(eventSession)
@@ -103,14 +103,14 @@ export async function listUpcomingSessions(
     )
     .orderBy(asc(eventSession.dateTime))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 }
 
 export async function listUpcomingSessionsWithCounts(
   organizationId: string,
   options: { limit: number; offset: number }
 ) {
-  const now = new Date();
+  const now = new Date()
   const sessions = await db
     .select()
     .from(eventSession)
@@ -124,22 +124,22 @@ export async function listUpcomingSessionsWithCounts(
     )
     .orderBy(asc(eventSession.dateTime))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 
   // Get counts and participant preview for each session
   const sessionsWithCounts = await Promise.all(
     sessions.map(async (session) => {
-      const counts = await getSessionCounts(session.id);
-      const participants = await getSessionParticipantPreview(session.id);
+      const counts = await getSessionCounts(session.id)
+      const participants = await getSessionParticipantPreview(session.id)
       return {
         ...session,
         ...counts,
         participants,
-      };
+      }
     })
-  );
+  )
 
-  return sessionsWithCounts;
+  return sessionsWithCounts
 }
 
 export async function listDraftSessionsWithCounts(
@@ -158,28 +158,28 @@ export async function listDraftSessionsWithCounts(
     )
     .orderBy(desc(eventSession.dateTime))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 
   const sessionsWithCounts = await Promise.all(
     sessions.map(async (session) => {
-      const counts = await getSessionCounts(session.id);
-      const participants = await getSessionParticipantPreview(session.id);
+      const counts = await getSessionCounts(session.id)
+      const participants = await getSessionParticipantPreview(session.id)
       return {
         ...session,
         ...counts,
         participants,
-      };
+      }
     })
-  );
+  )
 
-  return sessionsWithCounts;
+  return sessionsWithCounts
 }
 
 export async function listPastSessions(
   organizationId: string,
   options: { limit: number; offset: number }
 ) {
-  const now = new Date();
+  const now = new Date()
   return db
     .select()
     .from(eventSession)
@@ -196,14 +196,14 @@ export async function listPastSessions(
     )
     .orderBy(desc(eventSession.dateTime))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 }
 
 export async function listPastSessionsWithCounts(
   organizationId: string,
   options: { limit: number; offset: number }
 ) {
-  const now = new Date();
+  const now = new Date()
   const sessions = await db
     .select()
     .from(eventSession)
@@ -220,22 +220,22 @@ export async function listPastSessionsWithCounts(
     )
     .orderBy(desc(eventSession.dateTime))
     .limit(options.limit)
-    .offset(options.offset);
+    .offset(options.offset)
 
   // Get counts and participant preview for each session
   const sessionsWithCounts = await Promise.all(
     sessions.map(async (session) => {
-      const counts = await getSessionCounts(session.id);
-      const participants = await getSessionParticipantPreview(session.id);
+      const counts = await getSessionCounts(session.id)
+      const participants = await getSessionParticipantPreview(session.id)
       return {
         ...session,
         ...counts,
         participants,
-      };
+      }
     })
-  );
+  )
 
-  return sessionsWithCounts;
+  return sessionsWithCounts
 }
 
 // Helper: Get joined/waitlisted counts for a session
@@ -250,12 +250,12 @@ async function getSessionCounts(sessionId: string) {
       ),
     })
     .from(participation)
-    .where(eq(participation.sessionId, sessionId));
+    .where(eq(participation.sessionId, sessionId))
 
   return {
     joinedCount: counts?.joinedCount ?? 0,
     waitlistCount: counts?.waitlistCount ?? 0,
-  };
+  }
 }
 
 // Helper: Get first 4 joined participants for preview avatars
@@ -275,9 +275,9 @@ async function getSessionParticipantPreview(sessionId: string) {
       )
     )
     .orderBy(asc(participation.joinedAt))
-    .limit(4);
+    .limit(4)
 
-  return participants;
+  return participants
 }
 
 // =============================================================================
@@ -303,25 +303,25 @@ export async function createSession(
       joinMode: data.joinMode,
       status: "draft",
     })
-    .returning();
+    .returning()
 
-  return session;
+  return session
 }
 
 export async function updateSession(
   sessionId: string,
   data: UpdateSessionInput
 ): Promise<EventSession> {
-  const session = await getSessionById(sessionId);
+  const session = await getSessionById(sessionId)
   if (!session) {
-    throw new NotFoundError("Session not found");
+    throw new NotFoundError("Session not found")
   }
 
   // Cannot modify completed or cancelled sessions
   if (session.status === "completed" || session.status === "cancelled") {
     throw new BadRequestError(
       `Cannot modify session with status '${session.status}'`
-    );
+    )
   }
 
   const [updated] = await db
@@ -331,22 +331,22 @@ export async function updateSession(
       updatedAt: new Date(),
     })
     .where(eq(eventSession.id, sessionId))
-    .returning();
+    .returning()
 
-  return updated;
+  return updated
 }
 
 export async function updateSessionStatus(
   sessionId: string,
   newStatus: SessionStatus
 ): Promise<EventSession> {
-  const session = await getSessionById(sessionId);
+  const session = await getSessionById(sessionId)
   if (!session) {
-    throw new NotFoundError("Session not found");
+    throw new NotFoundError("Session not found")
   }
 
   // Validate state transition
-  assertSessionTransition(session.status as SessionStatus, newStatus);
+  assertSessionTransition(session.status as SessionStatus, newStatus)
 
   const [updated] = await db
     .update(eventSession)
@@ -355,15 +355,15 @@ export async function updateSessionStatus(
       updatedAt: new Date(),
     })
     .where(eq(eventSession.id, sessionId))
-    .returning();
+    .returning()
 
-  return updated;
+  return updated
 }
 
 export async function softDeleteSession(sessionId: string): Promise<EventSession> {
-  const session = await getSessionById(sessionId);
+  const session = await getSessionById(sessionId)
   if (!session) {
-    throw new NotFoundError("Session not found");
+    throw new NotFoundError("Session not found")
   }
 
   const [deleted] = await db
@@ -373,7 +373,7 @@ export async function softDeleteSession(sessionId: string): Promise<EventSession
       updatedAt: new Date(),
     })
     .where(eq(eventSession.id, sessionId))
-    .returning();
+    .returning()
 
-  return deleted;
+  return deleted
 }

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ShareDialog } from "@/components/share-dialog"
 import {
   Calendar,
   Users,
@@ -12,6 +13,7 @@ import {
   Plus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { buildOrgUrl } from "@/lib/share-urls"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/")({
   component: OrgOverviewPage,
@@ -63,6 +65,21 @@ function OrgOverviewPage() {
           Manage your sessions, track attendance, and keep your group organized
           — all in one place.
         </p>
+
+        {org?.ownerUsername && org?.userSlug && (
+          <div className="mt-4">
+            <ShareDialog
+              url={buildOrgUrl(org.ownerUsername, org.userSlug)}
+              title={org.name}
+              username={org.ownerUsername}
+              inviteLink={
+                isAdmin
+                  ? { orgId: org.id, username: org.ownerUsername, groupSlug: org.userSlug }
+                  : undefined
+              }
+            />
+          </div>
+        )}
 
         {/* Quick Stats */}
         <div className="mt-8 grid grid-cols-3 gap-4">

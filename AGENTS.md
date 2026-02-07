@@ -100,7 +100,14 @@ When working on any task:
 
 ---
 
-## 11. Default Behavior
+## 11. No `"use client"` / `"use server"` Directives
+
+This project uses **TanStack Start + Nitro**, not Next.js. There are no React Server Components.
+All components are client components by default. Do NOT add `"use client"` or `"use server"` to any file.
+
+---
+
+## 12. Default Behavior
 
 - If unsure → ask.
 - If ambiguous → ask.
@@ -108,7 +115,7 @@ When working on any task:
 
 ---
 
-## 12. Auto-generated Files
+## 13. Auto-generated Files
 
 Do NOT manually edit:
 - `src/db/auth-schema.ts` — regenerate with `pnpm auth:generate`

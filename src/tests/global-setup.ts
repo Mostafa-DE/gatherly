@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process"
+import { Client } from "pg"
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql"
 
 let container: StartedPostgreSqlContainer | undefined
@@ -8,6 +9,19 @@ const shouldReuseContainers = () => {
   if (process.env.CI === "true") return false
   if (process.env.TESTCONTAINERS_REUSE_ENABLE === "false") return false
   return true
+}
+
+async function resetPublicSchema(connectionString: string) {
+  const client = new Client({ connectionString })
+  await client.connect()
+  try {
+    await client.query("DROP SCHEMA IF EXISTS public CASCADE")
+    await client.query('DROP SCHEMA IF EXISTS "drizzle" CASCADE')
+    await client.query("CREATE SCHEMA public")
+    await client.query("GRANT ALL ON SCHEMA public TO public")
+  } finally {
+    await client.end()
+  }
 }
 
 export async function setup() {
@@ -23,6 +37,7 @@ export async function setup() {
   container = await (reuseEnabled ? baseContainer.withReuse() : baseContainer).start()
 
   process.env.DATABASE_URL = container.getConnectionUri()
+  await resetPublicSchema(process.env.DATABASE_URL)
 
   execSync("pnpm db:migrate", {
     stdio: "inherit",

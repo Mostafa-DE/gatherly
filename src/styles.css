@@ -249,6 +249,20 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+  button,
+  a,
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  summary {
+    cursor: pointer;
+  }
 }
 
 /* ===== Landing page typography & animations ===== */

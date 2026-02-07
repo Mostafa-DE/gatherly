@@ -25,6 +25,7 @@ This guide consolidates coding conventions from `~/code/spank/AGENTS.md`, `~/cod
 - Avoid `useState` for shared/client state; model it in atoms.
 - Treat `useEffect` as last resort; prefer action-driven state changes.
 - Use TanStack Query for server state; do not mirror server data into Jotai atoms.
+- **No `"use client"` or `"use server"` directives.** This project uses TanStack Start + Nitro, not Next.js. There are no React Server Components — all components are client components by default.
 
 ## 4. TypeScript, Naming, and Formatting
 

@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
 import { useSession } from "@/auth/client"
 import { AppSidebar, BreadcrumbNav, QuickActions } from "@/components/dashboard"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -8,7 +8,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
-import { useEffect } from "react"
 import { Calendar, Loader2, AlertTriangle } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard")({
@@ -17,14 +16,10 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardLayout() {
   const { data: session, isPending } = useSession()
-  const navigate = useNavigate()
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isPending && !session?.user) {
-      navigate({ to: "/login" })
-    }
-  }, [isPending, session?.user, navigate])
+  if (!isPending && !session?.user) {
+    throw redirect({ to: "/login" })
+  }
 
   // Show loading while checking auth or redirecting
   if (isPending || !session?.user) {

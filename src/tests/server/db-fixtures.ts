@@ -7,6 +7,12 @@ function createToken(prefix: string): string {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`
 }
 
+function createUniquePhoneNumber(): string {
+  const entropy = BigInt(`0x${randomUUID().replaceAll("-", "").slice(0, 15)}`)
+  const localNumber = (entropy % 10_000_000_000n).toString().padStart(10, "0")
+  return `+1${localNumber}`
+}
+
 export async function createTestUser(name = "Test User") {
   const username = createToken("user").toLowerCase()
   const [createdUser] = await db
@@ -16,7 +22,7 @@ export async function createTestUser(name = "Test User") {
       name,
       email: `${createToken("email")}@example.com`,
       emailVerified: true,
-      phoneNumber: `+1${Date.now().toString().slice(-10)}`,
+      phoneNumber: createUniquePhoneNumber(),
       username,
     })
     .returning()

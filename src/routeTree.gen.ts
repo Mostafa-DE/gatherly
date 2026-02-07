@@ -28,6 +28,7 @@ import { Route as DashboardOrgOrgIdProfileRouteImport } from './routes/dashboard
 import { Route as DashboardOrgOrgIdMembersRouteImport } from './routes/dashboard/org.$orgId/members'
 import { Route as DashboardOrgOrgIdJoinRequestsRouteImport } from './routes/dashboard/org.$orgId/join-requests'
 import { Route as DashboardOrgOrgIdInvitationsRouteImport } from './routes/dashboard/org.$orgId/invitations'
+import { Route as UsernameGroupSlugSessionsSessionIdRouteImport } from './routes/$username.$groupSlug/sessions.$sessionId'
 import { Route as DashboardOrgOrgIdSessionsIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/index'
 import { Route as DashboardOrgOrgIdSessionsCreateRouteImport } from './routes/dashboard/org.$orgId/sessions/create'
 import { Route as DashboardOrgOrgIdSessionsSessionIdRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId'
@@ -135,6 +136,12 @@ const DashboardOrgOrgIdInvitationsRoute =
     path: '/invitations',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
+const UsernameGroupSlugSessionsSessionIdRoute =
+  UsernameGroupSlugSessionsSessionIdRouteImport.update({
+    id: '/$username/$groupSlug/sessions/$sessionId',
+    path: '/$username/$groupSlug/sessions/$sessionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DashboardOrgOrgIdSessionsIndexRoute =
   DashboardOrgOrgIdSessionsIndexRouteImport.update({
     id: '/sessions/',
@@ -186,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
+  '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersRoute
@@ -211,6 +219,7 @@ export interface FileRoutesByTo {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/$username/$groupSlug': typeof UsernameGroupSlugIndexRoute
+  '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersRoute
@@ -238,6 +247,7 @@ export interface FileRoutesById {
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
+  '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersRoute
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
     | '/$username/$groupSlug/'
+    | '/$username/$groupSlug/sessions/$sessionId'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/members'
@@ -292,6 +303,7 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/$username/$groupSlug'
+    | '/$username/$groupSlug/sessions/$sessionId'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/members'
@@ -318,6 +330,7 @@ export interface FileRouteTypes {
     | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
     | '/$username/$groupSlug/'
+    | '/$username/$groupSlug/sessions/$sessionId'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/members'
@@ -341,6 +354,7 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   UsernameGroupSlugIndexRoute: typeof UsernameGroupSlugIndexRoute
+  UsernameGroupSlugSessionsSessionIdRoute: typeof UsernameGroupSlugSessionsSessionIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -478,6 +492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdInvitationsRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
+    '/$username/$groupSlug/sessions/$sessionId': {
+      id: '/$username/$groupSlug/sessions/$sessionId'
+      path: '/$username/$groupSlug/sessions/$sessionId'
+      fullPath: '/$username/$groupSlug/sessions/$sessionId'
+      preLoaderRoute: typeof UsernameGroupSlugSessionsSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/org/$orgId/sessions/': {
       id: '/dashboard/org/$orgId/sessions/'
       path: '/sessions'
@@ -601,6 +622,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   UsernameGroupSlugIndexRoute: UsernameGroupSlugIndexRoute,
+  UsernameGroupSlugSessionsSessionIdRoute:
+    UsernameGroupSlugSessionsSessionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

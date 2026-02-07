@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router"
 import { ArrowRight, Sparkles } from "lucide-react"
 
-interface CTASectionProps {
+type CTASectionProps = {
   isLoggedIn: boolean
+  isAuthLoading: boolean
 }
 
-export function CTASection({ isLoggedIn }: CTASectionProps) {
+export function CTASection({ isLoggedIn, isAuthLoading }: CTASectionProps) {
   return (
     <section className="bg-card px-5 py-20 sm:px-8 sm:py-28">
       <div className="mx-auto max-w-4xl text-center">
@@ -16,7 +17,9 @@ export function CTASection({ isLoggedIn }: CTASectionProps) {
           </div>
 
           <h2 className="landing-display text-4xl font-bold text-foreground sm:text-6xl">
-            {isLoggedIn ? (
+            {isAuthLoading ? (
+              "Checking Your Session"
+            ) : isLoggedIn ? (
               "Back to Your Dashboard"
             ) : (
               <>
@@ -27,17 +30,25 @@ export function CTASection({ isLoggedIn }: CTASectionProps) {
             )}
           </h2>
           <p className="landing-body mx-auto mt-4 max-w-lg text-base text-muted-foreground">
-            {isLoggedIn
+            {isAuthLoading
+              ? "Hold on for a moment while we verify your account."
+              : isLoggedIn
               ? "Continue managing your groups and sessions."
               : "Your first group is free forever with up to 200 members. Extra groups just $1 for 3 months, then $10/mo. No hidden fees."}
           </p>
-          <Link
-            to={isLoggedIn ? "/dashboard" : "/register"}
-            className="landing-glow group mt-8 inline-flex items-center gap-2 bg-primary px-10 py-4 text-base font-bold text-primary-foreground transition-all"
-          >
-            {isLoggedIn ? "GO TO DASHBOARD" : "GET STARTED FREE"}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
+          {isAuthLoading ? (
+            <span className="landing-glow mt-8 inline-flex items-center gap-2 bg-primary/60 px-10 py-4 text-base font-bold text-primary-foreground/90">
+              CHECKING SESSION...
+            </span>
+          ) : (
+            <Link
+              to={isLoggedIn ? "/dashboard" : "/register"}
+              className="landing-glow group mt-8 inline-flex items-center gap-2 bg-primary px-10 py-4 text-base font-bold text-primary-foreground transition-all"
+            >
+              {isLoggedIn ? "GO TO DASHBOARD" : "GET STARTED FREE"}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          )}
         </div>
       </div>
     </section>

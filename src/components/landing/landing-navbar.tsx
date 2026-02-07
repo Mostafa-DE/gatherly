@@ -2,8 +2,9 @@ import { Link } from "@tanstack/react-router"
 import { ArrowRight, Zap } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 
-interface LandingNavbarProps {
+type LandingNavbarProps = {
   isLoggedIn: boolean
+  isAuthLoading: boolean
 }
 
 const navLinks = [
@@ -12,7 +13,7 @@ const navLinks = [
   { label: "Compare", href: "#comparison" },
 ]
 
-export function LandingNavbar({ isLoggedIn }: LandingNavbarProps) {
+export function LandingNavbar({ isLoggedIn, isAuthLoading }: LandingNavbarProps) {
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     e.preventDefault()
     const element = document.querySelector(href)
@@ -51,7 +52,11 @@ export function LandingNavbar({ isLoggedIn }: LandingNavbarProps) {
 
         <nav className="flex items-center gap-3">
           <ThemeToggle />
-          {isLoggedIn ? (
+          {isAuthLoading ? (
+            <span className="landing-body flex items-center gap-1.5 rounded bg-primary/60 px-5 py-2.5 text-sm font-bold text-primary-foreground/90">
+              Loading...
+            </span>
+          ) : isLoggedIn ? (
             <Link
               to="/dashboard"
               className="landing-body flex items-center gap-1.5 rounded bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-all"

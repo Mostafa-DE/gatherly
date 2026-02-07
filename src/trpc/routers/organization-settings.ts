@@ -1,15 +1,15 @@
-import { router, orgProcedure } from "@/trpc";
-import { ForbiddenError } from "@/exceptions";
+import { router, orgProcedure } from "@/trpc"
+import { ForbiddenError } from "@/exceptions"
 import {
   getOrCreateOrgSettings,
   updateJoinFormSchema,
   updateOrgCurrency,
-} from "@/data-access/organization-settings";
+} from "@/data-access/organization-settings"
 import {
   getOrgSettingsSchema,
   updateJoinFormSchema as updateJoinFormInputSchema,
   updateCurrencySchema,
-} from "@/schemas/organization-settings";
+} from "@/schemas/organization-settings"
 
 // =============================================================================
 // Helper: Check if user is admin (owner role)
@@ -17,7 +17,7 @@ import {
 
 function assertAdmin(role: string): void {
   if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action");
+    throw new ForbiddenError("Only organization owners can perform this action")
   }
 }
 
@@ -33,7 +33,7 @@ export const organizationSettingsRouter = router({
   get: orgProcedure
     .input(getOrgSettingsSchema)
     .query(async ({ ctx }) => {
-      return getOrCreateOrgSettings(ctx.activeOrganization.id);
+      return getOrCreateOrgSettings(ctx.activeOrganization.id)
     }),
 
   /**
@@ -43,11 +43,11 @@ export const organizationSettingsRouter = router({
   updateJoinForm: orgProcedure
     .input(updateJoinFormInputSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
       return updateJoinFormSchema(
         ctx.activeOrganization.id,
         input.joinFormSchema
-      );
+      )
     }),
 
   /**
@@ -56,7 +56,7 @@ export const organizationSettingsRouter = router({
   updateCurrency: orgProcedure
     .input(updateCurrencySchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
-      return updateOrgCurrency(ctx.activeOrganization.id, input.currency);
+      assertAdmin(ctx.membership.role)
+      return updateOrgCurrency(ctx.activeOrganization.id, input.currency)
     }),
-});
+})

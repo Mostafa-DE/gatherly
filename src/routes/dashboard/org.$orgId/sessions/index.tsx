@@ -458,7 +458,7 @@ function SessionCard({
           )}
         </div>
         <span className="text-sm font-medium text-primary">
-          View roster &rarr;
+          View roster &rarr
         </span>
       </div>
     </Link>

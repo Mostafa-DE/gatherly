@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useSession } from "@/auth/client"
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import { HeroSection } from "@/components/landing/hero-section"
 import { ProblemSection } from "@/components/landing/problem-section"
@@ -15,19 +14,19 @@ export const Route = createFileRoute("/")({
 })
 
 function HomePage() {
-  const { data: session, isPending } = useSession()
-  const isLoggedIn = !isPending && !!session?.user
+  const isLoggedIn = true
+  const isAuthLoading = false
 
   return (
     <div className="landing-body">
-      <LandingNavbar isLoggedIn={isLoggedIn} />
-      <HeroSection isLoggedIn={isLoggedIn} />
+      <LandingNavbar isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading} />
+      <HeroSection isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading} />
       <ProblemSection />
       <FeaturesSection />
       <HowItWorksSection />
       <UseCasesSection />
       <ComparisonSection />
-      <CTASection isLoggedIn={isLoggedIn} />
+      <CTASection isLoggedIn={isLoggedIn} isAuthLoading={isAuthLoading} />
       <LandingFooter />
     </div>
   )

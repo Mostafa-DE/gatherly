@@ -1,15 +1,15 @@
-import { and, eq, desc } from "drizzle-orm";
-import { db } from "@/db";
-import { joinRequest, organization, user } from "@/db/schema";
-import type { JoinRequest } from "@/db/types";
-import { NotFoundError, ConflictError, BadRequestError } from "@/exceptions";
+import { and, eq, desc } from "drizzle-orm"
+import { db } from "@/db"
+import { joinRequest, organization, user } from "@/db/schema"
+import type { JoinRequest } from "@/db/types"
+import { NotFoundError, ConflictError, BadRequestError } from "@/exceptions"
 
 // =============================================================================
 // Helper: Check if error is a unique constraint violation
 // =============================================================================
 
 function isUniqueConstraintError(error: unknown): boolean {
-  return (error as { code?: string })?.code === "23505";
+  return (error as { code?: string })?.code === "23505"
 }
 
 // =============================================================================
@@ -21,8 +21,8 @@ export async function getJoinRequestById(requestId: string) {
     .select()
     .from(joinRequest)
     .where(eq(joinRequest.id, requestId))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getJoinRequestWithDetails(requestId: string) {
@@ -48,8 +48,8 @@ export async function getJoinRequestWithDetails(requestId: string) {
     .innerJoin(organization, eq(joinRequest.organizationId, organization.id))
     .innerJoin(user, eq(joinRequest.userId, user.id))
     .where(eq(joinRequest.id, requestId))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function getPendingRequest(organizationId: string, userId: string) {
@@ -63,8 +63,8 @@ export async function getPendingRequest(organizationId: string, userId: string) 
         eq(joinRequest.status, "pending")
       )
     )
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 export async function listPendingRequestsForOrg(organizationId: string) {
@@ -86,7 +86,7 @@ export async function listPendingRequestsForOrg(organizationId: string) {
         eq(joinRequest.status, "pending")
       )
     )
-    .orderBy(desc(joinRequest.createdAt));
+    .orderBy(desc(joinRequest.createdAt))
 }
 
 export async function listMyJoinRequests(userId: string) {
@@ -105,7 +105,7 @@ export async function listMyJoinRequests(userId: string) {
     .from(joinRequest)
     .innerJoin(organization, eq(joinRequest.organizationId, organization.id))
     .where(eq(joinRequest.userId, userId))
-    .orderBy(desc(joinRequest.createdAt));
+    .orderBy(desc(joinRequest.createdAt))
 }
 
 // =============================================================================
@@ -128,13 +128,13 @@ export async function createJoinRequest(
         formAnswers,
         status: "pending",
       })
-      .returning();
-    return result;
+      .returning()
+    return result
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      throw new ConflictError("You already have a pending request for this organization");
+      throw new ConflictError("You already have a pending request for this organization")
     }
-    throw error;
+    throw error
   }
 }
 
@@ -142,16 +142,16 @@ export async function cancelJoinRequest(
   requestId: string,
   userId: string
 ): Promise<JoinRequest> {
-  const request = await getJoinRequestById(requestId);
+  const request = await getJoinRequestById(requestId)
 
   if (!request) {
-    throw new NotFoundError("Join request not found");
+    throw new NotFoundError("Join request not found")
   }
   if (request.userId !== userId) {
-    throw new NotFoundError("Join request not found");
+    throw new NotFoundError("Join request not found")
   }
   if (request.status !== "pending") {
-    throw new BadRequestError("Only pending requests can be cancelled");
+    throw new BadRequestError("Only pending requests can be cancelled")
   }
 
   // Update status to 'rejected' (self-cancellation)
@@ -164,22 +164,22 @@ export async function cancelJoinRequest(
       updatedAt: new Date(),
     })
     .where(eq(joinRequest.id, requestId))
-    .returning();
+    .returning()
 
-  return updated;
+  return updated
 }
 
 export async function approveJoinRequest(
   requestId: string,
   reviewerId: string
 ): Promise<JoinRequest> {
-  const request = await getJoinRequestById(requestId);
+  const request = await getJoinRequestById(requestId)
 
   if (!request) {
-    throw new NotFoundError("Join request not found");
+    throw new NotFoundError("Join request not found")
   }
   if (request.status !== "pending") {
-    throw new BadRequestError("Only pending requests can be approved");
+    throw new BadRequestError("Only pending requests can be approved")
   }
 
   const [updated] = await db
@@ -191,22 +191,22 @@ export async function approveJoinRequest(
       updatedAt: new Date(),
     })
     .where(eq(joinRequest.id, requestId))
-    .returning();
+    .returning()
 
-  return updated;
+  return updated
 }
 
 export async function rejectJoinRequest(
   requestId: string,
   reviewerId: string
 ): Promise<JoinRequest> {
-  const request = await getJoinRequestById(requestId);
+  const request = await getJoinRequestById(requestId)
 
   if (!request) {
-    throw new NotFoundError("Join request not found");
+    throw new NotFoundError("Join request not found")
   }
   if (request.status !== "pending") {
-    throw new BadRequestError("Only pending requests can be rejected");
+    throw new BadRequestError("Only pending requests can be rejected")
   }
 
   const [updated] = await db
@@ -218,7 +218,7 @@ export async function rejectJoinRequest(
       updatedAt: new Date(),
     })
     .where(eq(joinRequest.id, requestId))
-    .returning();
+    .returning()
 
-  return updated;
+  return updated
 }

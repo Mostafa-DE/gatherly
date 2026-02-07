@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useMemo } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -29,12 +29,14 @@ import {
 import { FORM_FIELD_TYPES, type FormField, type FormFieldType } from "@/types/form"
 import { getTimezones } from "@/lib/timezones"
 import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
+import { ShareDialog } from "@/components/share-dialog"
+import { buildOrgUrl } from "@/lib/share-urls"
+import { TimezoneSelect } from "@/components/ui/timezone-select"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
   component: SettingsPage,
 })
 
-const TIMEZONE_EMPTY_VALUE = "__unset__"
 const CURRENCY_EMPTY_VALUE = "__unset__"
 type SupportedCurrency = (typeof SUPPORTED_CURRENCIES)[number]
 
@@ -51,40 +53,40 @@ function SettingsPage() {
     { enabled: isAdmin }
   )
 
-  const [fields, setFields] = useState<FormField[]>([])
+  const [fieldsDraft, setFieldsDraft] = useState<FormField[] | null>(null)
   const [formError, setFormError] = useState("")
-  const [formDirty, setFormDirty] = useState(false)
+  const [timezoneDraft, setTimezoneDraft] = useState<string | null>(null)
+  const [joinModeDraft, setJoinModeDraft] = useState<"open" | "invite" | "approval" | null>(null)
+  const [currencyDraft, setCurrencyDraft] = useState<SupportedCurrency | "" | null>(null)
 
   const org = whoami?.activeOrganization
-  const [timezone, setTimezone] = useState(org?.timezone || "")
-  const [joinMode, setJoinMode] = useState<"open" | "invite" | "approval">(
-    (org?.defaultJoinMode as "open" | "invite" | "approval") || "invite"
-  )
-  const [currency, setCurrency] = useState<SupportedCurrency | "">(
-    (settings?.currency as SupportedCurrency | null) ?? ""
-  )
   const [generalError, setGeneralError] = useState("")
   const timezones = useMemo(() => getTimezones(), [])
 
-  useEffect(() => {
-    setTimezone(org?.timezone || "")
-    setJoinMode((org?.defaultJoinMode as "open" | "invite" | "approval") || "invite")
-  }, [org?.timezone, org?.defaultJoinMode])
+  const persistedTimezone = org?.timezone || ""
+  const persistedJoinMode = (org?.defaultJoinMode as "open" | "invite" | "approval") || "invite"
+  const persistedCurrency = (settings?.currency as SupportedCurrency | null) ?? ""
+  const persistedFields =
+    ((settings?.joinFormSchema as { fields?: FormField[] } | null)?.fields || [])
 
-  useEffect(() => {
-    setCurrency((settings?.currency as SupportedCurrency | null) ?? "")
-  }, [settings?.currency])
+  const timezone = timezoneDraft ?? persistedTimezone
+  const joinMode = joinModeDraft ?? persistedJoinMode
+  const currency = currencyDraft ?? persistedCurrency
+  const fields = fieldsDraft ?? persistedFields
 
   const generalDirty =
-    timezone !== (org?.timezone || "") ||
-    joinMode !== ((org?.defaultJoinMode as "open" | "invite" | "approval") || "invite")
+    timezone !== persistedTimezone ||
+    joinMode !== persistedJoinMode
 
-  const currencyDirty = currency !== (settings?.currency || "")
+  const currencyDirty = currency !== persistedCurrency
+  const formDirty = fieldsDraft !== null
 
   const updateOrgSettings = trpc.organization.updateSettings.useMutation({
     onSuccess: () => {
       utils.user.whoami.invalidate()
       setGeneralError("")
+      setTimezoneDraft(null)
+      setJoinModeDraft(null)
     },
     onError: (err) => {
       setGeneralError(err.message)
@@ -103,6 +105,7 @@ function SettingsPage() {
     onSuccess: () => {
       utils.organizationSettings.get.invalidate()
       setGeneralError("")
+      setCurrencyDraft(null)
     },
     onError: (err) => {
       setGeneralError(err.message)
@@ -116,17 +119,10 @@ function SettingsPage() {
     })
   }
 
-  useEffect(() => {
-    const joinFormSchema = settings?.joinFormSchema as { fields?: FormField[] } | null
-    if (joinFormSchema?.fields) {
-      setFields(joinFormSchema.fields)
-    }
-  }, [settings])
-
   const updateJoinForm = trpc.organizationSettings.updateJoinForm.useMutation({
     onSuccess: () => {
       utils.organizationSettings.get.invalidate()
-      setFormDirty(false)
+      setFieldsDraft(null)
       setFormError("")
     },
     onError: (err) => {
@@ -143,28 +139,27 @@ function SettingsPage() {
       label: "",
       required: false,
     }
-    setFields([...fields, newField])
-    setFormDirty(true)
+    setFieldsDraft((prev) => [...(prev ?? persistedFields), newField])
   }
 
   const removeField = (id: string) => {
-    setFields(fields.filter((f) => f.id !== id))
-    setFormDirty(true)
+    setFieldsDraft((prev) => (prev ?? persistedFields).filter((f) => f.id !== id))
   }
 
   const updateField = (id: string, updates: Partial<FormField>) => {
-    setFields(fields.map((f) => (f.id === id ? { ...f, ...updates } : f)))
-    setFormDirty(true)
+    setFieldsDraft((prev) =>
+      (prev ?? persistedFields).map((f) => (f.id === id ? { ...f, ...updates } : f))
+    )
   }
 
   const moveField = (index: number, direction: "up" | "down") => {
+    const currentFields = fieldsDraft ?? persistedFields
     const newIndex = direction === "up" ? index - 1 : index + 1
-    if (newIndex < 0 || newIndex >= fields.length) return
-    const newFields = [...fields]
+    if (newIndex < 0 || newIndex >= currentFields.length) return
+    const newFields = [...currentFields]
     const [removed] = newFields.splice(index, 1)
     newFields.splice(newIndex, 0, removed)
-    setFields(newFields)
-    setFormDirty(true)
+    setFieldsDraft(newFields)
   }
 
   const handleSaveForm = () => {
@@ -255,7 +250,20 @@ function SettingsPage() {
           </div>
           <div className="rounded-lg border border-border/50 bg-background/50 p-4">
             <p className="text-sm font-medium text-muted-foreground">URL</p>
-            <p className="mt-1 font-medium">/{org?.ownerUsername}/{org?.userSlug}</p>
+            <div className="mt-1 flex items-center gap-2">
+              <p className="font-medium">/{org?.ownerUsername}/{org?.userSlug}</p>
+              {org?.ownerUsername && org?.userSlug && (
+                <ShareDialog
+                  url={buildOrgUrl(org.ownerUsername, org.userSlug)}
+                  title={org.name}
+                  inviteLink={
+                    isOwner
+                      ? { orgId: org.id, username: org.ownerUsername, groupSlug: org.userSlug }
+                      : undefined
+                  }
+                />
+              )}
+            </div>
           </div>
         </div>
 
@@ -273,24 +281,12 @@ function SettingsPage() {
                   <Clock className="h-4 w-4" />
                   Timezone
                 </Label>
-                <Select
-                  value={timezone || TIMEZONE_EMPTY_VALUE}
-                  onValueChange={(value) =>
-                    setTimezone(value === TIMEZONE_EMPTY_VALUE ? "" : value)
-                  }
-                >
-                  <SelectTrigger id="timezone" className="bg-background/50">
-                    <SelectValue placeholder="Select a timezone" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectItem value={TIMEZONE_EMPTY_VALUE}>Not set</SelectItem>
-                    {timezones.map((zone) => (
-                      <SelectItem key={zone} value={zone}>
-                        {zone}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <TimezoneSelect
+                  id="timezone"
+                  value={timezone}
+                  onChange={setTimezoneDraft}
+                  timezones={timezones}
+                />
                 <p className="text-xs text-muted-foreground">
                   e.g. America/New_York, Europe/London
                 </p>
@@ -302,7 +298,7 @@ function SettingsPage() {
                 </Label>
                 <Select
                   value={joinMode}
-                  onValueChange={(v) => setJoinMode(v as "open" | "invite" | "approval")}
+                  onValueChange={(v) => setJoinModeDraft(v as "open" | "invite" | "approval")}
                 >
                   <SelectTrigger id="joinMode" className="bg-background/50">
                     <SelectValue />
@@ -368,7 +364,7 @@ function SettingsPage() {
             <Select
               value={currency || CURRENCY_EMPTY_VALUE}
               onValueChange={(value) =>
-                setCurrency(
+                setCurrencyDraft(
                   value === CURRENCY_EMPTY_VALUE ? "" : (value as SupportedCurrency)
                 )
               }

@@ -2,11 +2,12 @@ import { Link } from "@tanstack/react-router"
 import { ArrowRight, Zap } from "lucide-react"
 import { DashboardMockup } from "./dashboard-mockup"
 
-interface HeroSectionProps {
+type HeroSectionProps = {
   isLoggedIn: boolean
+  isAuthLoading: boolean
 }
 
-export function HeroSection({ isLoggedIn }: HeroSectionProps) {
+export function HeroSection({ isLoggedIn, isAuthLoading }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-background px-5 pb-16 pt-28 sm:px-8 sm:pb-24 sm:pt-40">
       {/* Diagonal accent */}
@@ -41,7 +42,14 @@ export function HeroSection({ isLoggedIn }: HeroSectionProps) {
           </p>
 
           <div className="landing-slide-up landing-slide-up-3 mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            {isLoggedIn ? (
+            {isAuthLoading ? (
+              <span
+                className="inline-flex items-center justify-center gap-2 bg-primary/60 px-8 py-4 text-base font-bold text-primary-foreground/90"
+                style={{ clipPath: "polygon(0% 0%, 95% 0%, 100% 50%, 95% 100%, 0% 100%, 5% 50%)" }}
+              >
+                CHECKING SESSION...
+              </span>
+            ) : isLoggedIn ? (
               <Link
                 to="/dashboard"
                 className="group inline-flex items-center justify-center gap-2 bg-primary px-8 py-4 text-base font-bold text-primary-foreground transition-all"

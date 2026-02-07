@@ -125,6 +125,21 @@ describe("join-request router", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" })
   })
 
+  it("rejects request when organization join mode is invite-only", async () => {
+    await db
+      .update(organization)
+      .set({ defaultJoinMode: "invite" })
+      .where(eq(organization.id, orgId))
+
+    const caller = buildCaller(requester)
+
+    await expect(
+      caller.joinRequest.request({
+        organizationId: orgId,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+  })
+
   it("approves a pending request as admin, adds membership, and stores form answers", async () => {
     const requesterCaller = buildCaller(requester)
     const adminCaller = buildCaller(admin, orgId)

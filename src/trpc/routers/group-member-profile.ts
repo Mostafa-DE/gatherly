@@ -1,18 +1,18 @@
-import { router, orgProcedure } from "@/trpc";
-import { ForbiddenError } from "@/exceptions";
+import { router, orgProcedure } from "@/trpc"
+import { ForbiddenError } from "@/exceptions"
 import {
   getProfileByOrgAndUser,
   upsertProfile,
   getUserProfile,
-} from "@/data-access/group-member-profiles";
-import { getOrgSettings } from "@/data-access/organization-settings";
+} from "@/data-access/group-member-profiles"
+import { getOrgSettings } from "@/data-access/organization-settings"
 import {
   getMyProfileSchema,
   updateMyProfileSchema,
   submitJoinFormSchema,
   getUserProfileSchema,
-} from "@/schemas/group-member-profile";
-import { validateAndUpsertGroupMemberProfile } from "@/use-cases/group-member-profile";
+} from "@/schemas/group-member-profile"
+import { validateAndUpsertGroupMemberProfile } from "@/use-cases/group-member-profile"
 
 // =============================================================================
 // Helper: Check if user is admin (owner role)
@@ -20,7 +20,7 @@ import { validateAndUpsertGroupMemberProfile } from "@/use-cases/group-member-pr
 
 function assertAdmin(role: string): void {
   if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action");
+    throw new ForbiddenError("Only organization owners can perform this action")
   }
 }
 
@@ -35,7 +35,7 @@ export const groupMemberProfileRouter = router({
   myProfile: orgProcedure
     .input(getMyProfileSchema)
     .query(async ({ ctx }) => {
-      return getProfileByOrgAndUser(ctx.activeOrganization.id, ctx.user.id);
+      return getProfileByOrgAndUser(ctx.activeOrganization.id, ctx.user.id)
     }),
 
   /**
@@ -54,7 +54,7 @@ export const groupMemberProfileRouter = router({
           userId: ctx.user.id,
           answers: input.answers,
         }
-      );
+      )
     }),
 
   /**
@@ -74,7 +74,7 @@ export const groupMemberProfileRouter = router({
           userId: ctx.user.id,
           answers: input.answers,
         }
-      );
+      )
     }),
 
   /**
@@ -83,7 +83,7 @@ export const groupMemberProfileRouter = router({
   getUserProfile: orgProcedure
     .input(getUserProfileSchema)
     .query(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
-      return getUserProfile(ctx.activeOrganization.id, input.userId);
+      assertAdmin(ctx.membership.role)
+      return getUserProfile(ctx.activeOrganization.id, input.userId)
     }),
-});
+})

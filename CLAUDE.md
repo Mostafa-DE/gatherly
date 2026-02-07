@@ -206,6 +206,7 @@ When working on any task:
 
 ## Do NOT
 
+- Use `"use client"` or `"use server"` directives — this is **not** Next.js. TanStack Start + Nitro does not use React Server Components. All components are client components by default.
 - Refactor unrelated code "while you're here"
 - Introduce new terminology without confirmation
 - Mix business logic in UI layers

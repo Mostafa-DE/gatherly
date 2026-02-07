@@ -4,7 +4,7 @@
  * - Add your app-specific tables below
  */
 
-import { relations, sql } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm"
 import {
   pgTable,
   text,
@@ -14,12 +14,13 @@ import {
   index,
   uniqueIndex,
   numeric,
-} from "drizzle-orm/pg-core";
-import { createId } from "@paralleldrive/cuid2";
-import { user, organization } from "@/db/auth-schema";
+  boolean,
+} from "drizzle-orm/pg-core"
+import { createId } from "@paralleldrive/cuid2"
+import { user, organization } from "@/db/auth-schema"
 
 // Re-export auto-generated auth schema
-export * from "@/db/auth-schema";
+export * from "@/db/auth-schema"
 
 // =============================================================================
 // Join Request (for approval-based organization joining)
@@ -59,7 +60,7 @@ export const joinRequest = pgTable(
       .on(table.organizationId, table.userId)
       .where(sql`status = 'pending'`),
   ]
-);
+)
 
 // =============================================================================
 // Organization Settings (owned by us, not Better Auth)
@@ -77,7 +78,7 @@ export const organizationSettings = pgTable("organization_settings", {
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-});
+})
 
 // =============================================================================
 // Event Session
@@ -117,7 +118,7 @@ export const eventSession = pgTable(
     index("event_session_status_idx").on(table.status),
     index("event_session_org_status_idx").on(table.organizationId, table.status),
   ]
-);
+)
 
 // =============================================================================
 // Participation
@@ -162,7 +163,7 @@ export const participation = pgTable(
       .on(table.sessionId, table.userId)
       .where(sql`status IN ('joined', 'waitlisted')`),
   ]
-);
+)
 
 // =============================================================================
 // Group Member Profile (custom form answers when users join a group)
@@ -193,7 +194,40 @@ export const groupMemberProfile = pgTable(
       table.userId
     ),
   ]
-);
+)
+
+// =============================================================================
+// Invite Link (token-based invite links for organizations)
+// =============================================================================
+
+export const inviteLink = pgTable(
+  "invite_link",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    token: text("token")
+      .notNull()
+      .unique()
+      .$defaultFn(() => createId()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    createdBy: text("created_by")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").default("member").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    maxUses: integer("max_uses"),
+    usedCount: integer("used_count").default(0).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("invite_link_org_idx").on(table.organizationId),
+    index("invite_link_token_idx").on(table.token),
+  ]
+)
 
 // =============================================================================
 // Relations
@@ -207,7 +241,7 @@ export const organizationSettingsRelations = relations(
       references: [organization.id],
     }),
   })
-);
+)
 
 export const eventSessionRelations = relations(eventSession, ({ one, many }) => ({
   organization: one(organization, {
@@ -219,7 +253,7 @@ export const eventSessionRelations = relations(eventSession, ({ one, many }) => 
     references: [user.id],
   }),
   participations: many(participation),
-}));
+}))
 
 export const participationRelations = relations(participation, ({ one }) => ({
   session: one(eventSession, {
@@ -230,7 +264,7 @@ export const participationRelations = relations(participation, ({ one }) => ({
     fields: [participation.userId],
     references: [user.id],
   }),
-}));
+}))
 
 export const groupMemberProfileRelations = relations(
   groupMemberProfile,
@@ -244,7 +278,18 @@ export const groupMemberProfileRelations = relations(
       references: [user.id],
     }),
   })
-);
+)
+
+export const inviteLinkRelations = relations(inviteLink, ({ one }) => ({
+  organization: one(organization, {
+    fields: [inviteLink.organizationId],
+    references: [organization.id],
+  }),
+  createdByUser: one(user, {
+    fields: [inviteLink.createdBy],
+    references: [user.id],
+  }),
+}))
 
 export const joinRequestRelations = relations(joinRequest, ({ one }) => ({
   organization: one(organization, {
@@ -259,7 +304,7 @@ export const joinRequestRelations = relations(joinRequest, ({ one }) => ({
     fields: [joinRequest.reviewedBy],
     references: [user.id],
   }),
-}));
+}))
 
 // =============================================================================
 // Type Exports
@@ -286,4 +331,6 @@ export type {
   NewGroupMemberProfile,
   JoinRequest,
   NewJoinRequest,
-} from "@/db/types";
+  InviteLink,
+  NewInviteLink,
+} from "@/db/types"

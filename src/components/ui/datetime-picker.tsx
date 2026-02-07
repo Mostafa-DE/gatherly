@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
@@ -13,6 +11,15 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type DateTimePickerProps = {
   value: Date | undefined
@@ -29,6 +36,7 @@ export function DateTimePicker({
   placeholder = "Pick date and time",
   className,
 }: DateTimePickerProps) {
+  const isMobile = useIsMobile()
   const [isOpen, setIsOpen] = React.useState(false)
   const [month, setMonth] = React.useState<Date>(value || new Date())
 
@@ -91,104 +99,139 @@ export function DateTimePicker({
   const displayMinute = value ? value.getMinutes() : undefined
   const displayAMPM = value ? (value.getHours() >= 12 ? "PM" : "AM") : undefined
 
-  return (
-    <Popover open={isOpen} onOpenChange={setIsOpen} modal>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={disabled}
-          className={cn(
-            "w-full justify-start text-left font-normal",
-            !value && "text-muted-foreground",
-            className
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {value ? (
-            format(value, "MMMM d, yyyy 'at' h:mm a")
-          ) : (
-            <span>{placeholder}</span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="flex flex-col sm:flex-row">
-          <Calendar
-            mode="single"
-            selected={value}
-            onSelect={handleDateSelect}
-            month={month}
-            onMonthChange={setMonth}
-          />
-          <div className="flex border-t sm:border-t-0 sm:border-l">
-            {/* Hours */}
-            <div className="flex flex-col">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground text-center border-b">
-                Hour
-              </div>
-              <ScrollArea className="h-[252px]">
-                <div className="flex flex-col p-2 gap-1">
-                  {hours.map((hour) => (
-                    <Button
-                      key={hour}
-                      type="button"
-                      size="sm"
-                      variant={displayHour === hour ? "default" : "ghost"}
-                      className="w-10 h-10 shrink-0"
-                      onClick={() => handleTimeChange("hour", hour.toString())}
-                    >
-                      {hour}
-                    </Button>
-                  ))}
-                </div>
-              </ScrollArea>
+  const trigger = (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={disabled}
+      className={cn(
+        "w-full justify-start text-left font-normal",
+        !value && "text-muted-foreground",
+        className
+      )}
+    >
+      <CalendarIcon className="mr-2 h-4 w-4" />
+      {value ? (
+        format(value, "MMMM d, yyyy 'at' h:mm a")
+      ) : (
+        <span>{placeholder}</span>
+      )}
+    </Button>
+  )
+
+  const pickerBody = (
+    <div className="flex flex-col sm:flex-row">
+      <Calendar
+        mode="single"
+        selected={value}
+        onSelect={handleDateSelect}
+        month={month}
+        onMonthChange={setMonth}
+      />
+      <div className="grid grid-cols-3 border-t sm:flex sm:border-t-0 sm:border-l">
+        {/* Hours */}
+        <div className="flex flex-col">
+          <div className="border-b px-2 py-1.5 text-center text-xs font-medium text-muted-foreground">
+            Hour
+          </div>
+          <ScrollArea className="h-[252px]">
+            <div className="flex flex-col gap-1 p-2">
+              {hours.map((hour) => (
+                <Button
+                  key={hour}
+                  type="button"
+                  size="sm"
+                  variant={displayHour === hour ? "default" : "ghost"}
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => handleTimeChange("hour", hour.toString())}
+                >
+                  {hour}
+                </Button>
+              ))}
             </div>
-            {/* Minutes */}
-            <div className="flex flex-col border-l">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground text-center border-b">
-                Min
-              </div>
-              <ScrollArea className="h-[252px]">
-                <div className="flex flex-col p-2 gap-1">
-                  {minutes.map((minute) => (
-                    <Button
-                      key={minute}
-                      type="button"
-                      size="sm"
-                      variant={displayMinute === minute ? "default" : "ghost"}
-                      className="w-10 h-10 shrink-0"
-                      onClick={() => handleTimeChange("minute", minute.toString())}
-                    >
-                      {minute.toString().padStart(2, "0")}
-                    </Button>
-                  ))}
-                </div>
-              </ScrollArea>
+          </ScrollArea>
+        </div>
+
+        {/* Minutes */}
+        <div className="flex flex-col border-l">
+          <div className="border-b px-2 py-1.5 text-center text-xs font-medium text-muted-foreground">
+            Min
+          </div>
+          <ScrollArea className="h-[252px]">
+            <div className="flex flex-col gap-1 p-2">
+              {minutes.map((minute) => (
+                <Button
+                  key={minute}
+                  type="button"
+                  size="sm"
+                  variant={displayMinute === minute ? "default" : "ghost"}
+                  className="h-10 w-10 shrink-0"
+                  onClick={() => handleTimeChange("minute", minute.toString())}
+                >
+                  {minute.toString().padStart(2, "0")}
+                </Button>
+              ))}
             </div>
-            {/* AM/PM */}
-            <div className="flex flex-col border-l">
-              <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground text-center border-b">
-                &nbsp;
-              </div>
-              <div className="flex flex-col p-2 gap-1">
-                {(["AM", "PM"] as const).map((ampm) => (
-                  <Button
-                    key={ampm}
-                    type="button"
-                    size="sm"
-                    variant={displayAMPM === ampm ? "default" : "ghost"}
-                    className="w-12 h-10 shrink-0"
-                    onClick={() => handleTimeChange("ampm", ampm)}
-                  >
-                    {ampm}
-                  </Button>
-                ))}
-              </div>
-            </div>
+          </ScrollArea>
+        </div>
+
+        {/* AM/PM */}
+        <div className="flex flex-col border-l">
+          <div className="border-b px-2 py-1.5 text-center text-xs font-medium text-muted-foreground">
+            &nbsp
+          </div>
+          <div className="flex flex-col gap-1 p-2">
+            {(["AM", "PM"] as const).map((ampm) => (
+              <Button
+                key={ampm}
+                type="button"
+                size="sm"
+                variant={displayAMPM === ampm ? "default" : "ghost"}
+                className="h-10 w-12 shrink-0"
+                onClick={() => handleTimeChange("ampm", ampm)}
+              >
+                {ampm}
+              </Button>
+            ))}
           </div>
         </div>
-        {/* Done button */}
+      </div>
+    </div>
+  )
+
+  if (isMobile) {
+    return (
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetTrigger asChild>{trigger}</SheetTrigger>
+        <SheetContent side="bottom" className="h-[85vh] p-0">
+          <SheetHeader className="border-b px-4 py-3 text-left">
+            <SheetTitle>Select Date & Time</SheetTitle>
+            <SheetDescription>
+              Choose date first, then set the time.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="h-[calc(85vh-8.5rem)] overflow-y-auto">
+            {pickerBody}
+          </div>
+          <div className="border-t p-3">
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => setIsOpen(false)}
+            >
+              Done
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    )
+  }
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen} modal>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent className="w-[min(95vw,30rem)] p-0" align="start">
+        {pickerBody}
         <div className="border-t p-2">
           <Button
             type="button"

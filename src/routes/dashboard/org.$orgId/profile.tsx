@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,12 +35,8 @@ function ProfilePage() {
 
   const joinFormSchema = settings?.joinFormSchema as { fields?: FormField[] } | null
   const formFields = joinFormSchema?.fields || []
-
-  useEffect(() => {
-    if (myProfile?.answers) {
-      setAnswers(myProfile.answers as Record<string, unknown>)
-    }
-  }, [myProfile])
+  const persistedAnswers = (myProfile?.answers as Record<string, unknown>) || {}
+  const activeAnswers = dirty ? answers : persistedAnswers
 
   const updateProfile = trpc.groupMemberProfile.updateMyProfile.useMutation({
     onSuccess: () => {
@@ -54,7 +50,10 @@ function ProfilePage() {
   })
 
   const handleAnswerChange = (fieldId: string, value: unknown) => {
-    setAnswers((prev) => ({ ...prev, [fieldId]: value }))
+    setAnswers((prev) => ({
+      ...(dirty ? prev : activeAnswers),
+      [fieldId]: value,
+    }))
     setDirty(true)
   }
 
@@ -62,14 +61,14 @@ function ProfilePage() {
     setError("")
     for (const field of formFields) {
       if (field.required) {
-        const value = answers[field.id]
+        const value = activeAnswers[field.id]
         if (value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
           setError(`"${field.label}" is required`)
           return
         }
       }
     }
-    updateProfile.mutate({ answers })
+    updateProfile.mutate({ answers: activeAnswers })
   }
 
   if (isLoading || settingsLoading || profileLoading) {
@@ -152,7 +151,7 @@ function ProfilePage() {
               <ProfileFieldInput
                 key={field.id}
                 field={field}
-                value={answers[field.id]}
+                value={activeAnswers[field.id]}
                 onChange={(value) => handleAnswerChange(field.id, value)}
               />
             ))}

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,18 +21,27 @@ export const Route = createFileRoute(
   component: EditSessionPage,
 })
 
+type SessionForm = {
+  title: string
+  description: string
+  dateTime: Date | undefined
+  location: string
+  maxCapacity: string
+  maxWaitlist: string
+  price: string
+}
+
+type SessionFormDraft = {
+  sessionId: string
+  values: SessionForm
+}
+
 function EditSessionPage() {
   const { orgId, sessionId } = Route.useParams()
   const navigate = useNavigate()
   const utils = trpc.useUtils()
 
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [dateTime, setDateTime] = useState<Date | undefined>(undefined)
-  const [location, setLocation] = useState("")
-  const [maxCapacity, setMaxCapacity] = useState("")
-  const [maxWaitlist, setMaxWaitlist] = useState("")
-  const [price, setPrice] = useState("")
+  const [formDraft, setFormDraft] = useState<SessionFormDraft | null>(null)
   const [error, setError] = useState("")
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
@@ -46,19 +55,6 @@ function EditSessionPage() {
     isLoading: sessionLoading,
     error: sessionError,
   } = trpc.session.getById.useQuery({ sessionId })
-
-  // Populate form when session data loads
-  useEffect(() => {
-    if (sessionData) {
-      setTitle(sessionData.title)
-      setDescription(sessionData.description || "")
-      setDateTime(new Date(sessionData.dateTime))
-      setLocation(sessionData.location || "")
-      setMaxCapacity(String(sessionData.maxCapacity))
-      setMaxWaitlist(String(sessionData.maxWaitlist))
-      setPrice(sessionData.price || "")
-    }
-  }, [sessionData])
 
   const updateSession = trpc.session.update.useMutation({
     onSuccess: () => {
@@ -172,21 +168,56 @@ function EditSessionPage() {
     )
   }
 
+  const initialForm: SessionForm = {
+    title: sessionData.title,
+    description: sessionData.description || "",
+    dateTime: new Date(sessionData.dateTime),
+    location: sessionData.location || "",
+    maxCapacity: String(sessionData.maxCapacity),
+    maxWaitlist: String(sessionData.maxWaitlist),
+    price: sessionData.price || "",
+  }
+
+  const form =
+    formDraft?.sessionId === sessionId
+      ? formDraft.values
+      : initialForm
+
+  const setFormField = <K extends keyof SessionForm>(
+    key: K,
+    value: SessionForm[K]
+  ) => {
+    setFormDraft((prev) => {
+      const baseValues =
+        prev?.sessionId === sessionId
+          ? prev.values
+          : initialForm
+
+      return {
+        sessionId,
+        values: {
+          ...baseValues,
+          [key]: value,
+        },
+      }
+    })
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
-    if (!title.trim()) {
+    if (!form.title.trim()) {
       setError("Title is required")
       return
     }
-    if (!dateTime) {
+    if (!form.dateTime) {
       setError("Date and time is required")
       return
     }
 
-    const capacity = parseInt(maxCapacity, 10)
-    const waitlist = parseInt(maxWaitlist, 10)
+    const capacity = parseInt(form.maxCapacity, 10)
+    const waitlist = parseInt(form.maxWaitlist, 10)
 
     if (isNaN(capacity) || capacity < 1) {
       setError("Capacity must be at least 1")
@@ -198,7 +229,7 @@ function EditSessionPage() {
     }
 
     // Validate price format if provided
-    const trimmedPrice = price.trim()
+    const trimmedPrice = form.price.trim()
     if (trimmedPrice && !/^\d+(\.\d{1,2})?$/.test(trimmedPrice)) {
       setError("Invalid price format. Use a number like 25 or 25.00")
       return
@@ -210,10 +241,10 @@ function EditSessionPage() {
 
     updateSession.mutate({
       sessionId,
-      title: title.trim(),
-      description: description.trim() || null,
-      dateTime,
-      location: location.trim() || null,
+      title: form.title.trim(),
+      description: form.description.trim() || null,
+      dateTime: form.dateTime,
+      location: form.location.trim() || null,
       maxCapacity: capacity,
       maxWaitlist: waitlist,
       price: trimmedPrice || null,
@@ -250,8 +281,8 @@ function EditSessionPage() {
                   id="title"
                   type="text"
                   placeholder="Weekly Meetup"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  value={form.title}
+                  onChange={(e) => setFormField("title", e.target.value)}
                   required
                 />
               </div>
@@ -262,8 +293,8 @@ function EditSessionPage() {
                   id="description"
                   className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Tell participants what this session is about..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  value={form.description}
+                  onChange={(e) => setFormField("description", e.target.value)}
                 />
               </div>
 
@@ -275,8 +306,8 @@ function EditSessionPage() {
                   </p>
                 </div>
                 <DateTimePicker
-                  value={dateTime}
-                  onChange={setDateTime}
+                  value={form.dateTime}
+                  onChange={(value) => setFormField("dateTime", value)}
                   placeholder="Pick date and time"
                 />
               </div>
@@ -287,8 +318,8 @@ function EditSessionPage() {
                   id="location"
                   type="text"
                   placeholder="Conference Room A or https://zoom.us/..."
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  value={form.location}
+                  onChange={(e) => setFormField("location", e.target.value)}
                 />
               </div>
 
@@ -299,8 +330,8 @@ function EditSessionPage() {
                     id="maxCapacity"
                     type="number"
                     min="1"
-                    value={maxCapacity}
-                    onChange={(e) => setMaxCapacity(e.target.value)}
+                    value={form.maxCapacity}
+                    onChange={(e) => setFormField("maxCapacity", e.target.value)}
                     required
                   />
                   <p className="text-xs text-muted-foreground">
@@ -314,8 +345,8 @@ function EditSessionPage() {
                     id="maxWaitlist"
                     type="number"
                     min="0"
-                    value={maxWaitlist}
-                    onChange={(e) => setMaxWaitlist(e.target.value)}
+                    value={form.maxWaitlist}
+                    onChange={(e) => setFormField("maxWaitlist", e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">
                     Set to 0 to disable waitlist
@@ -335,8 +366,8 @@ function EditSessionPage() {
                       min="0"
                       step="0.01"
                       placeholder="0.00"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
+                      value={form.price}
+                      onChange={(e) => setFormField("price", e.target.value)}
                     />
                     <p className="text-xs text-muted-foreground">
                       Leave empty for free sessions

@@ -1,5 +1,5 @@
-import { router, orgProcedure } from "@/trpc";
-import { ForbiddenError } from "@/exceptions";
+import { router, orgProcedure } from "@/trpc"
+import { ForbiddenError } from "@/exceptions"
 import {
   createSession,
   updateSession,
@@ -12,8 +12,8 @@ import {
   listPastSessions,
   listUpcomingSessionsWithCounts,
   listPastSessionsWithCounts,
-} from "@/data-access/sessions";
-import { withOrgScope } from "@/data-access/org-scope";
+} from "@/data-access/sessions"
+import { withOrgScope } from "@/data-access/org-scope"
 import {
   createSessionSchema,
   updateSessionSchema,
@@ -22,7 +22,7 @@ import {
   listSessionsSchema,
   listUpcomingSessionsSchema,
   listPastSessionsSchema,
-} from "@/schemas/session";
+} from "@/schemas/session"
 
 // =============================================================================
 // Helper: Check if user is owner
@@ -30,7 +30,7 @@ import {
 
 function assertOwner(role: string): void {
   if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action");
+    throw new ForbiddenError("Only organization owners can perform this action")
   }
 }
 
@@ -46,12 +46,12 @@ export const sessionRouter = router({
   create: orgProcedure
     .input(createSessionSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertOwner(ctx.membership.role)
       return createSession(
         ctx.activeOrganization.id,
         ctx.user.id,
         input
-      );
+      )
     }),
 
   /**
@@ -61,13 +61,13 @@ export const sessionRouter = router({
   update: orgProcedure
     .input(updateSessionSchema.extend({ sessionId: getSessionByIdSchema.shape.sessionId }))
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
-      const { sessionId, ...data } = input;
+      assertOwner(ctx.membership.role)
+      const { sessionId, ...data } = input
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSessionForMutation(sessionId);
-        return updateSession(sessionId, data);
-      });
+        await scope.requireSessionForMutation(sessionId)
+        return updateSession(sessionId, data)
+      })
     }),
 
   /**
@@ -77,8 +77,8 @@ export const sessionRouter = router({
     .input(getSessionByIdSchema)
     .query(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        return scope.getSessionById(input.sessionId);
-      });
+        return scope.getSessionById(input.sessionId)
+      })
     }),
 
   /**
@@ -88,13 +88,13 @@ export const sessionRouter = router({
     .input(getSessionByIdSchema)
     .query(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        const session = await scope.getSessionById(input.sessionId);
+        const session = await scope.getSessionById(input.sessionId)
         if (!session) {
-          return null;
+          return null
         }
 
-        return getSessionWithCounts(input.sessionId);
-      });
+        return getSessionWithCounts(input.sessionId)
+      })
     }),
 
   /**
@@ -104,7 +104,7 @@ export const sessionRouter = router({
   list: orgProcedure
     .input(listSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listSessions(ctx.activeOrganization.id, input);
+      return listSessions(ctx.activeOrganization.id, input)
     }),
 
   /**
@@ -114,7 +114,7 @@ export const sessionRouter = router({
   listUpcoming: orgProcedure
     .input(listUpcomingSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listUpcomingSessions(ctx.activeOrganization.id, input);
+      return listUpcomingSessions(ctx.activeOrganization.id, input)
     }),
 
   /**
@@ -124,7 +124,7 @@ export const sessionRouter = router({
   listPast: orgProcedure
     .input(listPastSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listPastSessions(ctx.activeOrganization.id, input);
+      return listPastSessions(ctx.activeOrganization.id, input)
     }),
 
   /**
@@ -133,7 +133,7 @@ export const sessionRouter = router({
   listUpcomingWithCounts: orgProcedure
     .input(listUpcomingSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listUpcomingSessionsWithCounts(ctx.activeOrganization.id, input);
+      return listUpcomingSessionsWithCounts(ctx.activeOrganization.id, input)
     }),
 
   /**
@@ -142,8 +142,8 @@ export const sessionRouter = router({
   listDraftsWithCounts: orgProcedure
     .input(listUpcomingSessionsSchema)
     .query(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
-      return listDraftSessionsWithCounts(ctx.activeOrganization.id, input);
+      assertOwner(ctx.membership.role)
+      return listDraftSessionsWithCounts(ctx.activeOrganization.id, input)
     }),
 
   /**
@@ -152,7 +152,7 @@ export const sessionRouter = router({
   listPastWithCounts: orgProcedure
     .input(listPastSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listPastSessionsWithCounts(ctx.activeOrganization.id, input);
+      return listPastSessionsWithCounts(ctx.activeOrganization.id, input)
     }),
 
   /**
@@ -162,12 +162,12 @@ export const sessionRouter = router({
   updateStatus: orgProcedure
     .input(updateSessionStatusSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertOwner(ctx.membership.role)
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSessionForMutation(input.sessionId);
-        return updateSessionStatus(input.sessionId, input.status);
-      });
+        await scope.requireSessionForMutation(input.sessionId)
+        return updateSessionStatus(input.sessionId, input.status)
+      })
     }),
 
   /**
@@ -177,11 +177,11 @@ export const sessionRouter = router({
   delete: orgProcedure
     .input(getSessionByIdSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertOwner(ctx.membership.role)
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSessionForMutation(input.sessionId);
-        return softDeleteSession(input.sessionId);
-      });
+        await scope.requireSessionForMutation(input.sessionId)
+        return softDeleteSession(input.sessionId)
+      })
     }),
-});
+})

@@ -1,6 +1,6 @@
-import { router, orgProcedure } from "@/trpc";
-import { ForbiddenError, NotFoundError } from "@/exceptions";
-import { withOrgScope } from "@/data-access/org-scope";
+import { router, orgProcedure } from "@/trpc"
+import { ForbiddenError, NotFoundError } from "@/exceptions"
+import { withOrgScope } from "@/data-access/org-scope"
 import {
   joinSession,
   cancelParticipation,
@@ -13,7 +13,7 @@ import {
   getWaitlistPosition,
   adminAddParticipant,
   moveParticipant,
-} from "@/data-access/participations";
+} from "@/data-access/participations"
 import {
   joinSessionSchema,
   cancelParticipationSchema,
@@ -25,9 +25,9 @@ import {
   getUserHistorySchema,
   adminAddParticipantSchema,
   moveParticipantSchema,
-} from "@/schemas/participation";
-import { getUserByEmailOrPhone } from "@/data-access/users";
-import { getOrganizationMemberByUserId } from "@/data-access/organizations";
+} from "@/schemas/participation"
+import { getUserByEmailOrPhone } from "@/data-access/users"
+import { getOrganizationMemberByUserId } from "@/data-access/organizations"
 
 // =============================================================================
 // Helper: Check if user is owner or admin
@@ -35,7 +35,7 @@ import { getOrganizationMemberByUserId } from "@/data-access/organizations";
 
 function assertAdmin(role: string): void {
   if (role !== "owner" && role !== "admin") {
-    throw new ForbiddenError("Only organization owners and admins can perform this action");
+    throw new ForbiddenError("Only organization owners and admins can perform this action")
   }
 }
 
@@ -52,9 +52,9 @@ export const participationRouter = router({
     .input(joinSessionSchema)
     .mutation(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSession(input.sessionId);
-        return joinSession(input.sessionId, ctx.user.id);
-      });
+        await scope.requireSession(input.sessionId)
+        return joinSession(input.sessionId, ctx.user.id)
+      })
     }),
 
   /**
@@ -65,9 +65,9 @@ export const participationRouter = router({
     .input(cancelParticipationSchema)
     .mutation(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireUserParticipation(input.participationId, ctx.user.id);
-        return cancelParticipation(input.participationId, ctx.user.id);
-      });
+        await scope.requireUserParticipation(input.participationId, ctx.user.id)
+        return cancelParticipation(input.participationId, ctx.user.id)
+      })
     }),
 
   /**
@@ -79,10 +79,10 @@ export const participationRouter = router({
       const participation = await withOrgScope(
         ctx.activeOrganization.id,
         async (scope) => {
-          await scope.requireSession(input.sessionId);
-          return getMyParticipation(input.sessionId, ctx.user.id);
+          await scope.requireSession(input.sessionId)
+          return getMyParticipation(input.sessionId, ctx.user.id)
         }
-      );
+      )
 
       if (participation?.status === "waitlisted") {
         const position = await getWaitlistPosition(
@@ -90,11 +90,11 @@ export const participationRouter = router({
           ctx.user.id,
           participation.joinedAt,
           participation.id
-        );
-        return { ...participation, waitlistPosition: position };
+        )
+        return { ...participation, waitlistPosition: position }
       }
 
-      return participation;
+      return participation
     }),
 
   /**
@@ -103,7 +103,7 @@ export const participationRouter = router({
   myHistory: orgProcedure
     .input(getMyHistorySchema)
     .query(async ({ ctx, input }) => {
-      return getMyHistory(ctx.activeOrganization.id, ctx.user.id, input);
+      return getMyHistory(ctx.activeOrganization.id, ctx.user.id, input)
     }),
 
   /**
@@ -113,9 +113,9 @@ export const participationRouter = router({
     .input(getRosterSchema)
     .query(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSession(input.sessionId);
-        return getSessionRoster(input.sessionId, input);
-      });
+        await scope.requireSession(input.sessionId)
+        return getSessionRoster(input.sessionId, input)
+      })
     }),
 
   /**
@@ -124,13 +124,13 @@ export const participationRouter = router({
   update: orgProcedure
     .input(updateParticipationSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireParticipationForMutation(input.participationId);
-        const { participationId, ...data } = input;
-        return updateParticipation(participationId, data);
-      });
+        await scope.requireParticipationForMutation(input.participationId)
+        const { participationId, ...data } = input
+        return updateParticipation(participationId, data)
+      })
     }),
 
   /**
@@ -139,13 +139,13 @@ export const participationRouter = router({
   bulkUpdateAttendance: orgProcedure
     .input(bulkUpdateAttendanceSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSession(input.sessionId);
-        const count = await bulkUpdateAttendance(input.sessionId, input.updates);
-        return { success: true, count };
-      });
+        await scope.requireSession(input.sessionId)
+        const count = await bulkUpdateAttendance(input.sessionId, input.updates)
+        return { success: true, count }
+      })
     }),
 
   /**
@@ -154,8 +154,8 @@ export const participationRouter = router({
   userHistory: orgProcedure
     .input(getUserHistorySchema)
     .query(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
-      return getUserHistory(ctx.activeOrganization.id, input.userId, input);
+      assertAdmin(ctx.membership.role)
+      return getUserHistory(ctx.activeOrganization.id, input.userId, input)
     }),
 
   /**
@@ -165,29 +165,29 @@ export const participationRouter = router({
   adminAdd: orgProcedure
     .input(adminAddParticipantSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
 
       // Look up user by email or phone
-      const targetUser = await getUserByEmailOrPhone(input.identifier);
+      const targetUser = await getUserByEmailOrPhone(input.identifier)
       if (!targetUser) {
-        throw new NotFoundError("No user found with that email or phone");
+        throw new NotFoundError("No user found with that email or phone")
       }
 
       // Verify user is an org member
       const membership = await getOrganizationMemberByUserId(
         ctx.activeOrganization.id,
         targetUser.id
-      );
+      )
       if (!membership) {
-        throw new ForbiddenError("User is not a member of this organization");
+        throw new ForbiddenError("User is not a member of this organization")
       }
 
       // Verify session is in this org
       await withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSession(input.sessionId);
-      });
+        await scope.requireSession(input.sessionId)
+      })
 
-      return adminAddParticipant(input.sessionId, targetUser.id);
+      return adminAddParticipant(input.sessionId, targetUser.id)
     }),
 
   /**
@@ -198,14 +198,14 @@ export const participationRouter = router({
   move: orgProcedure
     .input(moveParticipantSchema)
     .mutation(async ({ ctx, input }) => {
-      assertAdmin(ctx.membership.role);
+      assertAdmin(ctx.membership.role)
 
       // Verify source participation is in this org
       await withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireParticipationForMutation(input.participationId);
-        await scope.requireSession(input.targetSessionId);
-      });
+        await scope.requireParticipationForMutation(input.participationId)
+        await scope.requireSession(input.targetSessionId)
+      })
 
-      return moveParticipant(input.participationId, input.targetSessionId);
+      return moveParticipant(input.participationId, input.targetSessionId)
     }),
-});
+})

@@ -6,6 +6,7 @@ import { Provider as JotaiProvider } from 'jotai'
 import { ThemeProvider } from 'next-themes'
 import { useState } from 'react'
 
+import { Toaster } from 'sonner'
 import { trpc, getTrpcClient } from '@/lib/trpc'
 
 import appCss from '@/styles.css?url'
@@ -77,6 +78,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <trpc.Provider client={trpcClient} queryClient={queryClient}>
               <QueryClientProvider client={queryClient}>
                 {children}
+                <Toaster richColors position="bottom-right" />
                 <TanStackDevtools
                   config={{
                     position: 'bottom-right',

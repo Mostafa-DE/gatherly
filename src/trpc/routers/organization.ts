@@ -1,9 +1,9 @@
-import { z } from "zod";
-import { eq, and } from "drizzle-orm";
-import { router, publicProcedure, protectedProcedure, orgProcedure } from "@/trpc";
-import { ForbiddenError, NotFoundError } from "@/exceptions";
-import { organization, member, invitation, user } from "@/db/auth-schema";
-import { auth } from "@/auth";
+import { z } from "zod"
+import { eq, and } from "drizzle-orm"
+import { router, publicProcedure, protectedProcedure, orgProcedure } from "@/trpc"
+import { ForbiddenError, NotFoundError } from "@/exceptions"
+import { organization, member, invitation, user } from "@/db/auth-schema"
+import { auth } from "@/auth"
 import {
   getInvitationById,
   getMemberById,
@@ -12,19 +12,20 @@ import {
   getPendingInvitationByEmail,
   updateOrganizationById,
   getUserByEmail,
-} from "@/data-access/organizations";
+} from "@/data-access/organizations"
+import { getSessionWithCounts } from "@/data-access/sessions"
 import {
   cancelOrganizationInvitation,
   inviteMemberToOrganization,
-} from "@/use-cases/organization-invitations";
+} from "@/use-cases/organization-invitations"
 import {
   joinOrganization,
   removeOrganizationMember,
   updateOrganizationMemberRole,
   updateOrganizationSettings,
-} from "@/use-cases/organization-membership";
-import { getOrgSettings } from "@/data-access/organization-settings";
-import { upsertProfile } from "@/data-access/group-member-profiles";
+} from "@/use-cases/organization-membership"
+import { getOrgSettings } from "@/data-access/organization-settings"
+import { upsertProfile } from "@/data-access/group-member-profiles"
 
 // =============================================================================
 // Helper: Check if user is admin (owner or admin role)
@@ -32,13 +33,13 @@ import { upsertProfile } from "@/data-access/group-member-profiles";
 
 function assertOwnerOrAdmin(role: string): void {
   if (role !== "owner" && role !== "admin") {
-    throw new ForbiddenError("Only organization admins can perform this action");
+    throw new ForbiddenError("Only organization admins can perform this action")
   }
 }
 
 function assertOwner(role: string): void {
   if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action");
+    throw new ForbiddenError("Only organization owners can perform this action")
   }
 }
 
@@ -70,22 +71,22 @@ export const organizationRouter = router({
             eq(organization.userSlug, input.groupSlug)
           )
         )
-        .limit(1);
+        .limit(1)
 
       if (!org) {
-        throw new NotFoundError("Organization not found");
+        throw new NotFoundError("Organization not found")
       }
 
       // Get member count
       const members = await ctx.db
         .select()
         .from(member)
-        .where(eq(member.organizationId, org.id));
+        .where(eq(member.organizationId, org.id))
 
       return {
         ...org,
         memberCount: members.length,
-      };
+      }
     }),
 
   /**
@@ -95,10 +96,66 @@ export const organizationRouter = router({
   getJoinFormSchema: publicProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ input }) => {
-      const settings = await getOrgSettings(input.organizationId);
+      const settings = await getOrgSettings(input.organizationId)
       return {
         joinFormSchema: settings?.joinFormSchema ?? null,
-      };
+      }
+    }),
+
+  /**
+   * Get public session info by username + groupSlug + sessionId
+   */
+  getPublicSession: publicProcedure
+    .input(
+      z.object({
+        username: z.string(),
+        groupSlug: z.string(),
+        sessionId: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      // Resolve org by ownerUsername + userSlug
+      const [org] = await ctx.db
+        .select({
+          id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+          userSlug: organization.userSlug,
+          ownerUsername: organization.ownerUsername,
+          logo: organization.logo,
+        })
+        .from(organization)
+        .where(
+          and(
+            eq(organization.ownerUsername, input.username),
+            eq(organization.userSlug, input.groupSlug)
+          )
+        )
+        .limit(1)
+
+      if (!org) {
+        throw new NotFoundError("Organization not found")
+      }
+
+      // Fetch session with counts
+      const session = await getSessionWithCounts(input.sessionId)
+      if (!session) {
+        throw new NotFoundError("Session not found")
+      }
+
+      // Verify session belongs to this org and is published
+      if (session.organizationId !== org.id) {
+        throw new NotFoundError("Session not found")
+      }
+
+      if (session.status !== "published") {
+        throw new NotFoundError("Session not found")
+      }
+
+      return {
+        session,
+        organization: org,
+      }
     }),
 
   /**
@@ -121,21 +178,21 @@ export const organizationRouter = router({
                 role,
                 organizationId,
               },
-            });
+            })
           },
         },
         {
           organizationId: input.organizationId,
           userId: ctx.user.id,
         }
-      );
+      )
 
       // Save form answers as profile if provided
       if (input.formAnswers && Object.keys(input.formAnswers).length > 0) {
-        await upsertProfile(input.organizationId, ctx.user.id, input.formAnswers);
+        await upsertProfile(input.organizationId, ctx.user.id, input.formAnswers)
       }
 
-      return result;
+      return result
     }),
 
   /**
@@ -154,7 +211,7 @@ export const organizationRouter = router({
       })
       .from(member)
       .innerJoin(user, eq(member.userId, user.id))
-      .where(eq(member.organizationId, ctx.activeOrganization.id));
+      .where(eq(member.organizationId, ctx.activeOrganization.id))
   }),
 
   /**
@@ -168,7 +225,7 @@ export const organizationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertOwnerOrAdmin(ctx.membership.role);
+      assertOwnerOrAdmin(ctx.membership.role)
 
       return inviteMemberToOrganization(
         {
@@ -183,7 +240,7 @@ export const organizationRouter = router({
                 organizationId,
               },
               headers: ctx.headers,
-            });
+            })
           },
         },
         {
@@ -191,14 +248,14 @@ export const organizationRouter = router({
           email: input.email,
           role: input.role,
         }
-      );
+      )
     }),
 
   /**
    * List pending invitations (Admin only)
    */
   listInvitations: orgProcedure.query(async ({ ctx }) => {
-    assertOwnerOrAdmin(ctx.membership.role);
+    assertOwnerOrAdmin(ctx.membership.role)
 
     return ctx.db
       .select({
@@ -216,7 +273,7 @@ export const organizationRouter = router({
           eq(invitation.organizationId, ctx.activeOrganization.id),
           eq(invitation.status, "pending")
         )
-      );
+      )
   }),
 
   /**
@@ -225,7 +282,7 @@ export const organizationRouter = router({
   cancelInvitation: orgProcedure
     .input(z.object({ invitationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      assertOwnerOrAdmin(ctx.membership.role);
+      assertOwnerOrAdmin(ctx.membership.role)
 
       return cancelOrganizationInvitation(
         {
@@ -236,14 +293,14 @@ export const organizationRouter = router({
                 invitationId,
               },
               headers: ctx.headers,
-            });
+            })
           },
         },
         {
           organizationId: ctx.activeOrganization.id,
           invitationId: input.invitationId,
         }
-      );
+      )
     }),
 
   /**
@@ -252,7 +309,7 @@ export const organizationRouter = router({
   removeMember: orgProcedure
     .input(z.object({ memberId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      assertOwnerOrAdmin(ctx.membership.role);
+      assertOwnerOrAdmin(ctx.membership.role)
 
       return removeOrganizationMember(
         {
@@ -264,7 +321,7 @@ export const organizationRouter = router({
                 organizationId,
               },
               headers: ctx.headers,
-            });
+            })
           },
         },
         {
@@ -272,7 +329,7 @@ export const organizationRouter = router({
           memberId: input.memberId,
           actorUserId: ctx.user.id,
         }
-      );
+      )
     }),
 
   /**
@@ -286,7 +343,7 @@ export const organizationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role);
+      assertOwner(ctx.membership.role)
 
       return updateOrganizationMemberRole(
         {

@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
-import { db } from "@/db";
-import { organizationSettings } from "@/db/schema";
-import type { OrganizationSettings } from "@/db/types";
-import type { JoinFormSchema } from "@/schemas/organization-settings";
+import { eq } from "drizzle-orm"
+import { db } from "@/db"
+import { organizationSettings } from "@/db/schema"
+import type { OrganizationSettings } from "@/db/types"
+import type { JoinFormSchema } from "@/schemas/organization-settings"
 
 // =============================================================================
 // Queries
@@ -15,8 +15,8 @@ export async function getOrgSettings(
     .select()
     .from(organizationSettings)
     .where(eq(organizationSettings.organizationId, organizationId))
-    .limit(1);
-  return result[0] ?? null;
+    .limit(1)
+  return result[0] ?? null
 }
 
 /**
@@ -26,9 +26,9 @@ export async function getOrgSettings(
 export async function getOrCreateOrgSettings(
   organizationId: string
 ): Promise<OrganizationSettings> {
-  const existing = await getOrgSettings(organizationId);
+  const existing = await getOrgSettings(organizationId)
   if (existing) {
-    return existing;
+    return existing
   }
 
   // Create default settings
@@ -39,9 +39,9 @@ export async function getOrCreateOrgSettings(
       joinFormSchema: null,
       joinFormVersion: 1,
     })
-    .returning();
+    .returning()
 
-  return created;
+  return created
 }
 
 // =============================================================================
@@ -56,7 +56,7 @@ export async function updateJoinFormSchema(
   organizationId: string,
   joinFormSchema: JoinFormSchema | null
 ): Promise<OrganizationSettings> {
-  const existing = await getOrgSettings(organizationId);
+  const existing = await getOrgSettings(organizationId)
 
   if (existing) {
     // Update existing settings, increment version
@@ -68,8 +68,8 @@ export async function updateJoinFormSchema(
         updatedAt: new Date(),
       })
       .where(eq(organizationSettings.organizationId, organizationId))
-      .returning();
-    return updated;
+      .returning()
+    return updated
   }
 
   // Create new settings
@@ -80,9 +80,9 @@ export async function updateJoinFormSchema(
       joinFormSchema,
       joinFormVersion: 1,
     })
-    .returning();
+    .returning()
 
-  return created;
+  return created
 }
 
 /**
@@ -92,7 +92,7 @@ export async function updateOrgCurrency(
   organizationId: string,
   currency: string | null
 ): Promise<OrganizationSettings> {
-  const existing = await getOrgSettings(organizationId);
+  const existing = await getOrgSettings(organizationId)
 
   if (existing) {
     const [updated] = await db
@@ -102,8 +102,8 @@ export async function updateOrgCurrency(
         updatedAt: new Date(),
       })
       .where(eq(organizationSettings.organizationId, organizationId))
-      .returning();
-    return updated;
+      .returning()
+    return updated
   }
 
   // Create new settings
@@ -115,7 +115,7 @@ export async function updateOrgCurrency(
       joinFormSchema: null,
       joinFormVersion: 1,
     })
-    .returning();
+    .returning()
 
-  return created;
+  return created
 }
