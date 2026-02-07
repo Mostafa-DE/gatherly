@@ -19,7 +19,8 @@ export const user = pgTable("user", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  phoneNumber: text("phone_number").unique(),
+  phoneNumber: text("phone_number").notNull().unique(),
+  username: text("username").notNull().unique(),
 });
 
 export const session = pgTable(
@@ -93,6 +94,8 @@ export const organization = pgTable(
     metadata: text("metadata"),
     timezone: text("timezone"),
     defaultJoinMode: text("default_join_mode").default("invite").notNull(),
+    userSlug: text("user_slug").notNull(),
+    ownerUsername: text("owner_username").notNull(),
   },
   (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
 );

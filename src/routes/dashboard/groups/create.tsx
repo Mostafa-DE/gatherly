@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
-import { organization as orgClient } from "@/auth/client"
+import { organization as orgClient, useSession } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,6 +43,8 @@ const JOIN_MODES = [
 
 function CreateGroupPage() {
   const navigate = useNavigate()
+  const { data: session } = useSession()
+  const username = session?.user?.username ?? ""
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [timezone, setTimezone] = useState("")
@@ -153,7 +155,7 @@ function CreateGroupPage() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Lowercase letters, numbers, and hyphens only. This will be used in your group's URL.
+                  Your group will be at: /{username}/{slug || "my-group"}
                 </p>
               </div>
 

@@ -12,10 +12,11 @@
     "test": "vitest run",
     "db:up": "docker compose up -d db",
     "db:stop": "docker compose stop db",
-    "db:reset": "docker compose down -v && docker compose up -d db",
+    "db:reset": "docker compose down -v && docker compose up -d db --wait && pnpm db:migrate && pnpm db:seed:demo-user",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed:demo-user": "pnpm exec tsx --env-file=.env ./scripts/create-demo-user.ts",
     "auth:generate": "npx @better-auth/cli generate --output ./src/db/auth-schema.ts"
   },
   "dependencies": {

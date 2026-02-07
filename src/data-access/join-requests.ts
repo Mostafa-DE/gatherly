@@ -33,6 +33,8 @@ export async function getJoinRequestWithDetails(requestId: string) {
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
+        userSlug: organization.userSlug,
+        ownerUsername: organization.ownerUsername,
         logo: organization.logo,
       },
       user: {
@@ -95,6 +97,8 @@ export async function listMyJoinRequests(userId: string) {
         id: organization.id,
         name: organization.name,
         slug: organization.slug,
+        userSlug: organization.userSlug,
+        ownerUsername: organization.ownerUsername,
         logo: organization.logo,
       },
     })

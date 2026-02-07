@@ -121,6 +121,8 @@ type OrgCardProps = {
       id: string
       name: string
       slug: string
+      userSlug: string
+      ownerUsername: string
       defaultJoinMode: string | null
     }
     role: string
@@ -153,7 +155,7 @@ function OrgCard({ item }: OrgCardProps) {
           <div>
             <h3 className="font-semibold">{item.organization.name}</h3>
             <p className="text-sm text-muted-foreground">
-              /{item.organization.slug}
+              /{item.organization.ownerUsername}/{item.organization.userSlug}
             </p>
           </div>
         </div>

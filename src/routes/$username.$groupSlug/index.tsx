@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { useSession } from "@/auth/client"
+import { LandingNavbar } from "@/components/landing/landing-navbar"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -28,14 +29,15 @@ import { Separator } from "@/components/ui/separator"
 import { Users, Lock, UserPlus, Clock, CheckCircle, AlertCircle } from "lucide-react"
 import type { FormField } from "@/types/form"
 
-export const Route = createFileRoute("/org/$slug/")({
+export const Route = createFileRoute("/$username/$groupSlug/")({
   component: PublicOrgPage,
 })
 
 function PublicOrgPage() {
-  const { slug } = Route.useParams()
+  const { username, groupSlug } = Route.useParams()
   const navigate = useNavigate()
-  const { data: session } = useSession()
+  const { data: session, isPending: sessionPending } = useSession()
+  const isLoggedIn = !sessionPending && !!session?.user
   const utils = trpc.useUtils()
 
   // Form state
@@ -43,7 +45,7 @@ function PublicOrgPage() {
   const [formError, setFormError] = useState("")
 
   // Get public org info
-  const { data: org, isLoading: orgLoading, error: orgError } = trpc.organization.getPublicInfo.useQuery({ slug })
+  const { data: org, isLoading: orgLoading, error: orgError } = trpc.organization.getPublicInfo.useQuery({ username, groupSlug })
 
   // Get join form schema (only if org is loaded)
   const { data: formSchemaData } = trpc.organization.getJoinFormSchema.useQuery(
@@ -134,38 +136,44 @@ function PublicOrgPage() {
 
   if (orgLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <Skeleton className="mx-auto h-16 w-16 rounded-full" />
-            <Skeleton className="mx-auto mt-4 h-8 w-48" />
-            <Skeleton className="mx-auto mt-2 h-4 w-32" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-      </div>
+      <>
+        <LandingNavbar isLoggedIn={isLoggedIn} />
+        <div className="flex min-h-screen items-center justify-center p-4 pt-20">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <Skeleton className="mx-auto h-16 w-16 rounded-full" />
+              <Skeleton className="mx-auto mt-4 h-8 w-48" />
+              <Skeleton className="mx-auto mt-2 h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </>
     )
   }
 
   if (orgError || !org) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Group Not Found</CardTitle>
-            <CardDescription>
-              The group you're looking for doesn't exist or has been removed.
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-center">
-            <Button asChild>
-              <Link to="/">Go Home</Link>
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
+      <>
+        <LandingNavbar isLoggedIn={isLoggedIn} />
+        <div className="flex min-h-screen items-center justify-center p-4 pt-20">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle>Group Not Found</CardTitle>
+              <CardDescription>
+                The group you're looking for doesn't exist or has been removed.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter className="justify-center">
+              <Button asChild>
+                <Link to="/">Go Home</Link>
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </>
     )
   }
 
@@ -211,16 +219,21 @@ function PublicOrgPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <Avatar className="mx-auto h-16 w-16">
-            <AvatarImage src={org.logo ?? undefined} alt={org.name} />
-            <AvatarFallback className="text-xl">
-              {org.name.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <CardTitle className="mt-4 text-2xl">{org.name}</CardTitle>
+    <>
+      <LandingNavbar isLoggedIn={isLoggedIn} />
+      <div className="flex min-h-screen items-center justify-center p-4 pt-20">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Avatar className="mx-auto h-16 w-16">
+              <AvatarImage src={org.logo ?? undefined} alt={org.name} />
+              <AvatarFallback>
+                <Users className="h-6 w-6" />
+              </AvatarFallback>
+            </Avatar>
+          <div className="mt-4 text-sm text-muted-foreground">
+            @{username}
+          </div>
+          <CardTitle className="text-2xl">{org.name}</CardTitle>
           <CardDescription className="flex items-center justify-center gap-2">
             <Users className="h-4 w-4" />
             {org.memberCount} {org.memberCount === 1 ? "member" : "members"}
@@ -331,6 +344,7 @@ function PublicOrgPage() {
         </CardFooter>
       </Card>
     </div>
+    </>
   )
 }
 

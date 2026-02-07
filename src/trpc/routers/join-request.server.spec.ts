@@ -129,19 +129,22 @@ describe("join-request router", () => {
     const requesterCaller = buildCaller(requester)
     const adminCaller = buildCaller(admin, orgId)
 
-    const addMemberSpy = vi.spyOn(auth.api, "addMember").mockImplementation(
-      async ({ body }) => {
-        await db.insert(member).values({
-          id: `mem_${randomUUID().replaceAll("-", "")}`,
-          organizationId: body.organizationId,
-          userId: body.userId,
-          role: body.role,
-          createdAt: new Date(),
-        })
+    const addMemberImpl = async (ctx: unknown) => {
+      const { body } = ctx as { body: { organizationId: string; userId: string; role: string } }
+      await db.insert(member).values({
+        id: `mem_${randomUUID().replaceAll("-", "")}`,
+        organizationId: body.organizationId,
+        userId: body.userId,
+        role: body.role,
+        createdAt: new Date(),
+      })
 
-        return undefined as never
-      }
-    )
+      return undefined as never
+    }
+    // Better Auth's overloaded addMember types require cast for mockImplementation
+    const addMemberSpy = vi
+      .spyOn(auth.api, "addMember")
+      .mockImplementation(addMemberImpl as unknown as typeof auth.api.addMember)
 
     const request = await requesterCaller.joinRequest.request({
       organizationId: orgId,

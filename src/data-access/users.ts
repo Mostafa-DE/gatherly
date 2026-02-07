@@ -11,6 +11,15 @@ export async function getUserById(id: string) {
   return result[0] ?? null
 }
 
+export async function getUserByUsername(username: string) {
+  const result = await db
+    .select()
+    .from(user)
+    .where(eq(user.username, username))
+    .limit(1)
+  return result[0] ?? null
+}
+
 export async function getUserByPhone(phoneNumber: string) {
   const result = await db
     .select()

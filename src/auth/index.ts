@@ -19,6 +19,12 @@ export const auth = betterAuth({
         unique: true,
         input: true,
       },
+      username: {
+        type: "string",
+        required: true,
+        unique: true,
+        input: true,
+      },
     },
   },
   plugins: [
@@ -35,6 +41,16 @@ export const auth = betterAuth({
               type: "string",
               required: true,
               defaultValue: "invite",
+              input: true,
+            },
+            userSlug: {
+              type: "string",
+              required: true,
+              input: true,
+            },
+            ownerUsername: {
+              type: "string",
+              required: true,
               input: true,
             },
           },

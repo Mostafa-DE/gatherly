@@ -48,21 +48,28 @@ function assertOwner(role: string): void {
 
 export const organizationRouter = router({
   /**
-   * Get public organization info by slug (for public org page)
+   * Get public organization info by username + groupSlug (for public org page)
    */
   getPublicInfo: publicProcedure
-    .input(z.object({ slug: z.string() }))
+    .input(z.object({ username: z.string(), groupSlug: z.string() }))
     .query(async ({ ctx, input }) => {
       const [org] = await ctx.db
         .select({
           id: organization.id,
           name: organization.name,
           slug: organization.slug,
+          userSlug: organization.userSlug,
+          ownerUsername: organization.ownerUsername,
           logo: organization.logo,
           defaultJoinMode: organization.defaultJoinMode,
         })
         .from(organization)
-        .where(eq(organization.slug, input.slug))
+        .where(
+          and(
+            eq(organization.ownerUsername, input.username),
+            eq(organization.userSlug, input.groupSlug)
+          )
+        )
         .limit(1);
 
       if (!org) {

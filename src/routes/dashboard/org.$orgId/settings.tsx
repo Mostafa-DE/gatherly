@@ -254,8 +254,8 @@ function SettingsPage() {
             <p className="mt-1 font-medium">{org?.name}</p>
           </div>
           <div className="rounded-lg border border-border/50 bg-background/50 p-4">
-            <p className="text-sm font-medium text-muted-foreground">URL Slug</p>
-            <p className="mt-1 font-medium">/{org?.slug}</p>
+            <p className="text-sm font-medium text-muted-foreground">URL</p>
+            <p className="mt-1 font-medium">/{org?.ownerUsername}/{org?.userSlug}</p>
           </div>
         </div>
 

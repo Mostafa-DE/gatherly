@@ -1,8 +1,8 @@
 import { z } from "zod"
 import { eq, and } from "drizzle-orm"
 import { router, publicProcedure, protectedProcedure } from "@/trpc"
-import { getUserById, updateUser } from "@/data-access/users"
-import { updateProfileSchema } from "@/schemas/user"
+import { getUserById, getUserByUsername, updateUser } from "@/data-access/users"
+import { updateProfileSchema, usernameSchema } from "@/schemas/user"
 import { organization, member, invitation } from "@/db/auth-schema"
 import { organizationSettings } from "@/db/schema"
 import { auth } from "@/auth"
@@ -71,6 +71,14 @@ export const userRouter = router({
       .where(eq(member.userId, ctx.user.id))
   }),
 
+  // checkUsernameAvailable - check if a username is available
+  checkUsernameAvailable: publicProcedure
+    .input(z.object({ username: usernameSchema }))
+    .query(async ({ input }) => {
+      const existing = await getUserByUsername(input.username)
+      return { available: !existing }
+    }),
+
   // createOrg - create organization (user becomes owner)
   createOrg: protectedProcedure
     .input(
@@ -83,12 +91,19 @@ export const userRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const username = ctx.user.username
+
+      // Generate internal slug as {username}-{userSlug}
+      const internalSlug = `${username}-${input.slug}`
+
       const org = await auth.api.createOrganization({
         body: {
           name: input.name,
-          slug: input.slug,
+          slug: internalSlug,
           timezone: input.timezone,
           defaultJoinMode: input.defaultJoinMode,
+          userSlug: input.slug,
+          ownerUsername: username,
         },
         headers: ctx.headers,
       })
@@ -119,6 +134,8 @@ export const userRouter = router({
           id: organization.id,
           name: organization.name,
           slug: organization.slug,
+          userSlug: organization.userSlug,
+          ownerUsername: organization.ownerUsername,
           logo: organization.logo,
         },
       })

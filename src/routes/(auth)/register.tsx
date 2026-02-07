@@ -14,12 +14,20 @@ export const Route = createFileRoute("/(auth)/register")({
 function RegisterPage() {
   const navigate = useNavigate()
   const [name, setName] = useState("")
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+
+  const handleNameChange = (value: string) => {
+    setName(value)
+    if (!username || username === generateUsername(name)) {
+      setUsername(generateUsername(value))
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +49,12 @@ function RegisterPage() {
       return
     }
 
+    // Validate username
+    if (!username || !/^[a-z][a-z0-9-]*[a-z0-9]$/.test(username) || username.length < 3) {
+      setError("Username must be 3-30 characters, start with a letter, and contain only lowercase letters, numbers, and hyphens")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -49,6 +63,7 @@ function RegisterPage() {
         password,
         name,
         phoneNumber,
+        username,
       })
 
       if (result.error) {
@@ -115,10 +130,28 @@ function RegisterPage() {
                 type="text"
                 placeholder="John Doe"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => handleNameChange(e.target.value)}
                 required
                 className="bg-background/50"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                placeholder="johndoe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                required
+                minLength={3}
+                maxLength={30}
+                className="bg-background/50"
+              />
+              <p className="text-xs text-muted-foreground">
+                This will be part of your profile URL: /{username || "username"}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -195,4 +228,13 @@ function RegisterPage() {
       </div>
     </div>
   )
+}
+
+function generateUsername(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
 }

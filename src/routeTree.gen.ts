@@ -17,7 +17,7 @@ import { Route as DashboardInvitationsRouteImport } from './routes/dashboard/inv
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as authRegisterRouteImport } from './routes/(auth)/register'
 import { Route as authLoginRouteImport } from './routes/(auth)/login'
-import { Route as OrgSlugIndexRouteImport } from './routes/org.$slug/index'
+import { Route as UsernameGroupSlugIndexRouteImport } from './routes/$username.$groupSlug/index'
 import { Route as DashboardOrgOrgIdRouteImport } from './routes/dashboard/org.$orgId'
 import { Route as DashboardGroupsCreateRouteImport } from './routes/dashboard/groups/create'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
@@ -75,9 +75,9 @@ const authLoginRoute = authLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OrgSlugIndexRoute = OrgSlugIndexRouteImport.update({
-  id: '/org/$slug/',
-  path: '/org/$slug/',
+const UsernameGroupSlugIndexRoute = UsernameGroupSlugIndexRouteImport.update({
+  id: '/$username/$groupSlug/',
+  path: '/$username/$groupSlug/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardOrgOrgIdRoute = DashboardOrgOrgIdRouteImport.update({
@@ -185,7 +185,7 @@ export interface FileRoutesByFullPath {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
-  '/org/$slug/': typeof OrgSlugIndexRoute
+  '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersRoute
@@ -210,7 +210,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
-  '/org/$slug': typeof OrgSlugIndexRoute
+  '/$username/$groupSlug': typeof UsernameGroupSlugIndexRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersRoute
@@ -237,7 +237,7 @@ export interface FileRoutesById {
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
-  '/org/$slug/': typeof OrgSlugIndexRoute
+  '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersRoute
@@ -266,7 +266,7 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
-    | '/org/$slug/'
+    | '/$username/$groupSlug/'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/members'
@@ -291,7 +291,7 @@ export interface FileRouteTypes {
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/dashboard/groups/create'
-    | '/org/$slug'
+    | '/$username/$groupSlug'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/members'
@@ -317,7 +317,7 @@ export interface FileRouteTypes {
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
-    | '/org/$slug/'
+    | '/$username/$groupSlug/'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/members'
@@ -340,7 +340,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
-  OrgSlugIndexRoute: typeof OrgSlugIndexRoute
+  UsernameGroupSlugIndexRoute: typeof UsernameGroupSlugIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -401,11 +401,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/org/$slug/': {
-      id: '/org/$slug/'
-      path: '/org/$slug'
-      fullPath: '/org/$slug/'
-      preLoaderRoute: typeof OrgSlugIndexRouteImport
+    '/$username/$groupSlug/': {
+      id: '/$username/$groupSlug/'
+      path: '/$username/$groupSlug'
+      fullPath: '/$username/$groupSlug/'
+      preLoaderRoute: typeof UsernameGroupSlugIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard/org/$orgId': {
@@ -600,7 +600,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
-  OrgSlugIndexRoute: OrgSlugIndexRoute,
+  UsernameGroupSlugIndexRoute: UsernameGroupSlugIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

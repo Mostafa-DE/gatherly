@@ -8,6 +8,7 @@ function createToken(prefix: string): string {
 }
 
 export async function createTestUser(name = "Test User") {
+  const username = createToken("user").toLowerCase()
   const [createdUser] = await db
     .insert(user)
     .values({
@@ -15,19 +16,24 @@ export async function createTestUser(name = "Test User") {
       name,
       email: `${createToken("email")}@example.com`,
       emailVerified: true,
+      phoneNumber: `+1${Date.now().toString().slice(-10)}`,
+      username,
     })
     .returning()
 
   return createdUser
 }
 
-export async function createTestOrganization() {
+export async function createTestOrganization(ownerUsername = "testowner") {
+  const userSlug = createToken("slug")
   const [createdOrganization] = await db
     .insert(organization)
     .values({
       id: createToken("org"),
       name: "Test Organization",
-      slug: createToken("slug"),
+      slug: `${ownerUsername}-${userSlug}`,
+      userSlug,
+      ownerUsername,
       createdAt: new Date(),
       defaultJoinMode: "open",
     })

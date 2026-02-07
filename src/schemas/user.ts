@@ -18,6 +18,68 @@ export const phoneNumberSchema = z
   .string()
   .regex(/^\+[1-9]\d{7,14}$/, "Please enter a valid phone number")
 
+// Username: lowercase alphanumeric + hyphens, 3-30 chars, starts with letter
+const RESERVED_USERNAMES = [
+  "dashboard",
+  "login",
+  "register",
+  "api",
+  "auth",
+  "admin",
+  "org",
+  "settings",
+  "profile",
+  "help",
+  "about",
+  "support",
+  "terms",
+  "privacy",
+  "contact",
+  "blog",
+  "docs",
+  "search",
+  "explore",
+  "new",
+  "create",
+  "edit",
+  "delete",
+  "invite",
+  "join",
+  "groups",
+  "users",
+  "notifications",
+  "billing",
+  "pricing",
+  "home",
+  "index",
+  "app",
+  "static",
+  "assets",
+  "public",
+  "health",
+  "status",
+  "sitemap",
+  "robots",
+  "favicon",
+] as const
+
+export const usernameSchema = z
+  .string()
+  .min(3, "Username must be at least 3 characters")
+  .max(30, "Username must be at most 30 characters")
+  .regex(
+    /^[a-z][a-z0-9-]*[a-z0-9]$/,
+    "Username must start with a letter, end with a letter or number, and contain only lowercase letters, numbers, and hyphens"
+  )
+  .refine(
+    (val) => !val.includes("--"),
+    "Username cannot contain consecutive hyphens"
+  )
+  .refine(
+    (val) => !RESERVED_USERNAMES.includes(val as (typeof RESERVED_USERNAMES)[number]),
+    "This username is reserved"
+  )
+
 // Update profile input
 export const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -36,6 +98,7 @@ export const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   phoneNumber: phoneNumberSchema,
+  username: usernameSchema,
 })
 
 // Types
