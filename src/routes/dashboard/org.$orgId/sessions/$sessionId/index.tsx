@@ -27,7 +27,6 @@ import {
   MoreHorizontal,
   Send,
   ClipboardList,
-  DollarSign,
   ListOrdered,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -72,14 +71,19 @@ function formatMonth(date: Date) {
   return date.toLocaleDateString(undefined, { month: "short" }).toUpperCase()
 }
 
-function formatWeekday(date: Date) {
-  return date.toLocaleDateString(undefined, { weekday: "long" })
-}
-
 function formatTime(date: Date) {
   return date.toLocaleTimeString(undefined, {
     hour: "numeric",
     minute: "2-digit",
+  })
+}
+
+function formatFullDate(date: Date) {
+  return date.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
   })
 }
 
@@ -200,11 +204,12 @@ function SessionDetailPage() {
 
   /* ── Derived state ── */
   const dateObj = new Date(sessionData.dateTime)
+  const isPastDateTime = dateObj < new Date()
   const spotsLeft = sessionData.maxCapacity - sessionData.joinedCount
   const capacityPercent =
     (sessionData.joinedCount / sessionData.maxCapacity) * 100
   const isPast =
-    dateObj < new Date() ||
+    isPastDateTime ||
     sessionData.status === "completed" ||
     sessionData.status === "cancelled"
   const isDraft = sessionData.status === "draft"
@@ -213,6 +218,7 @@ function SessionDetailPage() {
 
   const canJoin =
     sessionData.status === "published" &&
+    !isPast &&
     !myParticipation &&
     !isInviteOnly &&
     (
@@ -416,9 +422,9 @@ function SessionDetailPage() {
 
       {/* ── Hero card ── */}
       <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="p-6 sm:p-8">
+        <div className="p-6 sm:p-8 space-y-5">
+          {/* Title row */}
           <div className="flex gap-5">
-            {/* Date badge - ticket style */}
             <div className="flex flex-col items-center justify-center rounded-xl bg-primary/10 px-4 py-3 min-w-[4.5rem] shrink-0">
               <span className="text-2xl font-bold text-primary leading-none">
                 {formatDay(dateObj)}
@@ -428,8 +434,7 @@ function SessionDetailPage() {
               </span>
             </div>
 
-            {/* Title + meta */}
-            <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex-1 min-w-0 space-y-1.5">
               <div className="flex items-start gap-2.5 flex-wrap">
                 <h1 className="text-2xl font-bold leading-tight">
                   {sessionData.title}
@@ -437,140 +442,128 @@ function SessionDetailPage() {
                 <StatusBadge
                   status={sessionData.status}
                   spotsLeft={spotsLeft}
+                  isPastDateTime={isPastDateTime}
                 />
               </div>
+              <p className="text-sm text-muted-foreground">
+                {formatFullDate(dateObj)}
+              </p>
+            </div>
+          </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5" />
-                  {formatWeekday(dateObj)} at {formatTime(dateObj)}
-                </span>
-                {sessionData.location && (
-                  <span className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5" />
+          {/* Detail cards grid */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {/* Date & Time */}
+            <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {formatFullDate(dateObj)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {formatTime(dateObj)}
+                </p>
+              </div>
+            </div>
+
+            {/* Location */}
+            {sessionData.location && (
+              <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <MapPin className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
                     {sessionData.location}
-                  </span>
-                )}
-                <span
+                  </p>
+                  <p className="text-sm text-muted-foreground">Location</p>
+                </div>
+              </div>
+            )}
+
+            {/* Capacity */}
+            <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                <Users className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {sessionData.joinedCount}/{sessionData.maxCapacity} joined
+                </p>
+                <p
                   className={cn(
-                    "flex items-center gap-1.5 font-medium",
+                    "text-sm",
+                    spotsLeft === 0
+                      ? "text-[var(--color-status-danger)]"
+                      : spotsLeft <= 3
+                        ? "text-[var(--color-status-warning)]"
+                        : "text-muted-foreground"
+                  )}
+                >
+                  {spotsLeft > 0
+                    ? `${spotsLeft} ${spotsLeft === 1 ? "spot" : "spots"} left`
+                    : "Full"}
+                </p>
+              </div>
+            </div>
+
+            {/* Price & Join Mode */}
+            <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                <Tag className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p
+                  className={cn(
+                    "text-sm font-medium",
                     hasPrice(sessionData.price)
                       ? "text-foreground"
                       : "text-[var(--color-status-success)]"
                   )}
                 >
-                  <Tag className="h-3.5 w-3.5" />
                   {formatPrice(sessionData.price, orgCurrency)}
-                </span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {sessionData.joinMode === "open"
+                    ? "Open registration"
+                    : sessionData.joinMode === "approval_required"
+                      ? "Requires approval"
+                      : "Invite only"}
+                </p>
               </div>
             </div>
+
+            {/* Waitlist (conditional) */}
+            {sessionData.maxWaitlist > 0 && (
+              <div className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+                  <ListOrdered className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">
+                    {sessionData.waitlistCount}/{sessionData.maxWaitlist} on
+                    waitlist
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {sessionData.waitlistCount === 0
+                      ? "No one waiting"
+                      : `${sessionData.waitlistCount} ${sessionData.waitlistCount === 1 ? "person" : "people"} waiting`}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Description */}
-          {sessionData.description && (
-            <>
-              <Separator className="my-5" />
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                {sessionData.description}
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* ── Participation CTA ── */}
-        {!isDraft && (
-          <ParticipationBar
-            participationLoading={participationLoading}
-            canJoin={canJoin}
-            isJoined={isJoined}
-            isWaitlisted={isWaitlisted}
-            isPendingApproval={isPendingApproval}
-            canCancel={canCancel}
-            isPast={isPast}
-            isFull={
-              sessionData.joinedCount >= sessionData.maxCapacity &&
-              sessionData.waitlistCount >= sessionData.maxWaitlist
-            }
-            sessionStatus={sessionData.status}
-            sessionJoinMode={sessionData.joinMode}
-            myParticipation={myParticipation}
-            spotsLeft={spotsLeft}
-            onJoin={() => joinMutation.mutate({ sessionId })}
-            onCancel={() =>
-              cancelMutation.mutate({
-                participationId: myParticipation!.id,
-              })
-            }
-            joinPending={joinMutation.isPending}
-            cancelPending={cancelMutation.isPending}
-            joinError={joinMutation.error?.message}
-            cancelError={cancelMutation.error?.message}
-          />
-        )}
-      </div>
-
-      {/* ── Stats strip ── */}
-      <div
-        className={cn(
-          "grid gap-4",
-          sessionData.maxWaitlist > 0
-            ? "sm:grid-cols-3"
-            : "sm:grid-cols-2"
-        )}
-      >
-        {/* Capacity */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-muted-foreground">
-              Capacity
-            </span>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex items-baseline gap-1.5 mb-3">
-            <span className="text-3xl font-bold tabular-nums">
-              {sessionData.joinedCount}
-            </span>
-            <span className="text-lg text-muted-foreground font-medium">
-              / {sessionData.maxCapacity}
-            </span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                isPast
-                  ? "bg-muted-foreground/50"
-                  : capacityPercent >= 100
-                    ? "bg-[var(--color-status-danger)]"
-                    : capacityPercent >= 80
-                      ? "bg-[var(--color-status-warning)]"
-                      : "bg-primary"
-              )}
-              style={{ width: `${Math.min(capacityPercent, 100)}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            {spotsLeft > 0
-              ? `${spotsLeft} ${spotsLeft === 1 ? "spot" : "spots"} remaining`
-              : "At full capacity"}
-          </p>
-        </div>
-
-        {/* Waitlist */}
-        {sessionData.maxWaitlist > 0 && (
-          <div className="rounded-xl border bg-card p-5">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-muted-foreground">
-                Waitlist
+          {/* Capacity bar */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-muted-foreground">
+                Capacity
               </span>
-              <ListOrdered className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="flex items-baseline gap-1.5 mb-3">
-              <span className="text-3xl font-bold tabular-nums">
-                {sessionData.waitlistCount}
-              </span>
-              <span className="text-lg text-muted-foreground font-medium">
-                / {sessionData.maxWaitlist}
+              <span className="text-xs font-medium text-muted-foreground tabular-nums">
+                {Math.round(capacityPercent)}%
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -579,54 +572,60 @@ function SessionDetailPage() {
                   "h-full rounded-full transition-all duration-500",
                   isPast
                     ? "bg-muted-foreground/50"
-                    : sessionData.waitlistCount >= sessionData.maxWaitlist
-                      ? "bg-[var(--color-status-warning)]"
-                      : "bg-[var(--color-status-warning)]/60"
+                    : capacityPercent >= 100
+                      ? "bg-[var(--color-status-danger)]"
+                      : capacityPercent >= 80
+                        ? "bg-[var(--color-status-warning)]"
+                        : "bg-primary"
                 )}
-                style={{
-                  width: `${Math.min(
-                    (sessionData.waitlistCount / sessionData.maxWaitlist) *
-                      100,
-                    100
-                  )}%`,
-                }}
+                style={{ width: `${Math.min(capacityPercent, 100)}%` }}
               />
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {sessionData.waitlistCount === 0
-                ? "No one waiting"
-                : `${sessionData.waitlistCount} ${sessionData.waitlistCount === 1 ? "person" : "people"} waiting`}
-            </p>
           </div>
-        )}
 
-        {/* Price / Join Mode */}
-        <div className="rounded-xl border bg-card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-muted-foreground">
-              Pricing
-            </span>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="mb-1">
-            <span
-              className={cn(
-                "text-3xl font-bold",
-                hasPrice(sessionData.price)
-                  ? "text-foreground"
-                  : "text-[var(--color-status-success)]"
-              )}
-            >
-              {formatPrice(sessionData.price, orgCurrency)}
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            {sessionData.joinMode === "open"
-              ? "Open registration"
-              : sessionData.joinMode === "approval_required"
-                ? "Requires approval"
-                : "Invite only"}
-          </p>
+          {/* Participation CTA */}
+          {!isDraft && (
+            <ParticipationBar
+              participationLoading={participationLoading}
+              canJoin={canJoin}
+              isJoined={isJoined}
+              isWaitlisted={isWaitlisted}
+              isPendingApproval={isPendingApproval}
+              canCancel={canCancel}
+              isPast={isPast}
+              isFull={
+                sessionData.joinedCount >= sessionData.maxCapacity &&
+                sessionData.waitlistCount >= sessionData.maxWaitlist
+              }
+              sessionStatus={sessionData.status}
+              sessionJoinMode={sessionData.joinMode}
+              myParticipation={myParticipation}
+              spotsLeft={spotsLeft}
+              onJoin={() => joinMutation.mutate({ sessionId })}
+              onCancel={() =>
+                cancelMutation.mutate({
+                  participationId: myParticipation!.id,
+                })
+              }
+              joinPending={joinMutation.isPending}
+              cancelPending={cancelMutation.isPending}
+              joinError={joinMutation.error?.message}
+              cancelError={cancelMutation.error?.message}
+            />
+          )}
+
+          {/* Description */}
+          {sessionData.description && (
+            <>
+              <Separator />
+              <div>
+                <h3 className="text-sm font-medium mb-2">About this session</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {sessionData.description}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -710,10 +709,16 @@ function SessionDetailPage() {
 function StatusBadge({
   status,
   spotsLeft,
+  isPastDateTime,
 }: {
   status: string
   spotsLeft: number
+  isPastDateTime: boolean
 }) {
+  if (isPastDateTime && status === "published") {
+    return null
+  }
+
   if (status === "cancelled") {
     return (
       <Badge className="bg-[var(--color-badge-danger-bg)] text-[var(--color-status-danger)] border-0 shrink-0">
@@ -799,118 +804,127 @@ function ParticipationBar({
   joinError,
   cancelError,
 }: ParticipationBarProps) {
+  if (participationLoading) {
+    return <Skeleton className="h-10 w-full rounded-lg" />
+  }
+
   return (
-    <div className="border-t bg-muted/30 px-6 sm:px-8 py-4">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        {participationLoading ? (
-          <Skeleton className="h-10 w-40" />
-        ) : canJoin ? (
-          <div className="flex items-center gap-3">
-            <Button size="lg" onClick={onJoin} disabled={joinPending}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              {joinPending
-                ? sessionJoinMode === "approval_required"
-                  ? "Requesting..."
-                  : "Joining..."
-                : sessionJoinMode === "approval_required"
-                  ? "Request to Join"
-                  : spotsLeft > 0
-                    ? "Join Session"
-                    : "Join Waitlist"}
+    <div className="space-y-2">
+      {canJoin ? (
+        <div className="space-y-2">
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={onJoin}
+            disabled={joinPending}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            {joinPending
+              ? sessionJoinMode === "approval_required"
+                ? "Requesting..."
+                : "Joining..."
+              : sessionJoinMode === "approval_required"
+                ? "Request to Join"
+                : spotsLeft > 0
+                  ? "Join Session"
+                  : "Join Waitlist"}
+          </Button>
+          {sessionJoinMode === "open" && spotsLeft > 0 && spotsLeft <= 5 && (
+            <p className="text-center text-sm text-[var(--color-status-warning)] font-medium">
+              {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
+            </p>
+          )}
+        </div>
+      ) : isJoined ? (
+        <div className="flex items-center justify-between rounded-lg border border-[var(--color-status-success)]/20 bg-[var(--color-badge-success-bg)] p-3">
+          <div className="flex items-center gap-2 text-[var(--color-status-success)]">
+            <CheckCircle2 className="h-4 w-4" />
+            <span className="font-medium text-sm">You're in</span>
+          </div>
+          {canCancel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              disabled={cancelPending}
+              className="text-muted-foreground hover:text-destructive h-8"
+            >
+              <UserMinus className="h-4 w-4 mr-1.5" />
+              {cancelPending ? "Cancelling..." : "Cancel"}
             </Button>
-            {sessionJoinMode === "open" && spotsLeft > 0 && spotsLeft <= 5 && (
-              <span className="text-sm text-[var(--color-status-warning)] font-medium">
-                {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
-              </span>
-            )}
+          )}
+        </div>
+      ) : isWaitlisted ? (
+        <div className="flex items-center justify-between rounded-lg border border-[var(--color-status-warning)]/20 bg-[var(--color-badge-warning-bg)] p-3">
+          <div className="flex items-center gap-2 text-[var(--color-status-warning)]">
+            <Clock className="h-4 w-4" />
+            <span className="font-medium text-sm">
+              Waitlisted
+              {(myParticipation as { waitlistPosition?: number })
+                ?.waitlistPosition
+                ? ` #${(myParticipation as { waitlistPosition?: number }).waitlistPosition}`
+                : ""}
+            </span>
           </div>
-        ) : isJoined ? (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-badge-success-bg)] text-[var(--color-status-success)]">
-              <CheckCircle2 className="h-4 w-4" />
-              <span className="font-medium text-sm">You're in</span>
-            </div>
-            {canCancel && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCancel}
-                disabled={cancelPending}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <UserMinus className="h-4 w-4 mr-1.5" />
-                {cancelPending ? "Cancelling..." : "Cancel"}
-              </Button>
-            )}
+          {canCancel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              disabled={cancelPending}
+              className="text-muted-foreground hover:text-destructive h-8"
+            >
+              <UserMinus className="h-4 w-4 mr-1.5" />
+              {cancelPending ? "Leaving..." : "Leave Waitlist"}
+            </Button>
+          )}
+        </div>
+      ) : isPendingApproval ? (
+        <div className="flex items-center justify-between rounded-lg border border-[var(--color-status-warning)]/20 bg-[var(--color-badge-warning-bg)] p-3">
+          <div className="flex items-center gap-2 text-[var(--color-status-warning)]">
+            <Clock className="h-4 w-4" />
+            <span className="font-medium text-sm">Request Pending</span>
           </div>
-        ) : isWaitlisted ? (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-badge-warning-bg)] text-[var(--color-status-warning)]">
-              <Clock className="h-4 w-4" />
-              <span className="font-medium text-sm">
-                Waitlisted
-                {(myParticipation as { waitlistPosition?: number })
-                  ?.waitlistPosition
-                  ? ` #${(myParticipation as { waitlistPosition?: number }).waitlistPosition}`
-                  : ""}
-              </span>
-            </div>
-            {canCancel && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCancel}
-                disabled={cancelPending}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <UserMinus className="h-4 w-4 mr-1.5" />
-                {cancelPending ? "Leaving..." : "Leave Waitlist"}
-              </Button>
-            )}
-          </div>
-        ) : isPendingApproval ? (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-badge-warning-bg)] text-[var(--color-status-warning)]">
-              <Clock className="h-4 w-4" />
-              <span className="font-medium text-sm">Request Pending</span>
-            </div>
-            {canCancel && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCancel}
-                disabled={cancelPending}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <UserMinus className="h-4 w-4 mr-1.5" />
-                {cancelPending ? "Cancelling..." : "Cancel Request"}
-              </Button>
-            )}
-          </div>
-        ) : myParticipation?.status === "cancelled" ? (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-badge-inactive-bg)] text-[var(--color-status-inactive)]">
-            <XCircle className="h-4 w-4" />
-            <span className="font-medium text-sm">Cancelled</span>
-          </div>
-        ) : sessionStatus === "published" &&
-          !isPast &&
-          !myParticipation &&
-          sessionJoinMode === "invite_only" ? (
+          {canCancel && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              disabled={cancelPending}
+              className="text-muted-foreground hover:text-destructive h-8"
+            >
+              <UserMinus className="h-4 w-4 mr-1.5" />
+              {cancelPending ? "Cancelling..." : "Cancel Request"}
+            </Button>
+          )}
+        </div>
+      ) : myParticipation?.status === "cancelled" ? (
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--color-status-inactive)]/20 bg-[var(--color-badge-inactive-bg)] p-3 text-[var(--color-status-inactive)]">
+          <XCircle className="h-4 w-4" />
+          <span className="font-medium text-sm">Cancelled</span>
+        </div>
+      ) : sessionStatus === "published" &&
+        !isPast &&
+        !myParticipation &&
+        sessionJoinMode === "invite_only" ? (
+        <div className="rounded-lg border bg-muted/50 p-3 text-center">
           <p className="text-sm text-muted-foreground">
             This session is invite-only. Ask an admin to add you.
           </p>
-        ) : sessionStatus === "published" && !isPast && isFull ? (
+        </div>
+      ) : sessionStatus === "published" && !isPast && isFull ? (
+        <div className="rounded-lg border bg-muted/50 p-3 text-center">
           <p className="text-sm text-muted-foreground">
             This session is full and the waitlist is at capacity.
           </p>
-        ) : null}
+        </div>
+      ) : null}
 
-        {(joinError || cancelError) && (
-          <p className="text-sm text-destructive">
-            {joinError || cancelError}
-          </p>
-        )}
-      </div>
+      {(joinError || cancelError) && (
+        <p className="text-sm text-destructive">
+          {joinError || cancelError}
+        </p>
+      )}
     </div>
   )
 }
@@ -931,29 +945,28 @@ function SessionDetailSkeleton() {
 
       {/* Hero */}
       <div className="rounded-xl border bg-card overflow-hidden">
-        <div className="p-6 sm:p-8">
+        <div className="p-6 sm:p-8 space-y-5">
           <div className="flex gap-5">
             <Skeleton className="h-[72px] w-[72px] rounded-xl shrink-0" />
             <div className="space-y-2 flex-1">
               <Skeleton className="h-7 w-56" />
-              <Skeleton className="h-4 w-72" />
+              <Skeleton className="h-4 w-48" />
             </div>
           </div>
-        </div>
-        <div className="border-t bg-muted/30 px-6 py-4">
-          <Skeleton className="h-10 w-36" />
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        {[1, 2].map((i) => (
-          <div key={i} className="rounded-xl border bg-card p-5">
-            <Skeleton className="h-4 w-20 mb-3" />
-            <Skeleton className="h-9 w-24 mb-3" />
-            <Skeleton className="h-2 w-full rounded-full" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-start gap-3 rounded-lg border bg-background p-3.5">
+                <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3.5 w-20" />
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+          <Skeleton className="h-2 w-full rounded-full" />
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
       </div>
 
       {/* Participants */}

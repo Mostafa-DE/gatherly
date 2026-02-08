@@ -6,6 +6,7 @@ import {
   getUserProfile,
 } from "@/data-access/group-member-profiles"
 import { getOrgSettings } from "@/data-access/organization-settings"
+import { getEngagementStats } from "@/data-access/engagement-stats"
 import {
   getMyProfileSchema,
   updateMyProfileSchema,
@@ -13,6 +14,7 @@ import {
   getUserProfileSchema,
 } from "@/schemas/group-member-profile"
 import { validateAndUpsertGroupMemberProfile } from "@/use-cases/group-member-profile"
+import { z } from "zod"
 
 // =============================================================================
 // Helper: Check if user is admin (owner role)
@@ -53,6 +55,7 @@ export const groupMemberProfileRouter = router({
           organizationId: ctx.activeOrganization.id,
           userId: ctx.user.id,
           answers: input.answers,
+          nickname: input.nickname,
         }
       )
     }),
@@ -85,5 +88,22 @@ export const groupMemberProfileRouter = router({
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
       return getUserProfile(ctx.activeOrganization.id, input.userId)
+    }),
+
+  /**
+   * Get own engagement stats (Self)
+   */
+  myStats: orgProcedure.query(async ({ ctx }) => {
+    return getEngagementStats(ctx.user.id, ctx.activeOrganization.id)
+  }),
+
+  /**
+   * Get a user's engagement stats (Admin)
+   */
+  getUserStats: orgProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+      return getEngagementStats(input.userId, ctx.activeOrganization.id)
     }),
 })

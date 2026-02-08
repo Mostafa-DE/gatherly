@@ -46,18 +46,23 @@ export async function getProfileById(
 export async function upsertProfile(
   organizationId: string,
   userId: string,
-  answers: Record<string, unknown>
+  answers: Record<string, unknown>,
+  nickname?: string | null
 ): Promise<GroupMemberProfile> {
   const existing = await getProfileByOrgAndUser(organizationId, userId)
 
   if (existing) {
-    // Update existing profile
+    const updates: Record<string, unknown> = {
+      answers,
+      updatedAt: new Date(),
+    }
+    if (nickname !== undefined) {
+      updates.nickname = nickname
+    }
+
     const [updated] = await db
       .update(groupMemberProfile)
-      .set({
-        answers,
-        updatedAt: new Date(),
-      })
+      .set(updates)
       .where(eq(groupMemberProfile.id, existing.id))
       .returning()
     return updated
@@ -70,6 +75,7 @@ export async function upsertProfile(
       organizationId,
       userId,
       answers,
+      ...(nickname !== undefined ? { nickname } : {}),
     })
     .returning()
 

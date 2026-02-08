@@ -182,6 +182,7 @@ export const groupMemberProfile = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     answers: jsonb("answers").default({}).notNull(),
+    nickname: text("nickname"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .defaultNow()
@@ -193,6 +194,37 @@ export const groupMemberProfile = pgTable(
       table.organizationId,
       table.userId
     ),
+  ]
+)
+
+// =============================================================================
+// Member Note (admin notes on members)
+// =============================================================================
+
+export const memberNote = pgTable(
+  "member_note",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    targetUserId: text("target_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    authorUserId: text("author_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("member_note_org_target_idx").on(table.organizationId, table.targetUserId),
   ]
 )
 
@@ -280,6 +312,23 @@ export const groupMemberProfileRelations = relations(
   })
 )
 
+export const memberNoteRelations = relations(memberNote, ({ one }) => ({
+  organization: one(organization, {
+    fields: [memberNote.organizationId],
+    references: [organization.id],
+  }),
+  targetUser: one(user, {
+    fields: [memberNote.targetUserId],
+    references: [user.id],
+    relationName: "noteTarget",
+  }),
+  author: one(user, {
+    fields: [memberNote.authorUserId],
+    references: [user.id],
+    relationName: "noteAuthor",
+  }),
+}))
+
 export const inviteLinkRelations = relations(inviteLink, ({ one }) => ({
   organization: one(organization, {
     fields: [inviteLink.organizationId],
@@ -333,4 +382,6 @@ export type {
   NewJoinRequest,
   InviteLink,
   NewInviteLink,
+  MemberNote,
+  NewMemberNote,
 } from "@/db/types"

@@ -20,6 +20,7 @@ export const getMyProfileSchema = z.object({
 
 /** Update own profile */
 export const updateMyProfileSchema = z.object({
+  nickname: z.string().max(100).nullable().optional(),
   answers: z.record(z.string(), z.unknown()),
 })
 

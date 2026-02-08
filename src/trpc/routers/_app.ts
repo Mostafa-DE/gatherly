@@ -7,6 +7,7 @@ import { organizationSettingsRouter } from "@/trpc/routers/organization-settings
 import { joinRequestRouter } from "@/trpc/routers/join-request"
 import { organizationRouter } from "@/trpc/routers/organization"
 import { inviteLinkRouter } from "@/trpc/routers/invite-link"
+import { memberNoteRouter } from "@/trpc/routers/member-note"
 
 export const appRouter = router({
   user: userRouter,
@@ -17,6 +18,7 @@ export const appRouter = router({
   joinRequest: joinRequestRouter,
   organization: organizationRouter,
   inviteLink: inviteLinkRouter,
+  memberNote: memberNoteRouter,
 })
 
 export type AppRouter = typeof appRouter

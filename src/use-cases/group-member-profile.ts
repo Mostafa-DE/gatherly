@@ -11,7 +11,8 @@ type GroupMemberProfileDependencies = {
   upsertProfile: (
     organizationId: string,
     userId: string,
-    answers: Record<string, unknown>
+    answers: Record<string, unknown>,
+    nickname?: string | null
   ) => Promise<GroupMemberProfile>
 }
 
@@ -19,6 +20,7 @@ type UpdateGroupMemberProfileInput = {
   organizationId: string
   userId: string
   answers: Record<string, unknown>
+  nickname?: string | null
 }
 
 function isEmptyAnswer(value: unknown): boolean {
@@ -188,5 +190,5 @@ export async function validateAndUpsertGroupMemberProfile(
     validateJoinFormAnswers(joinFormSchema, input.answers)
   }
 
-  return deps.upsertProfile(input.organizationId, input.userId, input.answers)
+  return deps.upsertProfile(input.organizationId, input.userId, input.answers, input.nickname)
 }

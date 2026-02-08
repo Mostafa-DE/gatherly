@@ -22,6 +22,13 @@
       "when": 1770555693886,
       "tag": "0002_quick_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770563398924,
+      "tag": "0003_icy_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

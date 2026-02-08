@@ -6,6 +6,7 @@ import type {
   groupMemberProfile,
   joinRequest,
   inviteLink,
+  memberNote,
 } from "@/db/schema"
 
 // Auth types (from Better Auth)
@@ -33,3 +34,5 @@ export type JoinRequest = typeof joinRequest.$inferSelect
 export type NewJoinRequest = typeof joinRequest.$inferInsert
 export type InviteLink = typeof inviteLink.$inferSelect
 export type NewInviteLink = typeof inviteLink.$inferInsert
+export type MemberNote = typeof memberNote.$inferSelect
+export type NewMemberNote = typeof memberNote.$inferInsert

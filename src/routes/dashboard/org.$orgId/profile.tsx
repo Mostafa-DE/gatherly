@@ -20,55 +20,18 @@ import {
   Calendar,
   ChevronDown,
   ArrowRight,
-  Crown,
-  ShieldCheck,
+  Pencil,
+  X,
+  Check,
 } from "lucide-react"
 import type { FormField } from "@/types/form"
 import { cn } from "@/lib/utils"
+import { RoleBadge } from "@/components/role-badge"
+import { EngagementStatsCard } from "@/components/engagement-stats"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/profile")({
   component: ProfilePage,
 })
-
-/* ─────────────────────────── helpers ─────────────────────────── */
-
-function RoleBadge({ role }: { role: string }) {
-  const config = {
-    owner: {
-      icon: Crown,
-      label: "Owner",
-      className: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    },
-    admin: {
-      icon: ShieldCheck,
-      label: "Admin",
-      className: "bg-primary/10 text-primary",
-    },
-    member: {
-      icon: User,
-      label: "Member",
-      className: "bg-muted text-muted-foreground",
-    },
-  }[role] ?? {
-    icon: User,
-    label: role,
-    className: "bg-muted text-muted-foreground",
-  }
-
-  const Icon = config.icon
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
-        config.className
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {config.label}
-    </span>
-  )
-}
 
 /* ─────────────────────────── main page ─────────────────────────── */
 
@@ -80,10 +43,16 @@ function ProfilePage() {
     trpc.organizationSettings.get.useQuery({})
   const { data: myProfile, isLoading: profileLoading } =
     trpc.groupMemberProfile.myProfile.useQuery({})
+  const { data: stats, isLoading: statsLoading } =
+    trpc.groupMemberProfile.myStats.useQuery()
 
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
   const [error, setError] = useState("")
   const [dirty, setDirty] = useState(false)
+
+  // Nickname editing state
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [nicknameValue, setNicknameValue] = useState("")
 
   // Scroll to hash anchor after data loads
   useEffect(() => {
@@ -147,6 +116,26 @@ function ProfilePage() {
     updateProfile.mutate({ answers: activeAnswers })
   }
 
+  const handleNicknameSave = () => {
+    const trimmed = nicknameValue.trim()
+    updateProfile.mutate(
+      {
+        nickname: trimmed || null,
+        answers: persistedAnswers,
+      },
+      {
+        onSuccess: () => {
+          setEditingNickname(false)
+        },
+      }
+    )
+  }
+
+  const handleNicknameCancel = () => {
+    setEditingNickname(false)
+    setNicknameValue((myProfile as { nickname?: string | null } | null)?.nickname ?? "")
+  }
+
   if (isLoading || settingsLoading || profileLoading) {
     return (
       <div className="space-y-6 py-6">
@@ -162,6 +151,7 @@ function ProfilePage() {
 
   const user = whoami?.user
   const role = whoami?.membership?.role
+  const currentNickname = (myProfile as { nickname?: string | null } | null)?.nickname
 
   return (
     <div className="space-y-6 py-6">
@@ -187,6 +177,63 @@ function ProfilePage() {
         </div>
         {role && <RoleBadge role={role} />}
       </div>
+
+      {/* ── Nickname section ── */}
+      <div className="rounded-xl border bg-card p-5">
+        <h2 className="text-sm font-medium text-muted-foreground mb-3">
+          Nickname
+        </h2>
+        {editingNickname ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={nicknameValue}
+              onChange={(e) => setNicknameValue(e.target.value)}
+              placeholder="Enter a nickname for this group"
+              maxLength={100}
+              className="bg-white dark:bg-input/30 max-w-sm"
+            />
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={handleNicknameSave}
+              disabled={updateProfile.isPending}
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="ghost" onClick={handleNicknameCancel}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <span className={cn("text-sm", !currentNickname && "text-muted-foreground italic")}>
+              {currentNickname || "No nickname set"}
+            </span>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => {
+                setNicknameValue(currentNickname ?? "")
+                setEditingNickname(true)
+              }}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Engagement stats ── */}
+      {statsLoading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      ) : stats ? (
+        <EngagementStatsCard stats={stats} />
+      ) : null}
 
       {/* ── Group profile fields ── */}
       {formFields.length > 0 ? (

@@ -1,9 +1,16 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   ArrowLeft,
   Calendar,
@@ -11,9 +18,16 @@ import {
   History,
   User,
   XCircle,
+  MoreVertical,
+  Shield,
+  Users,
+  UserMinus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { FormField } from "@/types/form"
+import { RoleBadge } from "@/components/role-badge"
+import { EngagementStatsCard } from "@/components/engagement-stats"
+import { MemberNotesSection } from "@/components/member-notes"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/members/$userId"
@@ -23,6 +37,8 @@ export const Route = createFileRoute(
 
 function MemberDetailPage() {
   const { orgId, userId } = Route.useParams()
+  const navigate = useNavigate()
+  const utils = trpc.useUtils()
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin =
@@ -33,7 +49,37 @@ function MemberDetailPage() {
     enabled: isAdmin,
   })
 
+  const { data: profile } = trpc.groupMemberProfile.getUserProfile.useQuery(
+    { userId },
+    { enabled: isAdmin }
+  )
+
+  const { data: stats, isLoading: statsLoading } =
+    trpc.groupMemberProfile.getUserStats.useQuery(
+      { userId },
+      { enabled: isAdmin }
+    )
+
   const member = members?.find((m) => m.user.id === userId)
+  const nickname = (profile as { nickname?: string | null } | null)?.nickname
+
+  const removeMutation = trpc.organization.removeMember.useMutation({
+    onSuccess: () => {
+      utils.organization.listMembers.invalidate()
+      navigate({
+        to: "/dashboard/org/$orgId/members",
+        params: { orgId },
+      })
+    },
+  })
+
+  const updateRoleMutation = trpc.organization.updateMemberRole.useMutation({
+    onSuccess: () => {
+      utils.organization.listMembers.invalidate()
+    },
+  })
+
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   if (whoamiLoading) {
     return (
@@ -70,6 +116,9 @@ function MemberDetailPage() {
     )
   }
 
+  const isCurrentUser = member?.user.id === whoami?.user?.id
+  const canManage = member && member.member.role !== "owner" && !isCurrentUser
+
   return (
     <div className="space-y-10 py-6">
       {/* Back link */}
@@ -89,29 +138,137 @@ function MemberDetailPage() {
           Member Details
         </div>
 
-        <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16">
-            <AvatarImage
-              src={member?.user.image ?? undefined}
-              alt={member?.user.name}
-            />
-            <AvatarFallback className="bg-primary/10 text-primary text-lg">
-              {member?.user.name?.charAt(0).toUpperCase() ?? "?"}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {member?.user.name ?? "Member"}
-            </h1>
-            <p className="mt-1 text-lg text-muted-foreground">
-              {member?.user.email}
-            </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage
+                src={member?.user.image ?? undefined}
+                alt={member?.user.name}
+              />
+              <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                {member?.user.name?.charAt(0).toUpperCase() ?? "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {member?.user.name ?? "Member"}
+                </h1>
+                {member && <RoleBadge role={member.member.role} />}
+              </div>
+              <p className="mt-1 text-lg text-muted-foreground">
+                {member?.user.email}
+              </p>
+              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+                {nickname && (
+                  <span>
+                    Nickname: <span className="font-medium text-foreground">{nickname}</span>
+                  </span>
+                )}
+                {member?.member.createdAt && (
+                  <span>
+                    Joined{" "}
+                    {new Date(member.member.createdAt).toLocaleDateString(
+                      undefined,
+                      { month: "long", year: "numeric" }
+                    )}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
+
+          {/* Quick actions */}
+          {canManage && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {member.member.role === "member" && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      updateRoleMutation.mutate({
+                        memberId: member.member.id,
+                        role: "admin",
+                      })
+                    }
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Make Admin
+                  </DropdownMenuItem>
+                )}
+                {member.member.role === "admin" && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      updateRoleMutation.mutate({
+                        memberId: member.member.id,
+                        role: "member",
+                      })
+                    }
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Remove Admin
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => setConfirmRemove(true)}
+                >
+                  <UserMinus className="mr-2 h-4 w-4" />
+                  Remove Member
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
+
+        {/* Confirm remove */}
+        {confirmRemove && member && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
+            <p className="flex-1 text-sm text-destructive">
+              Remove {member.user.name} from this group?
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => removeMutation.mutate({ memberId: member.member.id })}
+              disabled={removeMutation.isPending}
+            >
+              {removeMutation.isPending ? "Removing..." : "Remove"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(false)}>
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {(removeMutation.error || updateRoleMutation.error) && (
+          <p className="mt-2 text-sm text-destructive">
+            {removeMutation.error?.message || updateRoleMutation.error?.message}
+          </p>
+        )}
       </div>
+
+      {/* Engagement Stats */}
+      {statsLoading ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+      ) : stats ? (
+        <EngagementStatsCard stats={stats} />
+      ) : null}
 
       {/* Profile Fields */}
       <MemberProfileSection userId={userId} />
+
+      {/* Admin Notes */}
+      <MemberNotesSection targetUserId={userId} />
 
       {/* Participation History */}
       <MemberParticipationHistory userId={userId} orgId={orgId} />
