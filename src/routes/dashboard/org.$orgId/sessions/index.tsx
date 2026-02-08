@@ -10,6 +10,7 @@ import {
   MapPin,
   ChevronDown,
   Tag,
+  AlertCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
@@ -45,10 +46,13 @@ function SessionsPage() {
   const isAdmin =
     whoami?.membership?.role === "owner" ||
     whoami?.membership?.role === "admin"
-  const isOwner = whoami?.membership?.role === "owner"
 
   const { data: orgSettings } = trpc.organizationSettings.get.useQuery({})
   const orgCurrency = orgSettings?.currency || null
+  const { data: pendingApprovals } = trpc.participation.pendingApprovalsSummary.useQuery(
+    { limit: 3 },
+    { enabled: isAdmin }
+  )
 
   return (
     <div className="space-y-8 py-6">
@@ -68,8 +72,12 @@ function SessionsPage() {
         )}
       </div>
 
+      {isAdmin && pendingApprovals && pendingApprovals.totalPending > 0 && (
+        <PendingApprovalsNotice orgId={orgId} summary={pendingApprovals} />
+      )}
+
       {/* Draft Sessions */}
-      <DraftSessions orgId={orgId} isOwner={isOwner} currency={orgCurrency} />
+      <DraftSessions orgId={orgId} isAdmin={isAdmin} currency={orgCurrency} />
 
       {/* Upcoming Sessions */}
       <UpcomingSessions orgId={orgId} currency={orgCurrency} />
@@ -84,13 +92,68 @@ function SessionsPage() {
 
 const PAGE_SIZE = 10
 
+type PendingApprovalsSummary = {
+  totalPending: number
+  sessionsWithPending: number
+  sessions: Array<{
+    sessionId: string
+    title: string
+    dateTime: Date
+    pendingCount: number
+  }>
+}
+
+function PendingApprovalsNotice({
+  orgId,
+  summary,
+}: {
+  orgId: string
+  summary: PendingApprovalsSummary
+}) {
+  const hiddenSessionCount = Math.max(0, summary.sessionsWithPending - summary.sessions.length)
+
+  return (
+    <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-500">
+          <AlertCircle className="h-4 w-4" />
+          <p className="text-sm font-semibold">
+            {summary.totalPending} session approval request{summary.totalPending !== 1 ? "s" : ""} need review
+          </p>
+        </div>
+        <Badge className="bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-0">
+          {summary.sessionsWithPending} session{summary.sessionsWithPending !== 1 ? "s" : ""}
+        </Badge>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {summary.sessions.map((session) => (
+          <Button key={session.sessionId} size="sm" variant="outline" asChild>
+            <Link
+              to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+              params={{ orgId, sessionId: session.sessionId }}
+            >
+              {session.title} ({session.pendingCount})
+            </Link>
+          </Button>
+        ))}
+        {hiddenSessionCount > 0 && (
+          <span className="inline-flex items-center text-xs text-muted-foreground">
+            +{hiddenSessionCount} more
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function DraftSessions({
   orgId,
-  isOwner,
+  isAdmin,
   currency,
 }: {
   orgId: string
-  isOwner: boolean
+  isAdmin: boolean
   currency: string | null
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
@@ -102,10 +165,10 @@ function DraftSessions({
     isFetching,
   } = trpc.session.listDraftsWithCounts.useQuery(
     { limit },
-    { enabled: isOwner }
+    { enabled: isAdmin }
   )
 
-  if (!isOwner) return null
+  if (!isAdmin) return null
 
   const hasMore = sessions && sessions.length === limit
 
@@ -377,33 +440,45 @@ function SessionCard({
       params={{ orgId, sessionId: session.id }}
       className="group block rounded-xl border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md"
     >
-      {/* Header: calendar icon + date text + status */}
+      {/* Title + status */}
       <div className="mb-3 flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
-            <Calendar className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold">
-              {dateObj.toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {dateObj.toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </p>
-          </div>
-        </div>
+        <h3 className="font-semibold leading-snug min-w-0 truncate">
+          {session.title}
+        </h3>
         <SessionStatusBadge
           status={session.status}
           spotsLeft={spotsLeft}
           isPast={isPast}
         />
+      </div>
+
+      {/* Description */}
+      {session.description && (
+        <p className="mb-3 text-sm text-muted-foreground line-clamp-2 overflow-hidden break-words">
+          {session.description}
+        </p>
+      )}
+
+      {/* Date + time */}
+      <div className="mb-3 flex items-center gap-3 min-w-0">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+          <Calendar className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">
+            {dateObj.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {dateObj.toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
       </div>
 
       {/* Location + price */}

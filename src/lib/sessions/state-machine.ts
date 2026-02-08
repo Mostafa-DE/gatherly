@@ -7,11 +7,14 @@
  *   cancelled  cancelled
  *
  * Participation Status Flow:
+ *   (none) → pending → joined
+ *                  ↓      ↓
+ *              waitlisted cancelled
+ *                  ↓
+ *              cancelled
+ *
  *   (none) → joined → cancelled
- *              ↑
  *   (none) → waitlisted → joined (auto-promote)
- *                ↓
- *            cancelled
  */
 
 import { BadRequestError } from "@/exceptions"
@@ -23,7 +26,12 @@ import { BadRequestError } from "@/exceptions"
 export const SESSION_STATUSES = ["draft", "published", "cancelled", "completed"] as const
 export type SessionStatus = (typeof SESSION_STATUSES)[number]
 
-export const PARTICIPATION_STATUSES = ["joined", "waitlisted", "cancelled"] as const
+export const PARTICIPATION_STATUSES = [
+  "pending",
+  "joined",
+  "waitlisted",
+  "cancelled",
+] as const
 export type ParticipationStatus = (typeof PARTICIPATION_STATUSES)[number]
 
 export const ATTENDANCE_STATUSES = ["pending", "show", "no_show"] as const
@@ -47,6 +55,7 @@ export const sessionTransitions: Record<SessionStatus, SessionStatus[]> = {
 }
 
 export const participationTransitions: Record<ParticipationStatus, ParticipationStatus[]> = {
+  pending: ["joined", "waitlisted", "cancelled"],
   joined: ["cancelled"],
   waitlisted: ["joined", "cancelled"],
   cancelled: [],

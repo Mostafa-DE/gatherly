@@ -1,5 +1,5 @@
 import { Link, useParams, useRouterState } from "@tanstack/react-router"
-import { Plus, Users, MoreVertical, Settings } from "lucide-react"
+import { Plus, Users, MoreVertical, Settings, Mail, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { trpc } from "@/lib/trpc"
+import { Badge } from "@/components/ui/badge"
 
 export function QuickActions() {
   const { orgId } = useParams({ strict: false })
@@ -17,6 +18,17 @@ export function QuickActions() {
   const { data: whoami } = trpc.user.whoami.useQuery()
 
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+  const { data: pendingJoinRequests } = trpc.joinRequest.listPending.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  )
+  const { data: pendingApprovals } = trpc.participation.pendingApprovalsSummary.useQuery(
+    { limit: 1 },
+    { enabled: isAdmin }
+  )
+
+  const pendingJoinRequestsCount = pendingJoinRequests?.length ?? 0
+  const pendingSessionApprovalsCount = pendingApprovals?.totalPending ?? 0
 
   // Only show org quick actions when in an org route
   if (!isOrgRoute || !orgId) {
@@ -40,6 +52,28 @@ export function QuickActions() {
             <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
               <Users className="size-4 mr-1.5" />
               Members
+            </Link>
+          </Button>
+        )}
+        {isAdmin && pendingJoinRequestsCount > 0 && (
+          <Button variant="outline" size="sm" asChild className="border-border/50 hover:border-primary/50 hover:text-primary transition-colors">
+            <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }}>
+              <Mail className="size-4 mr-1.5" />
+              Join Requests
+              <Badge className="ml-2 h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums">
+                {pendingJoinRequestsCount > 99 ? "99+" : pendingJoinRequestsCount}
+              </Badge>
+            </Link>
+          </Button>
+        )}
+        {isAdmin && pendingSessionApprovalsCount > 0 && (
+          <Button variant="outline" size="sm" asChild className="border-border/50 hover:border-primary/50 hover:text-primary transition-colors">
+            <Link to="/dashboard/org/$orgId/sessions" params={{ orgId }}>
+              <ClipboardList className="size-4 mr-1.5" />
+              Approvals
+              <Badge className="ml-2 h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums">
+                {pendingSessionApprovalsCount > 99 ? "99+" : pendingSessionApprovalsCount}
+              </Badge>
             </Link>
           </Button>
         )}
@@ -69,6 +103,22 @@ export function QuickActions() {
                 Create Session
               </Link>
             </DropdownMenuItem>
+            {pendingJoinRequestsCount > 0 && (
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }}>
+                  <Mail className="mr-2 size-4" />
+                  Join Requests ({pendingJoinRequestsCount})
+                </Link>
+              </DropdownMenuItem>
+            )}
+            {pendingSessionApprovalsCount > 0 && (
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link to="/dashboard/org/$orgId/sessions" params={{ orgId }}>
+                  <ClipboardList className="mr-2 size-4" />
+                  Approvals ({pendingSessionApprovalsCount})
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator className="bg-border/50" />
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>

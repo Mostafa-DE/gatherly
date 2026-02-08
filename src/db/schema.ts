@@ -136,7 +136,7 @@ export const participation = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    status: text("status").default("joined").notNull(), // 'joined' | 'waitlisted' | 'cancelled'
+    status: text("status").default("joined").notNull(), // 'pending' | 'joined' | 'waitlisted' | 'cancelled'
     attendance: text("attendance").default("pending").notNull(), // 'pending' | 'show' | 'no_show'
     payment: text("payment").default("unpaid").notNull(), // 'unpaid' | 'paid'
     paymentRef: text("payment_ref"),
@@ -161,7 +161,7 @@ export const participation = pgTable(
     // Partial unique index: only one active participation per user per session
     uniqueIndex("uniq_active_participation")
       .on(table.sessionId, table.userId)
-      .where(sql`status IN ('joined', 'waitlisted')`),
+      .where(sql`status IN ('pending', 'joined', 'waitlisted')`),
   ]
 )
 

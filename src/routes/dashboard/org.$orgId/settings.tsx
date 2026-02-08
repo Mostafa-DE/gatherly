@@ -46,7 +46,6 @@ function SettingsPage() {
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
-  const isOwner = whoami?.membership?.role === "owner"
 
   const { data: settings, isLoading: settingsLoading } = trpc.organizationSettings.get.useQuery(
     {},
@@ -257,7 +256,7 @@ function SettingsPage() {
                   url={buildOrgUrl(org.ownerUsername, org.userSlug)}
                   title={org.name}
                   inviteLink={
-                    isOwner
+                    isAdmin
                       ? { orgId: org.id, username: org.ownerUsername, groupSlug: org.userSlug }
                       : undefined
                   }
@@ -273,76 +272,55 @@ function SettingsPage() {
           </div>
         )}
 
-        {isOwner ? (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="timezone" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Timezone
-                </Label>
-                <TimezoneSelect
-                  id="timezone"
-                  value={timezone}
-                  onChange={setTimezoneDraft}
-                  timezones={timezones}
-                />
-                <p className="text-xs text-muted-foreground">
-                  e.g. America/New_York, Europe/London
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="joinMode" className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  Default Join Mode
-                </Label>
-                <Select
-                  value={joinMode}
-                  onValueChange={(v) => setJoinModeDraft(v as "open" | "invite" | "approval")}
-                >
-                  <SelectTrigger id="joinMode" className="bg-background/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="invite">Invite Only</SelectItem>
-                    <SelectItem value="open">Open</SelectItem>
-                    <SelectItem value="approval">Approval Required</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="mt-6 border-t border-border/50 pt-6">
-              <Button
-                onClick={handleSaveGeneralSettings}
-                disabled={!generalDirty || updateOrgSettings.isPending}
-              >
-                <Save className="h-4 w-4 mr-2" />
-                {updateOrgSettings.isPending ? "Saving..." : "Save Settings"}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-border/50 bg-background/50 p-4">
-              <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Timezone
-              </p>
-              <p className="mt-1 font-medium">{org?.timezone || "Not set"}</p>
-            </div>
-            <div className="rounded-lg border border-border/50 bg-background/50 p-4">
-              <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Default Join Mode
-              </p>
-              <p className="mt-1 font-medium capitalize">{org?.defaultJoinMode || "Invite"}</p>
-            </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="timezone" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Timezone
+            </Label>
+            <TimezoneSelect
+              id="timezone"
+              value={timezone}
+              onChange={setTimezoneDraft}
+              timezones={timezones}
+            />
+            <p className="text-xs text-muted-foreground">
+              e.g. America/New_York, Europe/London
+            </p>
           </div>
-        )}
+          <div className="space-y-2">
+            <Label htmlFor="joinMode" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Default Join Mode
+            </Label>
+            <Select
+              value={joinMode}
+              onValueChange={(v) => setJoinModeDraft(v as "open" | "invite" | "approval")}
+            >
+              <SelectTrigger id="joinMode" className="bg-popover">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="invite">Invite Only</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="approval">Approval Required</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <Button
+            onClick={handleSaveGeneralSettings}
+            disabled={!generalDirty || updateOrgSettings.isPending}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {updateOrgSettings.isPending ? "Saving..." : "Save Settings"}
+          </Button>
+        </div>
       </div>
 
       {/* Currency Settings */}
-      {isOwner && (
+      {isAdmin && (
         <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
@@ -369,7 +347,7 @@ function SettingsPage() {
                 )
               }
             >
-              <SelectTrigger id="currency" className="bg-background/50 max-w-xs">
+              <SelectTrigger id="currency" className="bg-popover max-w-xs">
                 <SelectValue placeholder="Select a currency" />
               </SelectTrigger>
               <SelectContent>
@@ -558,13 +536,13 @@ function FormFieldEditor({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor={`${field.id}-label`}>Label *</Label>
-          <Input
-            id={`${field.id}-label`}
-            value={field.label}
-            onChange={(e) => onUpdate({ label: e.target.value })}
-            placeholder="Field label"
-            className="bg-background"
-          />
+            <Input
+              id={`${field.id}-label`}
+              value={field.label}
+              onChange={(e) => onUpdate({ label: e.target.value })}
+              placeholder="Field label"
+              className="bg-popover"
+            />
         </div>
         <div className="space-y-2">
           <Label htmlFor={`${field.id}-type`}>Type</Label>
@@ -572,7 +550,7 @@ function FormFieldEditor({
             value={field.type}
             onValueChange={(v) => onUpdate({ type: v as FormFieldType })}
           >
-            <SelectTrigger id={`${field.id}-type`} className="bg-background">
+            <SelectTrigger id={`${field.id}-type`} className="bg-popover">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -591,7 +569,7 @@ function FormFieldEditor({
           <Label htmlFor={`${field.id}-options`}>Options (one per line) *</Label>
           <textarea
             id={`${field.id}-options`}
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             placeholder="Option 1&#10;Option 2&#10;Option 3"
             value={optionsText}
             onChange={(e) => handleOptionsChange(e.target.value)}

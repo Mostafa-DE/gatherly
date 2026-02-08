@@ -114,6 +114,7 @@ function formatLabel(segment: string): string {
     sessions: "Sessions",
     create: "Create",
     members: "Members",
+    "join-requests": "Join Requests",
     settings: "Settings",
     profile: "Group Profile",
     roster: "Participants",

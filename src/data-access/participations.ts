@@ -116,7 +116,7 @@ export async function getMyHistory(
 export async function getSessionRoster(
   sessionId: string,
   options: {
-    status?: "joined" | "waitlisted" | "cancelled"
+    status?: "pending" | "joined" | "waitlisted" | "cancelled"
     limit: number
     offset: number
   }
@@ -167,6 +167,52 @@ export async function getUserHistory(
     .orderBy(desc(participation.joinedAt))
     .limit(options.limit)
     .offset(options.offset)
+}
+
+export async function getPendingApprovalsSummary(
+  organizationId: string,
+  options: { limit: number }
+) {
+  const [totals] = await db
+    .select({
+      totalPending: count(participation.id),
+      sessionsWithPending: count(sql`distinct ${participation.sessionId}`),
+    })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        eq(eventSession.organizationId, organizationId),
+        eq(participation.status, "pending"),
+        isNull(eventSession.deletedAt)
+      )
+    )
+
+  const sessions = await db
+    .select({
+      sessionId: eventSession.id,
+      title: eventSession.title,
+      dateTime: eventSession.dateTime,
+      pendingCount: count(participation.id),
+    })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        eq(eventSession.organizationId, organizationId),
+        eq(participation.status, "pending"),
+        isNull(eventSession.deletedAt)
+      )
+    )
+    .groupBy(eventSession.id, eventSession.title, eventSession.dateTime)
+    .orderBy(desc(count(participation.id)), asc(eventSession.dateTime))
+    .limit(options.limit)
+
+  return {
+    totalPending: totals?.totalPending ?? 0,
+    sessionsWithPending: totals?.sessionsWithPending ?? 0,
+    sessions,
+  }
 }
 
 export async function getWaitlistPosition(
@@ -238,12 +284,11 @@ export async function joinSession(
       throw new BadRequestError("Session is not open for joining")
     }
 
-    // 3. Check join mode (MVP: only 'open' works)
-    if (session.join_mode === "approval_required") {
-      throw new BadRequestError("Approval-based joining coming soon")
-    }
+    // 3. Check join mode
     if (session.join_mode === "invite_only") {
-      throw new BadRequestError("Invite-only sessions coming soon")
+      throw new BadRequestError(
+        "This session is invite-only. Ask an admin to add you."
+      )
     }
 
     // 4. Check for existing active participation (idempotent)
@@ -265,27 +310,30 @@ export async function joinSession(
     // 5. Check for conflicting participation at same date/time
     await assertNoConflictingParticipation(tx, userId, session.date_time, sessionId)
 
-    // 6. Count current participants (inside lock = accurate)
-    const [counts] = await tx
-      .select({
-        joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
-        waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
-      })
-      .from(participation)
-      .where(eq(participation.sessionId, sessionId))
+    // 6. Determine status
+    let status: "pending" | "joined" | "waitlisted"
 
-    const joinedCount = counts?.joined ?? 0
-    const waitlistedCount = counts?.waitlisted ?? 0
-
-    // 7. Determine status
-    let status: "joined" | "waitlisted"
-
-    if (joinedCount < session.max_capacity) {
-      status = "joined"
-    } else if (waitlistedCount < session.max_waitlist) {
-      status = "waitlisted"
+    if (session.join_mode === "approval_required") {
+      status = "pending"
     } else {
-      throw new BadRequestError("Session and waitlist are full")
+      const [counts] = await tx
+        .select({
+          joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
+          waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
+        })
+        .from(participation)
+        .where(eq(participation.sessionId, sessionId))
+
+      const joinedCount = counts?.joined ?? 0
+      const waitlistedCount = counts?.waitlisted ?? 0
+
+      if (joinedCount < session.max_capacity) {
+        status = "joined"
+      } else if (waitlistedCount < session.max_waitlist) {
+        status = "waitlisted"
+      } else {
+        throw new BadRequestError("Session and waitlist are full")
+      }
     }
 
     // 7. Insert new participation (handle unique conflict idempotently)
@@ -318,6 +366,119 @@ export async function joinSession(
       throw error
     }
   })
+}
+
+/**
+ * Approve pending participation (admin)
+ *
+ * Converts a pending request into joined/waitlisted based on current capacity.
+ */
+export async function approvePendingParticipation(
+  participationId: string
+): Promise<Participation> {
+  return await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(participation)
+      .where(eq(participation.id, participationId))
+
+    if (!current) {
+      throw new NotFoundError("Participation not found")
+    }
+    if (current.status !== "pending") {
+      throw new BadRequestError("Only pending requests can be approved")
+    }
+
+    const sessionResult = await tx.execute<{
+      id: string
+      deleted_at: Date | null
+      status: string
+      max_capacity: number
+      max_waitlist: number
+      date_time: Date
+    }>(sql`
+      SELECT id, deleted_at, status, max_capacity, max_waitlist, date_time
+      FROM event_session
+      WHERE id = ${current.sessionId}
+      FOR UPDATE
+    `)
+    const session = sessionResult.rows[0]
+
+    if (!session || session.deleted_at) {
+      throw new NotFoundError("Session not found")
+    }
+    if (session.status === "cancelled") {
+      throw new BadRequestError("Cannot approve for a cancelled session")
+    }
+    if (session.status === "completed") {
+      throw new BadRequestError("Cannot approve for a completed session")
+    }
+
+    await assertNoConflictingParticipation(
+      tx,
+      current.userId,
+      session.date_time,
+      current.sessionId
+    )
+
+    const [counts] = await tx
+      .select({
+        joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
+        waitlisted: count(sql`CASE WHEN status = 'waitlisted' THEN 1 END`),
+      })
+      .from(participation)
+      .where(eq(participation.sessionId, current.sessionId))
+
+    const joinedCount = counts?.joined ?? 0
+    const waitlistedCount = counts?.waitlisted ?? 0
+
+    let nextStatus: "joined" | "waitlisted"
+    if (joinedCount < session.max_capacity) {
+      nextStatus = "joined"
+    } else if (waitlistedCount < session.max_waitlist) {
+      nextStatus = "waitlisted"
+    } else {
+      throw new ConflictError("Session and waitlist are full")
+    }
+
+    const [updated] = await tx
+      .update(participation)
+      .set({
+        status: nextStatus,
+        updatedAt: new Date(),
+      })
+      .where(eq(participation.id, participationId))
+      .returning()
+
+    return updated
+  })
+}
+
+/**
+ * Reject pending participation (admin)
+ */
+export async function rejectPendingParticipation(
+  participationId: string
+): Promise<Participation> {
+  const current = await getParticipationById(participationId)
+  if (!current) {
+    throw new NotFoundError("Participation not found")
+  }
+  if (current.status !== "pending") {
+    throw new BadRequestError("Only pending requests can be rejected")
+  }
+
+  const [updated] = await db
+    .update(participation)
+    .set({
+      status: "cancelled",
+      cancelledAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(participation.id, participationId))
+    .returning()
+
+  return updated
 }
 
 /**

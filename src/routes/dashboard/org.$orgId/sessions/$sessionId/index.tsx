@@ -208,17 +208,24 @@ function SessionDetailPage() {
     sessionData.status === "completed" ||
     sessionData.status === "cancelled"
   const isDraft = sessionData.status === "draft"
+  const isInviteOnly = sessionData.joinMode === "invite_only"
+  const isApprovalRequired = sessionData.joinMode === "approval_required"
 
   const canJoin =
     sessionData.status === "published" &&
     !myParticipation &&
-    (sessionData.joinedCount < sessionData.maxCapacity ||
-      sessionData.waitlistCount < sessionData.maxWaitlist)
+    !isInviteOnly &&
+    (
+      isApprovalRequired ||
+      sessionData.joinedCount < sessionData.maxCapacity ||
+      sessionData.waitlistCount < sessionData.maxWaitlist
+    )
 
   const isJoined = myParticipation?.status === "joined"
   const isWaitlisted = myParticipation?.status === "waitlisted"
+  const isPendingApproval = myParticipation?.status === "pending"
   const canCancel =
-    (isJoined || isWaitlisted) &&
+    (isJoined || isWaitlisted || isPendingApproval) &&
     sessionData.status === "published" &&
     !isPast
 
@@ -262,6 +269,18 @@ function SessionDetailPage() {
                 username={whoami.activeOrganization.ownerUsername}
               />
             )}
+
+          {isAdmin && !isDraft && (
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                params={{ orgId, sessionId }}
+              >
+                <ClipboardList className="h-4 w-4 mr-1.5" />
+                <span className="hidden sm:inline">Participants</span>
+              </Link>
+            </Button>
+          )}
 
           {canEdit && (
             <Button variant="outline" size="sm" asChild>
@@ -465,6 +484,7 @@ function SessionDetailPage() {
             canJoin={canJoin}
             isJoined={isJoined}
             isWaitlisted={isWaitlisted}
+            isPendingApproval={isPendingApproval}
             canCancel={canCancel}
             isPast={isPast}
             isFull={
@@ -472,6 +492,7 @@ function SessionDetailPage() {
               sessionData.waitlistCount >= sessionData.maxWaitlist
             }
             sessionStatus={sessionData.status}
+            sessionJoinMode={sessionData.joinMode}
             myParticipation={myParticipation}
             spotsLeft={spotsLeft}
             onJoin={() => joinMutation.mutate({ sessionId })}
@@ -742,10 +763,12 @@ type ParticipationBarProps = {
   canJoin: boolean
   isJoined: boolean
   isWaitlisted: boolean
+  isPendingApproval: boolean
   canCancel: boolean
   isPast: boolean
   isFull: boolean
   sessionStatus: string
+  sessionJoinMode: string
   myParticipation: { id: string; status: string; waitlistPosition?: number | null } | null | undefined
   spotsLeft: number
   onJoin: () => void
@@ -761,10 +784,12 @@ function ParticipationBar({
   canJoin,
   isJoined,
   isWaitlisted,
+  isPendingApproval,
   canCancel,
   isPast,
   isFull,
   sessionStatus,
+  sessionJoinMode,
   myParticipation,
   spotsLeft,
   onJoin,
@@ -784,12 +809,16 @@ function ParticipationBar({
             <Button size="lg" onClick={onJoin} disabled={joinPending}>
               <UserPlus className="h-4 w-4 mr-2" />
               {joinPending
-                ? "Joining..."
-                : spotsLeft > 0
-                  ? "Join Session"
-                  : "Join Waitlist"}
+                ? sessionJoinMode === "approval_required"
+                  ? "Requesting..."
+                  : "Joining..."
+                : sessionJoinMode === "approval_required"
+                  ? "Request to Join"
+                  : spotsLeft > 0
+                    ? "Join Session"
+                    : "Join Waitlist"}
             </Button>
-            {spotsLeft > 0 && spotsLeft <= 5 && (
+            {sessionJoinMode === "open" && spotsLeft > 0 && spotsLeft <= 5 && (
               <span className="text-sm text-[var(--color-status-warning)] font-medium">
                 {spotsLeft} {spotsLeft === 1 ? "spot" : "spots"} left
               </span>
@@ -839,11 +868,37 @@ function ParticipationBar({
               </Button>
             )}
           </div>
+        ) : isPendingApproval ? (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-badge-warning-bg)] text-[var(--color-status-warning)]">
+              <Clock className="h-4 w-4" />
+              <span className="font-medium text-sm">Request Pending</span>
+            </div>
+            {canCancel && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCancel}
+                disabled={cancelPending}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <UserMinus className="h-4 w-4 mr-1.5" />
+                {cancelPending ? "Cancelling..." : "Cancel Request"}
+              </Button>
+            )}
+          </div>
         ) : myParticipation?.status === "cancelled" ? (
           <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-badge-inactive-bg)] text-[var(--color-status-inactive)]">
             <XCircle className="h-4 w-4" />
             <span className="font-medium text-sm">Cancelled</span>
           </div>
+        ) : sessionStatus === "published" &&
+          !isPast &&
+          !myParticipation &&
+          sessionJoinMode === "invite_only" ? (
+          <p className="text-sm text-muted-foreground">
+            This session is invite-only. Ask an admin to add you.
+          </p>
         ) : sessionStatus === "published" && !isPast && isFull ? (
           <p className="text-sm text-muted-foreground">
             This session is full and the waitlist is at capacity.

@@ -25,12 +25,12 @@ import {
 } from "@/schemas/session"
 
 // =============================================================================
-// Helper: Check if user is owner
+// Helper: Check if user is admin (owner or admin role)
 // =============================================================================
 
-function assertOwner(role: string): void {
-  if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action")
+function assertAdmin(role: string): void {
+  if (role !== "owner" && role !== "admin") {
+    throw new ForbiddenError("Only organization admins can perform this action")
   }
 }
 
@@ -46,7 +46,7 @@ export const sessionRouter = router({
   create: orgProcedure
     .input(createSessionSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertAdmin(ctx.membership.role)
       return createSession(
         ctx.activeOrganization.id,
         ctx.user.id,
@@ -61,7 +61,7 @@ export const sessionRouter = router({
   update: orgProcedure
     .input(updateSessionSchema.extend({ sessionId: getSessionByIdSchema.shape.sessionId }))
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertAdmin(ctx.membership.role)
       const { sessionId, ...data } = input
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
@@ -137,12 +137,12 @@ export const sessionRouter = router({
     }),
 
   /**
-   * List draft sessions with participant counts and preview (Owner only)
+   * List draft sessions with participant counts and preview (Admin only)
    */
   listDraftsWithCounts: orgProcedure
     .input(listUpcomingSessionsSchema)
     .query(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertAdmin(ctx.membership.role)
       return listDraftSessionsWithCounts(ctx.activeOrganization.id, input)
     }),
 
@@ -162,7 +162,7 @@ export const sessionRouter = router({
   updateStatus: orgProcedure
     .input(updateSessionStatusSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertAdmin(ctx.membership.role)
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSessionForMutation(input.sessionId)
@@ -177,7 +177,7 @@ export const sessionRouter = router({
   delete: orgProcedure
     .input(getSessionByIdSchema)
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertAdmin(ctx.membership.role)
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSessionForMutation(input.sessionId)

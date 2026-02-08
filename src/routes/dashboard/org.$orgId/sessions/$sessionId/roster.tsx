@@ -72,6 +72,14 @@ function SessionRosterPage() {
     { enabled: isAdmin }
   )
 
+  const {
+    data: pendingParticipants,
+    isLoading: pendingLoading,
+  } = trpc.participation.roster.useQuery(
+    { sessionId, status: "pending", limit: 100 },
+    { enabled: isAdmin }
+  )
+
   const updateParticipation = trpc.participation.update.useMutation({
     onSuccess: () => {
       utils.participation.roster.invalidate({ sessionId })
@@ -111,6 +119,24 @@ function SessionRosterPage() {
       utils.session.getById.invalidate({ sessionId })
       utils.session.getById.invalidate({ sessionId: variables.targetSessionId })
       setMovingParticipationId(null)
+    },
+  })
+
+  const approvePending = trpc.participation.approvePending.useMutation({
+    onSuccess: () => {
+      utils.participation.roster.invalidate({ sessionId })
+      utils.session.getById.invalidate({ sessionId })
+      utils.session.getWithCounts.invalidate({ sessionId })
+      utils.session.list.invalidate()
+    },
+  })
+
+  const rejectPending = trpc.participation.rejectPending.useMutation({
+    onSuccess: () => {
+      utils.participation.roster.invalidate({ sessionId })
+      utils.session.getById.invalidate({ sessionId })
+      utils.session.getWithCounts.invalidate({ sessionId })
+      utils.session.list.invalidate()
     },
   })
 
@@ -253,6 +279,133 @@ function SessionRosterPage() {
           )}
           {adminAdd.isSuccess && (
             <p className="mt-2 text-sm text-green-600">Participant added successfully!</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pending Requests */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pending Requests ({pendingParticipants?.length ?? 0})</CardTitle>
+          <CardDescription>
+            Join requests waiting for admin approval or move
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pendingLoading && (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
+            </div>
+          )}
+
+          {pendingParticipants && pendingParticipants.length === 0 && (
+            <p className="text-muted-foreground">No pending requests</p>
+          )}
+
+          {pendingParticipants && pendingParticipants.length > 0 && (
+            <div className="space-y-3">
+              {pendingParticipants.map((item, index) => (
+                <div key={item.participation.id}>
+                  {index > 0 && <Separator className="my-3" />}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium">{item.user.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {item.user.email}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {availableTargetSessions.length > 0 && (
+                        <>
+                          {movingParticipationId === item.participation.id ? (
+                            <div className="flex items-center gap-2">
+                              <Select
+                                onValueChange={(targetId) => {
+                                  if (targetId) {
+                                    handleMove(item.participation.id, targetId)
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue placeholder="Move to session" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableTargetSessions.map((s) => (
+                                    <SelectItem key={s.id} value={s.id}>
+                                      {s.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setMovingParticipationId(null)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setMovingParticipationId(item.participation.id)}
+                              disabled={
+                                approvePending.isPending ||
+                                rejectPending.isPending ||
+                                moveParticipant.isPending
+                              }
+                            >
+                              <ArrowRightLeft className="h-4 w-4 mr-1" />
+                              Move
+                            </Button>
+                          )}
+                        </>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          approvePending.mutate({
+                            participationId: item.participation.id,
+                          })
+                        }
+                        disabled={
+                          approvePending.isPending ||
+                          rejectPending.isPending ||
+                          moveParticipant.isPending
+                        }
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          rejectPending.mutate({
+                            participationId: item.participation.id,
+                          })
+                        }
+                        disabled={
+                          approvePending.isPending ||
+                          rejectPending.isPending ||
+                          moveParticipant.isPending
+                        }
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(approvePending.error || rejectPending.error || moveParticipant.error) && (
+            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive mt-3">
+              {approvePending.error?.message || rejectPending.error?.message || moveParticipant.error?.message}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -648,7 +801,7 @@ function ParticipantRow({
       {showNotes && (
         <div className="space-y-2 pt-2">
           <textarea
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-[80px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
             placeholder="Add notes about this participant..."
             value={notesValue}
             onChange={handleNotesChange}

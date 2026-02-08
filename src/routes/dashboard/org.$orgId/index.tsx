@@ -15,6 +15,9 @@ import {
   User,
   Tag,
   ArrowRight,
+  AlertCircle,
+  ClipboardList,
+  Mail,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buildOrgUrl } from "@/lib/share-urls"
@@ -95,6 +98,17 @@ function OrgOverviewPage() {
   const isAdmin =
     whoami?.membership?.role === "owner" ||
     whoami?.membership?.role === "admin"
+  const { data: pendingJoinRequests } = trpc.joinRequest.listPending.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  )
+  const { data: pendingSessionApprovals } = trpc.participation.pendingApprovalsSummary.useQuery(
+    { limit: 3 },
+    { enabled: isAdmin }
+  )
+
+  const pendingJoinRequestsCount = pendingJoinRequests?.length ?? 0
+  const pendingSessionApprovalsCount = pendingSessionApprovals?.totalPending ?? 0
 
   if (whoamiLoading) {
     return (
@@ -163,6 +177,14 @@ function OrgOverviewPage() {
           )}
         </div>
       </div>
+
+      {isAdmin && (pendingJoinRequestsCount > 0 || pendingSessionApprovalsCount > 0) && (
+        <AdminPendingActions
+          orgId={orgId}
+          pendingJoinRequestsCount={pendingJoinRequestsCount}
+          pendingSessionApprovals={pendingSessionApprovals}
+        />
+      )}
 
       {/* ── Quick nav ── */}
       <div className="flex flex-wrap gap-2">
@@ -253,6 +275,101 @@ function OrgOverviewPage() {
   )
 }
 
+type PendingApprovalsSummary = {
+  totalPending: number
+  sessionsWithPending: number
+  sessions: Array<{
+    sessionId: string
+    title: string
+    dateTime: Date
+    pendingCount: number
+  }>
+} | undefined
+
+function AdminPendingActions({
+  orgId,
+  pendingJoinRequestsCount,
+  pendingSessionApprovals,
+}: {
+  orgId: string
+  pendingJoinRequestsCount: number
+  pendingSessionApprovals: PendingApprovalsSummary
+}) {
+  const sessionsWithPending = pendingSessionApprovals?.sessionsWithPending ?? 0
+  const sessionApprovalsCount = pendingSessionApprovals?.totalPending ?? 0
+  const hiddenSessionCount = Math.max(
+    0,
+    sessionsWithPending - (pendingSessionApprovals?.sessions.length ?? 0)
+  )
+
+  return (
+    <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-4">
+      <div className="mb-3 flex items-center gap-2 text-yellow-700 dark:text-yellow-500">
+        <AlertCircle className="h-4 w-4" />
+        <p className="text-sm font-semibold">Action required</p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        {sessionApprovalsCount > 0 && (
+        <div className="rounded-lg border bg-background/60 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Session approvals</p>
+            <Badge className="bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-0">
+              {sessionApprovalsCount}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {sessionsWithPending} session{sessionsWithPending !== 1 ? "s" : ""} waiting for review
+          </p>
+          {pendingSessionApprovals && pendingSessionApprovals.sessions.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {pendingSessionApprovals.sessions.map((session) => (
+                <Button key={session.sessionId} size="sm" variant="outline" asChild>
+                  <Link
+                    to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                    params={{ orgId, sessionId: session.sessionId }}
+                  >
+                    <ClipboardList className="mr-1.5 h-3.5 w-3.5" />
+                    {session.title} ({session.pendingCount})
+                  </Link>
+                </Button>
+              ))}
+              {hiddenSessionCount > 0 && (
+                <span className="inline-flex items-center text-xs text-muted-foreground">
+                  +{hiddenSessionCount} more
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        )}
+
+        {pendingJoinRequestsCount > 0 && (
+        <div className="rounded-lg border bg-background/60 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium">Group join requests</p>
+            <Badge className="bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-0">
+              {pendingJoinRequestsCount}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            New members waiting for approval
+          </p>
+          <div className="mt-3">
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }}>
+                <Mail className="mr-1.5 h-3.5 w-3.5" />
+                Review Requests
+              </Link>
+            </Button>
+          </div>
+        </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────────── Session card ─────────────────────────── */
 
 type SessionWithCounts = {
@@ -291,29 +408,41 @@ function SessionCard({
       params={{ orgId, sessionId: session.id }}
       className="group block rounded-xl border bg-card p-5 transition-all hover:border-primary/50 hover:shadow-md"
     >
-      {/* Header: calendar icon + date text + status */}
+      {/* Title + status */}
       <div className="mb-3 flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
-            <Calendar className="h-5 w-5 text-primary" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold">
-              {dateObj.toLocaleDateString(undefined, {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {dateObj.toLocaleTimeString(undefined, {
-                hour: "numeric",
-                minute: "2-digit",
-              })}
-            </p>
-          </div>
-        </div>
+        <h3 className="font-semibold leading-snug min-w-0 truncate">
+          {session.title}
+        </h3>
         <SessionStatusBadge status={session.status} spotsLeft={spotsLeft} />
+      </div>
+
+      {/* Description */}
+      {session.description && (
+        <p className="mb-3 text-sm text-muted-foreground line-clamp-2 overflow-hidden break-words">
+          {session.description}
+        </p>
+      )}
+
+      {/* Date + time */}
+      <div className="mb-3 flex items-center gap-3 min-w-0">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 shrink-0">
+          <Calendar className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium">
+            {dateObj.toLocaleDateString(undefined, {
+              weekday: "long",
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {dateObj.toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </p>
+        </div>
       </div>
 
       {/* Location + price */}

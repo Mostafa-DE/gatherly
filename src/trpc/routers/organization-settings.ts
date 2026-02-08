@@ -12,12 +12,12 @@ import {
 } from "@/schemas/organization-settings"
 
 // =============================================================================
-// Helper: Check if user is admin (owner role)
+// Helper: Check if user is admin (owner or admin role)
 // =============================================================================
 
 function assertAdmin(role: string): void {
-  if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action")
+  if (role !== "owner" && role !== "admin") {
+    throw new ForbiddenError("Only organization admins can perform this action")
   }
 }
 

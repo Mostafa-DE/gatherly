@@ -15,6 +15,13 @@
       "when": 1770500748561,
       "tag": "0001_young_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770555693886,
+      "tag": "0002_quick_secret_warriors",
+      "breakpoints": true
     }
   ]
 }

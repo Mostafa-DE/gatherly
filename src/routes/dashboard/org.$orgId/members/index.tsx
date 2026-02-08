@@ -3,6 +3,7 @@ import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,12 +34,17 @@ function MembersPage() {
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
-  const isOwner = whoami?.membership?.role === "owner"
 
   const { data: members, isLoading: membersLoading } = trpc.organization.listMembers.useQuery(
     undefined,
     { enabled: isAdmin }
   )
+  const { data: pendingJoinRequests } = trpc.joinRequest.listPending.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  )
+
+  const pendingJoinRequestsCount = pendingJoinRequests?.length ?? 0
 
   const removeMutation = trpc.organization.removeMember.useMutation({
     onSuccess: () => {
@@ -130,9 +136,14 @@ function MembersPage() {
           </div>
           <div className="flex gap-2">
             <Button asChild variant="outline">
-              <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }}>
+              <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }} className="inline-flex items-center">
                 <Mail className="mr-2 h-4 w-4" />
                 Join Requests
+                {pendingJoinRequestsCount > 0 && (
+                  <Badge className="ml-2 h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums">
+                    {pendingJoinRequestsCount > 99 ? "99+" : pendingJoinRequestsCount}
+                  </Badge>
+                )}
               </Link>
             </Button>
             <Button asChild>
@@ -223,7 +234,7 @@ function MembersPage() {
                       <RoleIcon className="h-3 w-3" />
                       {role.text}
                     </span>
-                    {isOwner && member.role !== "owner" && user.id !== whoami?.user?.id && (
+                    {isAdmin && member.role !== "owner" && user.id !== whoami?.user?.id && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -258,26 +269,6 @@ function MembersPage() {
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() =>
-                              removeMutation.mutate({ memberId: member.id })
-                            }
-                          >
-                            <UserMinus className="mr-2 h-4 w-4" />
-                            Remove Member
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    {isAdmin && !isOwner && member.role !== "owner" && user.id !== whoami?.user?.id && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             className="text-destructive"
                             onClick={() =>

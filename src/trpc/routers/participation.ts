@@ -13,6 +13,9 @@ import {
   getWaitlistPosition,
   adminAddParticipant,
   moveParticipant,
+  approvePendingParticipation,
+  rejectPendingParticipation,
+  getPendingApprovalsSummary,
 } from "@/data-access/participations"
 import {
   joinSessionSchema,
@@ -25,6 +28,9 @@ import {
   getUserHistorySchema,
   adminAddParticipantSchema,
   moveParticipantSchema,
+  approvePendingParticipationSchema,
+  rejectPendingParticipationSchema,
+  pendingApprovalsSummarySchema,
 } from "@/schemas/participation"
 import { getUserByEmailOrPhone } from "@/data-access/users"
 import { getOrganizationMemberByUserId } from "@/data-access/organizations"
@@ -207,5 +213,45 @@ export const participationRouter = router({
       })
 
       return moveParticipant(input.participationId, input.targetSessionId)
+    }),
+
+  /**
+   * Approve pending participation request (Admin)
+   */
+  approvePending: orgProcedure
+    .input(approvePendingParticipationSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireParticipationForMutation(input.participationId)
+      })
+
+      return approvePendingParticipation(input.participationId)
+    }),
+
+  /**
+   * Reject pending participation request (Admin)
+   */
+  rejectPending: orgProcedure
+    .input(rejectPendingParticipationSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireParticipationForMutation(input.participationId)
+      })
+
+      return rejectPendingParticipation(input.participationId)
+    }),
+
+  /**
+   * Summary of pending session approvals across organization (Admin)
+   */
+  pendingApprovalsSummary: orgProcedure
+    .input(pendingApprovalsSummarySchema)
+    .query(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+      return getPendingApprovalsSummary(ctx.activeOrganization.id, input)
     }),
 })

@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { eq } from "drizzle-orm"
 import { db } from "@/db"
 import { eventSession } from "@/db/schema"
+import { organization } from "@/db/auth-schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
@@ -28,7 +30,7 @@ function buildCaller(user: User, organizationId: string) {
   return appRouter.createCaller(createTRPCContext({ user, session: authSession }))
 }
 
-describe("owner-only router authorization", () => {
+describe("admin router authorization", () => {
   let organizationId = ""
   let owner!: User
   let admin!: User
@@ -69,18 +71,19 @@ describe("owner-only router authorization", () => {
     userIds.length = 0
   })
 
-  it("blocks admin from creating sessions", async () => {
+  it("allows admin to create sessions", async () => {
     const adminCaller = buildCaller(admin, organizationId)
 
-    await expect(
-      adminCaller.session.create({
-        title: "Restricted Session",
-        dateTime: new Date(Date.now() + 60 * 60 * 1000),
-        maxCapacity: 10,
-        maxWaitlist: 2,
-        joinMode: "open",
-      })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    const createdSession = await adminCaller.session.create({
+      title: "Admin Session",
+      dateTime: new Date(Date.now() + 60 * 60 * 1000),
+      maxCapacity: 10,
+      maxWaitlist: 2,
+      joinMode: "open",
+    })
+
+    expect(createdSession.status).toBe("draft")
+    expect(createdSession.organizationId).toBe(organizationId)
   })
 
   it("allows owner to create sessions", async () => {
@@ -122,5 +125,50 @@ describe("owner-only router authorization", () => {
     })
 
     expect(Array.isArray(roster)).toBe(true)
+  })
+
+  it("allows admin to update organization settings", async () => {
+    const adminCaller = buildCaller(admin, organizationId)
+
+    const result = await adminCaller.organization.updateSettings({
+      timezone: "America/New_York",
+      defaultJoinMode: "approval",
+    })
+
+    expect(result.success).toBe(true)
+
+    const [updatedOrganization] = await db
+      .select({
+        timezone: organization.timezone,
+        defaultJoinMode: organization.defaultJoinMode,
+      })
+      .from(organization)
+      .where(eq(organization.id, organizationId))
+      .limit(1)
+
+    expect(updatedOrganization?.timezone).toBe("America/New_York")
+    expect(updatedOrganization?.defaultJoinMode).toBe("approval")
+  })
+
+  it("allows admin to update organization currency", async () => {
+    const adminCaller = buildCaller(admin, organizationId)
+
+    const updatedSettings = await adminCaller.organizationSettings.updateCurrency({
+      currency: "EUR",
+    })
+
+    expect(updatedSettings.currency).toBe("EUR")
+  })
+
+  it("allows admin to view pending session approval summary", async () => {
+    const adminCaller = buildCaller(admin, organizationId)
+
+    const summary = await adminCaller.participation.pendingApprovalsSummary({
+      limit: 3,
+    })
+
+    expect(summary.totalPending).toBeGreaterThanOrEqual(0)
+    expect(summary.sessionsWithPending).toBeGreaterThanOrEqual(0)
+    expect(Array.isArray(summary.sessions)).toBe(true)
   })
 })

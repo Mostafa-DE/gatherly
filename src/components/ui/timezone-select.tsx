@@ -124,7 +124,7 @@ export function TimezoneSelect({
       type="button"
       variant="outline"
       disabled={disabled}
-      className="w-full justify-between bg-background/50 text-left font-normal"
+      className="w-full justify-between bg-popover text-left font-normal"
     >
       <span className={cn("truncate", value === "" && "text-muted-foreground")}>
         {selectedLabel}

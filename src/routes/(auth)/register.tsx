@@ -12,6 +12,9 @@ export const Route = createFileRoute("/(auth)/register")({
   component: RegisterPage,
 })
 
+const SIGNUP_GENERIC_ERROR =
+  "We couldn't create your account. Please try again with different information."
+
 function RegisterPage() {
   const navigate = useNavigate()
   const [name, setName] = useState("")
@@ -70,7 +73,7 @@ function RegisterPage() {
       })
 
       if (result.error) {
-        setError(result.error.message || "Failed to create account")
+        setError(SIGNUP_GENERIC_ERROR)
       } else {
         const signInResult = await signIn.email({
           email,
@@ -86,7 +89,7 @@ function RegisterPage() {
         navigate({ to: "/dashboard" })
       }
     } catch {
-      setError("An unexpected error occurred")
+      setError(SIGNUP_GENERIC_ERROR)
     } finally {
       setLoading(false)
     }
@@ -146,7 +149,7 @@ function RegisterPage() {
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 required
-                className="bg-background/50"
+                className="bg-popover"
               />
             </div>
 
@@ -161,7 +164,7 @@ function RegisterPage() {
                 required
                 minLength={3}
                 maxLength={30}
-                className="bg-background/50"
+                className="bg-popover"
               />
               <div className="flex items-center gap-1.5">
                 {username.length >= 3 && isChecking && (
@@ -204,7 +207,7 @@ function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-background/50"
+                className="bg-popover"
               />
             </div>
 
@@ -228,7 +231,7 @@ function RegisterPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  className="bg-background/50"
+                  className="bg-popover"
                 />
               </div>
 
@@ -241,7 +244,7 @@ function RegisterPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  className="bg-background/50"
+                  className="bg-popover"
                 />
               </div>
             </div>

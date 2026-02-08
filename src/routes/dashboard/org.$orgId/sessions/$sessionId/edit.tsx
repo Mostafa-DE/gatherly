@@ -14,6 +14,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { DateTimePicker } from "@/components/ui/datetime-picker"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/edit"
@@ -28,12 +35,36 @@ type SessionForm = {
   location: string
   maxCapacity: string
   maxWaitlist: string
+  joinMode: "open" | "approval_required" | "invite_only"
   price: string
 }
 
 type SessionFormDraft = {
   sessionId: string
   values: SessionForm
+}
+
+const SESSION_JOIN_MODES = [
+  { value: "open", label: "Open", description: "Members can join directly" },
+  {
+    value: "approval_required",
+    label: "Approval Required",
+    description: "Members request to join, admins approve",
+  },
+  {
+    value: "invite_only",
+    label: "Invite Only",
+    description: "Only admins can add participants",
+  },
+] as const
+
+function normalizeJoinMode(
+  value: string
+): "open" | "approval_required" | "invite_only" {
+  if (value === "approval_required" || value === "invite_only") {
+    return value
+  }
+  return "open"
 }
 
 function EditSessionPage() {
@@ -175,6 +206,7 @@ function EditSessionPage() {
     location: sessionData.location || "",
     maxCapacity: String(sessionData.maxCapacity),
     maxWaitlist: String(sessionData.maxWaitlist),
+    joinMode: normalizeJoinMode(sessionData.joinMode),
     price: sessionData.price || "",
   }
 
@@ -247,6 +279,7 @@ function EditSessionPage() {
       location: form.location.trim() || null,
       maxCapacity: capacity,
       maxWaitlist: waitlist,
+      joinMode: form.joinMode,
       price: trimmedPrice || null,
     })
   }
@@ -291,7 +324,7 @@ function EditSessionPage() {
                 <Label htmlFor="description">Description</Label>
                 <textarea
                   id="description"
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-[100px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                   placeholder="Tell participants what this session is about..."
                   value={form.description}
                   onChange={(e) => setFormField("description", e.target.value)}
@@ -352,6 +385,30 @@ function EditSessionPage() {
                     Set to 0 to disable waitlist
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="joinMode">Join Mode</Label>
+                <Select
+                  value={form.joinMode}
+                  onValueChange={(value) =>
+                    setFormField(
+                      "joinMode",
+                      value as "open" | "approval_required" | "invite_only"
+                    )
+                  }
+                >
+                  <SelectTrigger id="joinMode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SESSION_JOIN_MODES.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label} - {mode.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

@@ -147,7 +147,7 @@ export function PhoneInput({
         onValueChange={handleCountryChange}
         disabled={disabled}
       >
-        <SelectTrigger className="w-[140px] bg-background/50">
+        <SelectTrigger className="w-[140px] bg-popover">
           <SelectValue>
             {selectedCountry && (
               <span className="flex items-center gap-1">
@@ -174,7 +174,7 @@ export function PhoneInput({
         value={localNumber}
         onChange={handleNumberChange}
         disabled={disabled}
-        className="flex-1 bg-background/50"
+        className="flex-1 bg-popover"
       />
     </div>
   )

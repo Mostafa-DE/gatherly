@@ -94,7 +94,7 @@ function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="bg-background/50"
+                className="bg-popover"
               />
             </div>
 
@@ -107,7 +107,7 @@ function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="bg-background/50"
+                className="bg-popover"
               />
             </div>
 

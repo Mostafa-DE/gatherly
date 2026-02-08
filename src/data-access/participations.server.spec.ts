@@ -4,12 +4,14 @@ import { db } from "@/db"
 import { eventSession, participation } from "@/db/schema"
 import {
   adminAddParticipant,
+  approvePendingParticipation,
   bulkUpdateAttendance,
   cancelParticipation,
   getActiveParticipation,
   getParticipationById,
   joinSession,
   moveParticipant,
+  rejectPendingParticipation,
 } from "@/data-access/participations"
 import {
   cleanupTestData,
@@ -99,6 +101,95 @@ describe("participations data-access", () => {
 
     const promoted = await getActiveParticipation(session.id, attendeeBId)
     expect(promoted?.status).toBe("joined")
+  })
+
+  it("creates pending participation for approval-required sessions", async () => {
+    const [session] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Approval Required Session",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 2,
+        maxWaitlist: 2,
+        joinMode: "approval_required",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const result = await joinSession(session.id, attendeeAId)
+    expect(result.status).toBe("pending")
+  })
+
+  it("rejects self-join when session is invite-only", async () => {
+    const [session] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Invite Only Session",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 2,
+        maxWaitlist: 2,
+        joinMode: "invite_only",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    await expect(joinSession(session.id, attendeeAId)).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+    })
+  })
+
+  it("approves pending requests into joined/waitlisted based on capacity", async () => {
+    const [session] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Approval Queue Session",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 1,
+        maxWaitlist: 1,
+        joinMode: "approval_required",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const pendingA = await joinSession(session.id, attendeeAId)
+    const pendingB = await joinSession(session.id, attendeeBId)
+    expect(pendingA.status).toBe("pending")
+    expect(pendingB.status).toBe("pending")
+
+    const approvedA = await approvePendingParticipation(pendingA.id)
+    expect(approvedA.status).toBe("joined")
+
+    const approvedB = await approvePendingParticipation(pendingB.id)
+    expect(approvedB.status).toBe("waitlisted")
+  })
+
+  it("rejects pending request by cancelling participation", async () => {
+    const [session] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Reject Pending Session",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 1,
+        maxWaitlist: 1,
+        joinMode: "approval_required",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const pending = await joinSession(session.id, attendeeAId)
+    expect(pending.status).toBe("pending")
+
+    const rejected = await rejectPendingParticipation(pending.id)
+    expect(rejected.status).toBe("cancelled")
+    expect(rejected.cancelledAt).toBeTruthy()
   })
 
   it("updates attendance only for participations that belong to the target session", async () => {
@@ -265,5 +356,101 @@ describe("participations data-access", () => {
 
     const sourceAfterFailedMove = await getParticipationById(sourceParticipation.id)
     expect(sourceAfterFailedMove?.status).toBe("joined")
+  })
+
+  it("moves pending request to another session and auto-confirms as joined when capacity exists", async () => {
+    const [sourceSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Source Approval Session",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 10,
+        maxWaitlist: 0,
+        joinMode: "approval_required",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const [targetSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Target Open Session",
+        dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        maxCapacity: 2,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const pending = await joinSession(sourceSession.id, attendeeAId)
+    expect(pending.status).toBe("pending")
+
+    const moved = await moveParticipant(pending.id, targetSession.id)
+    expect(moved.cancelled.status).toBe("cancelled")
+    expect(moved.created.sessionId).toBe(targetSession.id)
+    expect(moved.created.status).toBe("joined")
+
+    const sourceActiveAfterMove = await getActiveParticipation(
+      sourceSession.id,
+      attendeeAId
+    )
+    expect(sourceActiveAfterMove).toBeNull()
+
+    const targetActiveAfterMove = await getActiveParticipation(
+      targetSession.id,
+      attendeeAId
+    )
+    expect(targetActiveAfterMove?.status).toBe("joined")
+  })
+
+  it("moves pending request to another session and auto-confirms as waitlisted when full", async () => {
+    const [sourceSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Source Approval Session Waitlist",
+        dateTime: new Date(Date.now() + 60 * 60 * 1000),
+        maxCapacity: 10,
+        maxWaitlist: 0,
+        joinMode: "approval_required",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const [targetSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        title: "Target Full Session with Waitlist",
+        dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+        maxCapacity: 1,
+        maxWaitlist: 1,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const pending = await joinSession(sourceSession.id, attendeeAId)
+    expect(pending.status).toBe("pending")
+
+    await joinSession(targetSession.id, attendeeBId)
+
+    const moved = await moveParticipant(pending.id, targetSession.id)
+    expect(moved.cancelled.status).toBe("cancelled")
+    expect(moved.created.sessionId).toBe(targetSession.id)
+    expect(moved.created.status).toBe("waitlisted")
+
+    const targetActiveAfterMove = await getActiveParticipation(
+      targetSession.id,
+      attendeeAId
+    )
+    expect(targetActiveAfterMove?.status).toBe("waitlisted")
   })
 })

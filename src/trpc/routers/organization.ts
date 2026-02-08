@@ -37,12 +37,6 @@ function assertOwnerOrAdmin(role: string): void {
   }
 }
 
-function assertOwner(role: string): void {
-  if (role !== "owner") {
-    throw new ForbiddenError("Only organization owners can perform this action")
-  }
-}
-
 // =============================================================================
 // Organization Router
 // =============================================================================
@@ -333,7 +327,7 @@ export const organizationRouter = router({
     }),
 
   /**
-   * Update a member's role (Owner only)
+   * Update a member's role (Admin only)
    */
   updateMemberRole: orgProcedure
     .input(
@@ -343,7 +337,7 @@ export const organizationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertOwnerOrAdmin(ctx.membership.role)
 
       return updateOrganizationMemberRole(
         {
@@ -368,7 +362,7 @@ export const organizationRouter = router({
     }),
 
   /**
-   * Update organization settings (Owner only)
+   * Update organization settings (Admin only)
    * Simple CRUD - direct DB access
    */
   updateSettings: orgProcedure
@@ -379,7 +373,7 @@ export const organizationRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertOwner(ctx.membership.role)
+      assertOwnerOrAdmin(ctx.membership.role)
       return updateOrganizationSettings(
         {
           updateOrganizationById,

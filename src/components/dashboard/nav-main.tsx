@@ -1,5 +1,13 @@
 import { Link, useParams, useRouterState } from "@tanstack/react-router"
-import { LayoutDashboard, Calendar, User, Users, Settings, Shield } from "lucide-react"
+import {
+  LayoutDashboard,
+  Calendar,
+  User,
+  Users,
+  Settings,
+  Shield,
+  UserPlus,
+} from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import {
   SidebarGroup,
@@ -10,6 +18,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 
 type NavItem = {
   title: string
@@ -38,6 +47,12 @@ const mainNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   {
+    title: "Join Requests",
+    url: "/dashboard/org/$orgId/join-requests",
+    icon: UserPlus,
+    adminOnly: true,
+  },
+  {
     title: "Members",
     url: "/dashboard/org/$orgId/members",
     icon: Users,
@@ -59,6 +74,17 @@ export function NavMain() {
 
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+  const { data: pendingJoinRequests } = trpc.joinRequest.listPending.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  )
+  const { data: pendingApprovals } = trpc.participation.pendingApprovalsSummary.useQuery(
+    { limit: 1 },
+    { enabled: isAdmin }
+  )
+
+  const pendingJoinRequestsCount = pendingJoinRequests?.length ?? 0
+  const pendingSessionApprovalsCount = pendingApprovals?.totalPending ?? 0
 
   const handleNavClick = () => {
     setOpenMobile(false)
@@ -74,6 +100,13 @@ export function NavMain() {
     return currentPath.startsWith(resolvedUrl)
   }
 
+  const getBadgeCount = (title: string) => {
+    if (!isAdmin) return 0
+    if (title === "Sessions") return pendingSessionApprovalsCount
+    if (title === "Join Requests") return pendingJoinRequestsCount
+    return 0
+  }
+
   if (!orgId) {
     return null
   }
@@ -87,6 +120,7 @@ export function NavMain() {
         <SidebarMenu>
           {mainNavItems.map((item) => {
             const active = isActive(item.url)
+            const badgeCount = getBadgeCount(item.title)
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
@@ -108,6 +142,11 @@ export function NavMain() {
                       active && "text-primary"
                     )} />
                     <span>{item.title}</span>
+                    {badgeCount > 0 && (
+                      <Badge className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums group-data-[collapsible=icon]:hidden">
+                        {badgeCount > 99 ? "99+" : badgeCount}
+                      </Badge>
+                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -125,6 +164,7 @@ export function NavMain() {
           <SidebarMenu>
             {adminNavItems.map((item) => {
               const active = isActive(item.url)
+              const badgeCount = getBadgeCount(item.title)
               return (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
@@ -146,6 +186,11 @@ export function NavMain() {
                         active && "text-primary"
                       )} />
                       <span>{item.title}</span>
+                      {badgeCount > 0 && (
+                        <Badge className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums group-data-[collapsible=icon]:hidden">
+                          {badgeCount > 99 ? "99+" : badgeCount}
+                        </Badge>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -150,7 +150,7 @@ function UserProfilePage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Your name"
-                  className="bg-background/50"
+                  className="bg-popover"
                 />
               </div>
               <div className="space-y-2">
@@ -169,7 +169,7 @@ function UserProfilePage() {
                 value={image}
                 onChange={(e) => setImage(e.target.value)}
                 placeholder="https://example.com/avatar.jpg"
-                className="bg-background/50"
+                className="bg-popover"
               />
             </div>
             <div className="flex gap-2">

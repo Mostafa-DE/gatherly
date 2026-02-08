@@ -13,6 +13,13 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DateTimePicker } from "@/components/ui/datetime-picker"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/create")({
   component: CreateSessionPage,
@@ -26,6 +33,20 @@ const getDefaultDateTime = () => {
   return date
 }
 
+const SESSION_JOIN_MODES = [
+  { value: "open", label: "Open", description: "Members can join directly" },
+  {
+    value: "approval_required",
+    label: "Approval Required",
+    description: "Members request to join, admins approve",
+  },
+  {
+    value: "invite_only",
+    label: "Invite Only",
+    description: "Only admins can add participants",
+  },
+] as const
+
 function CreateSessionPage() {
   const { orgId } = Route.useParams()
   const navigate = useNavigate()
@@ -37,6 +58,9 @@ function CreateSessionPage() {
   const [location, setLocation] = useState("")
   const [maxCapacity, setMaxCapacity] = useState("20")
   const [maxWaitlist, setMaxWaitlist] = useState("0")
+  const [joinMode, setJoinMode] = useState<
+    "open" | "approval_required" | "invite_only"
+  >("open")
   const [price, setPrice] = useState("")
   const [error, setError] = useState("")
 
@@ -131,7 +155,7 @@ function CreateSessionPage() {
       location: location.trim() || undefined,
       maxCapacity: capacity,
       maxWaitlist: waitlist,
-      joinMode: "open",
+      joinMode,
       price: trimmedPrice || null,
     })
   }
@@ -177,7 +201,7 @@ function CreateSessionPage() {
                 <Label htmlFor="description">Description</Label>
                 <textarea
                   id="description"
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex min-h-[100px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                   placeholder="Tell participants what this session is about..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -238,6 +262,29 @@ function CreateSessionPage() {
                     Set to 0 to disable waitlist
                   </p>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="joinMode">Join Mode</Label>
+                <Select
+                  value={joinMode}
+                  onValueChange={(value) =>
+                    setJoinMode(
+                      value as "open" | "approval_required" | "invite_only"
+                    )
+                  }
+                >
+                  <SelectTrigger id="joinMode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SESSION_JOIN_MODES.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        {mode.label} - {mode.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">

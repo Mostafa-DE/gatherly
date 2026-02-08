@@ -105,6 +105,21 @@ export const moveParticipantSchema = z.object({
   targetSessionId: z.string(),
 })
 
+/** Approve pending participation request (admin) */
+export const approvePendingParticipationSchema = z.object({
+  participationId: z.string(),
+})
+
+/** Reject pending participation request (admin) */
+export const rejectPendingParticipationSchema = z.object({
+  participationId: z.string(),
+})
+
+/** Get summary of pending session approvals (admin) */
+export const pendingApprovalsSummarySchema = z.object({
+  limit: z.number().int().positive().max(20).default(5),
+})
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -121,6 +136,15 @@ export type BulkUpdateAttendanceInput = z.infer<typeof bulkUpdateAttendanceSchem
 export type GetUserHistoryInput = z.infer<typeof getUserHistorySchema>
 export type AdminAddParticipantInput = z.infer<typeof adminAddParticipantSchema>
 export type MoveParticipantInput = z.infer<typeof moveParticipantSchema>
+export type ApprovePendingParticipationInput = z.infer<
+  typeof approvePendingParticipationSchema
+>
+export type RejectPendingParticipationInput = z.infer<
+  typeof rejectPendingParticipationSchema
+>
+export type PendingApprovalsSummaryInput = z.infer<
+  typeof pendingApprovalsSummarySchema
+>
 
 // Re-export status types for convenience
 export type { ParticipationStatus, AttendanceStatus, PaymentStatus }
