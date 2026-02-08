@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
-import { signUp } from "@/auth/client"
+import { signIn, signUp } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -72,6 +72,17 @@ function RegisterPage() {
       if (result.error) {
         setError(result.error.message || "Failed to create account")
       } else {
+        const signInResult = await signIn.email({
+          email,
+          password,
+        })
+
+        if (signInResult.error) {
+          setError("Account created, but automatic sign-in failed. Please sign in.")
+          navigate({ to: "/login" })
+          return
+        }
+
         navigate({ to: "/dashboard" })
       }
     } catch {
