@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Sparkles } from "lucide-react"
+import { useAISuggestion } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/create")({
   component: CreateSessionPage,
@@ -69,6 +71,18 @@ function CreateSessionPage() {
 
   const { data: orgSettings } = trpc.organizationSettings.get.useQuery({}, { enabled: isAdmin })
   const orgCurrency = orgSettings?.currency
+
+  const {
+    suggest: suggestDesc,
+    streamedText,
+    isStreaming,
+    isPending: aiPending,
+    error: aiError,
+    clearError: clearAiError,
+    isAvailable: aiAvailable,
+  } = useAISuggestion({
+    onComplete: (text) => setDescription(text),
+  })
 
   const createSession = trpc.session.create.useMutation({
     onSuccess: (data) => {
@@ -198,13 +212,40 @@ function CreateSessionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  {aiAvailable && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!title.trim() || aiPending}
+                      onClick={() => {
+                        clearAiError()
+                        suggestDesc({
+                          sessionTitle: title.trim(),
+                          location: location.trim() || undefined,
+                          dateTime: dateTime || undefined,
+                        })
+                      }}
+                    >
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                      {isStreaming ? "Thinking..." : "Suggest Description"}
+                    </Button>
+                  )}
+                </div>
+                {aiError && (
+                  <div className="rounded-md bg-destructive/15 p-2 text-xs text-destructive">
+                    {aiError}
+                  </div>
+                )}
                 <textarea
                   id="description"
                   className="flex min-h-[100px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
                   placeholder="Tell participants what this session is about..."
-                  value={description}
+                  value={isStreaming ? streamedText : description}
                   onChange={(e) => setDescription(e.target.value)}
+                  readOnly={isStreaming}
                 />
               </div>
 

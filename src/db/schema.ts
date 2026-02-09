@@ -73,6 +73,7 @@ export const organizationSettings = pgTable("organization_settings", {
   joinFormSchema: jsonb("join_form_schema"),
   joinFormVersion: integer("join_form_version").default(1).notNull(),
   currency: text("currency"), // ISO 4217 code (USD, EUR, JOD, etc.) - null = not set
+  enabledPlugins: jsonb("enabled_plugins").default({}).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()

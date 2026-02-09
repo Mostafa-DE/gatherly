@@ -1,15 +1,18 @@
+import { z } from "zod"
 import { router, orgProcedure } from "@/trpc"
-import { ForbiddenError } from "@/exceptions"
+import { ForbiddenError, BadRequestError } from "@/exceptions"
 import {
   getOrCreateOrgSettings,
   updateJoinFormSchema,
   updateOrgCurrency,
+  updateEnabledPlugins,
 } from "@/data-access/organization-settings"
 import {
   getOrgSettingsSchema,
   updateJoinFormSchema as updateJoinFormInputSchema,
   updateCurrencySchema,
 } from "@/schemas/organization-settings"
+import { pluginMetaMap } from "@/plugins/catalog"
 
 // =============================================================================
 // Helper: Check if user is admin (owner or admin role)
@@ -58,5 +61,24 @@ export const organizationSettingsRouter = router({
     .mutation(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
       return updateOrgCurrency(ctx.activeOrganization.id, input.currency)
+    }),
+
+  /**
+   * Toggle a plugin on/off (Admin)
+   */
+  togglePlugin: orgProcedure
+    .input(z.object({ pluginId: z.string(), enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      if (!pluginMetaMap[input.pluginId]) {
+        throw new BadRequestError(`Unknown plugin: ${input.pluginId}`)
+      }
+
+      return updateEnabledPlugins(
+        ctx.activeOrganization.id,
+        input.pluginId,
+        input.enabled
+      )
     }),
 })

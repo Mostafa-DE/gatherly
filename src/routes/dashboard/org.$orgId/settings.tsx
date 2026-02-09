@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ import {
   Save,
   XCircle,
   DollarSign,
+  Puzzle,
 } from "lucide-react"
 import { FORM_FIELD_TYPES, type FormField, type FormFieldType } from "@/types/form"
 import { getTimezones } from "@/lib/timezones"
@@ -32,6 +34,7 @@ import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
 import { ShareDialog } from "@/components/share-dialog"
 import { buildOrgUrl } from "@/lib/share-urls"
 import { TimezoneSelect } from "@/components/ui/timezone-select"
+import { pluginCatalog } from "@/plugins/catalog"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
   component: SettingsPage,
@@ -376,6 +379,37 @@ function SettingsPage() {
         </div>
       )}
 
+      {/* Plugins */}
+      {isAdmin && (
+        <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Puzzle className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Plugins</h2>
+              <p className="text-sm text-muted-foreground">
+                Enable or disable plugins for your group
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {pluginCatalog.map((plugin) => (
+              <PluginToggle
+                key={plugin.id}
+                pluginId={plugin.id}
+                name={plugin.name}
+                description={plugin.description}
+                enabled={
+                  ((settings?.enabledPlugins ?? {}) as Record<string, boolean>)[plugin.id] === true
+                }
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Join Form Configuration */}
       <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
         <div className="mb-6 flex items-center gap-3">
@@ -587,6 +621,40 @@ function FormFieldEditor({
           Required field
         </Label>
       </div>
+    </div>
+  )
+}
+
+type PluginToggleProps = {
+  pluginId: string
+  name: string
+  description: string
+  enabled: boolean
+}
+
+function PluginToggle({ pluginId, name, description, enabled }: PluginToggleProps) {
+  const utils = trpc.useUtils()
+
+  const togglePlugin = trpc.organizationSettings.togglePlugin.useMutation({
+    onSuccess: () => {
+      utils.organizationSettings.get.invalidate()
+      utils.plugin.ai.checkAvailability.invalidate()
+    },
+  })
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 p-4">
+      <div className="space-y-0.5">
+        <p className="font-medium">{name}</p>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Switch
+        checked={enabled}
+        disabled={togglePlugin.isPending}
+        onCheckedChange={(checked) => {
+          togglePlugin.mutate({ pluginId, enabled: checked })
+        }}
+      />
     </div>
   )
 }

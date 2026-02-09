@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { organizationSettings } from "@/db/schema"
 import type { OrganizationSettings } from "@/db/types"
@@ -83,6 +83,29 @@ export async function updateJoinFormSchema(
     .returning()
 
   return created
+}
+
+/**
+ * Update enabled plugins for an organization.
+ * Uses atomic jsonb_set to avoid lost-update races from concurrent toggles.
+ */
+export async function updateEnabledPlugins(
+  organizationId: string,
+  pluginId: string,
+  enabled: boolean
+): Promise<OrganizationSettings> {
+  await getOrCreateOrgSettings(organizationId)
+
+  const [result] = await db
+    .update(organizationSettings)
+    .set({
+      enabledPlugins: sql`jsonb_set(coalesce(${organizationSettings.enabledPlugins}, '{}'::jsonb), ${`{${pluginId}}`}, ${JSON.stringify(enabled)}::jsonb)`,
+      updatedAt: new Date(),
+    })
+    .where(eq(organizationSettings.organizationId, organizationId))
+    .returning()
+
+  return result
 }
 
 /**
