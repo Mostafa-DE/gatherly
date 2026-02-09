@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -22,12 +22,14 @@ import {
   Shield,
   Users,
   UserMinus,
+  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { FormField } from "@/types/form"
 import { RoleBadge } from "@/components/role-badge"
 import { EngagementStatsCard } from "@/components/engagement-stats"
 import { MemberNotesSection } from "@/components/member-notes"
+import { useAISummarizeMemberProfile } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/members/$userId"
@@ -264,6 +266,9 @@ function MemberDetailPage() {
         <EngagementStatsCard stats={stats} />
       ) : null}
 
+      {/* AI Summary */}
+      <MemberAISummary userId={userId} />
+
       {/* Profile Fields */}
       <MemberProfileSection userId={userId} />
 
@@ -272,6 +277,63 @@ function MemberDetailPage() {
 
       {/* Participation History */}
       <MemberParticipationHistory userId={userId} orgId={orgId} />
+    </div>
+  )
+}
+
+function MemberAISummary({ userId }: { userId: string }) {
+  const [summaryText, setSummaryText] = useState("")
+
+  const onComplete = useCallback((text: string) => {
+    setSummaryText(text)
+  }, [])
+
+  const {
+    suggest,
+    streamedText,
+    isStreaming,
+    isPending,
+    error,
+    isAvailable,
+  } = useAISummarizeMemberProfile({ onComplete: onComplete })
+
+  if (!isAvailable) return null
+
+  const displayText = isStreaming ? streamedText : summaryText
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+            <Sparkles className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="font-semibold">AI Summary</h2>
+            <p className="text-sm text-muted-foreground">
+              AI-generated member overview
+            </p>
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => suggest({ userId })}
+          disabled={isPending}
+        >
+          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+          {isPending ? "Generating..." : summaryText ? "Regenerate" : "Generate Summary"}
+        </Button>
+      </div>
+      {displayText && (
+        <p className="text-sm leading-relaxed">{displayText}</p>
+      )}
+      {!displayText && !isPending && (
+        <p className="text-sm text-muted-foreground">
+          Click &ldquo;Generate Summary&rdquo; to create an AI-powered overview of this member.
+        </p>
+      )}
+      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   )
 }

@@ -1,1 +1,5 @@
 export { suggestSessionDescription } from "./suggest-session-description"
+export { suggestMemberNote } from "./suggest-member-note"
+export { summarizeJoinRequest } from "./summarize-join-request"
+export { suggestParticipationNote } from "./suggest-participation-note"
+export { summarizeMemberProfile } from "./summarize-member-profile"

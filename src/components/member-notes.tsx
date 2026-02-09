@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { StickyNote, Pencil, Trash2, Send } from "lucide-react"
+import { StickyNote, Pencil, Trash2, Send, Sparkles } from "lucide-react"
+import { useAISuggestMemberNote } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 function formatRelativeTime(date: Date): string {
   const now = new Date()
@@ -33,6 +34,19 @@ export function MemberNotesSection({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editContent, setEditContent] = useState("")
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  const onAIComplete = useCallback((text: string) => {
+    setNewContent(text)
+  }, [])
+
+  const {
+    suggest: suggestNote,
+    streamedText: aiStreamedText,
+    isStreaming: aiIsStreaming,
+    isPending: aiIsPending,
+    error: aiError,
+    isAvailable: aiAvailable,
+  } = useAISuggestMemberNote({ onComplete: onAIComplete })
 
   const createNote = trpc.memberNote.create.useMutation({
     onSuccess: () => {
@@ -87,23 +101,40 @@ export function MemberNotesSection({
         <textarea
           className="flex min-h-[80px] w-full rounded-md border border-input bg-white dark:bg-input/30 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           placeholder="Add a note about this member..."
-          value={newContent}
+          value={aiIsStreaming ? aiStreamedText : newContent}
           onChange={(e) => setNewContent(e.target.value)}
           maxLength={2000}
+          disabled={aiIsStreaming}
         />
         <div className="mt-2 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
             {newContent.length}/2000
           </span>
-          <Button
-            size="sm"
-            onClick={handleCreate}
-            disabled={!newContent.trim() || createNote.isPending}
-          >
-            <Send className="h-3.5 w-3.5 mr-1.5" />
-            {createNote.isPending ? "Adding..." : "Add Note"}
-          </Button>
+          <div className="flex items-center gap-2">
+            {aiAvailable && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => suggestNote({ targetUserId })}
+                disabled={aiIsPending}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                {aiIsPending ? "Generating..." : "Suggest"}
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={handleCreate}
+              disabled={!newContent.trim() || createNote.isPending}
+            >
+              <Send className="h-3.5 w-3.5 mr-1.5" />
+              {createNote.isPending ? "Adding..." : "Add Note"}
+            </Button>
+          </div>
         </div>
+        {aiError && (
+          <p className="mt-2 text-sm text-destructive">{aiError}</p>
+        )}
         {createNote.error && (
           <p className="mt-2 text-sm text-destructive">{createNote.error.message}</p>
         )}

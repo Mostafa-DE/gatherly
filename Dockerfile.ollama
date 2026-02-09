@@ -1,0 +1,57 @@
+# =============================================================================
+# Railway Dockerfile for Ollama service
+#
+# Railway setup:
+#   1. Create an "Ollama" service pointing to this repo
+#   2. Set RAILWAY_DOCKERFILE_PATH=Dockerfile.ollama
+#   3. Attach a volume mounted at /root/.ollama (persists models across deploys)
+#   4. Set OLLAMA_MODEL env var to the model you want (default: mistral:7b)
+# =============================================================================
+
+FROM ollama/ollama:latest
+
+# Listen on all interfaces so Railway private networking can reach us
+ENV OLLAMA_HOST=0.0.0.0:11434
+
+EXPOSE 11434
+
+# Startup script: start server, wait for ready, pull model if needed
+RUN printf '#!/bin/sh\n\
+set -e\n\
+\n\
+MODEL="${OLLAMA_MODEL:-mistral:7b}"\n\
+\n\
+echo "Starting Ollama server..."\n\
+ollama serve &\n\
+SERVER_PID=$!\n\
+\n\
+# Wait for server to be ready (up to 120s)\n\
+echo "Waiting for Ollama to be ready..."\n\
+for i in $(seq 1 60); do\n\
+  if ollama list >/dev/null 2>&1; then\n\
+    echo "Ollama is ready."\n\
+    break\n\
+  fi\n\
+  if [ "$i" -eq 60 ]; then\n\
+    echo "ERROR: Ollama server did not start in time."\n\
+    exit 1\n\
+  fi\n\
+  sleep 2\n\
+done\n\
+\n\
+# Pull model if not already present (volume keeps it across deploys)\n\
+if ! ollama list | grep -q "$MODEL"; then\n\
+  echo "Pulling model: $MODEL ..."\n\
+  ollama pull "$MODEL"\n\
+else\n\
+  echo "Model $MODEL already present."\n\
+fi\n\
+\n\
+echo "Ollama is serving model: $MODEL"\n\
+\n\
+# Keep container alive with the server process\n\
+wait $SERVER_PID\n\
+' > /start-ollama.sh && chmod +x /start-ollama.sh
+
+ENTRYPOINT []
+CMD ["/bin/sh", "/start-ollama.sh"]

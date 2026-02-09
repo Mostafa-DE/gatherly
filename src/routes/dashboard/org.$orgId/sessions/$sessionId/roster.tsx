@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,8 +22,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square, UserPlus, ArrowRightLeft } from "lucide-react"
+import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square, UserPlus, ArrowRightLeft, Sparkles } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useAISuggestParticipationNote } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/roster"
@@ -503,6 +504,7 @@ function SessionRosterPage() {
                         <ParticipantRow
                           participation={item.participation}
                           user={item.user}
+                          sessionId={sessionId}
                           onUpdate={(data) =>
                             updateParticipation.mutate({
                               participationId: item.participation.id,
@@ -631,6 +633,7 @@ type ParticipantRowProps = {
     email: string
     image: string | null
   }
+  sessionId: string
   onUpdate: (data: { attendance?: "pending" | "show" | "no_show"; payment?: "unpaid" | "paid"; notes?: string | null }) => void
   isUpdating: boolean
   availableTargetSessions: Array<{ id: string; title: string; status: string }>
@@ -643,6 +646,7 @@ type ParticipantRowProps = {
 function ParticipantRow({
   participation,
   user,
+  sessionId,
   onUpdate,
   isUpdating,
   availableTargetSessions,
@@ -655,6 +659,21 @@ function ParticipantRow({
   const [notesValue, setNotesValue] = useState(participation.notes || "")
   const [notesDirty, setNotesDirty] = useState(false)
   const [selectedTargetSession, setSelectedTargetSession] = useState("")
+
+  const onAINoteComplete = useCallback((text: string) => {
+    setNotesValue(text)
+    setNotesDirty(true)
+    setShowNotes(true)
+  }, [])
+
+  const {
+    suggest: suggestNote,
+    streamedText: aiStreamedText,
+    isStreaming: aiIsStreaming,
+    isPending: aiIsPending,
+    error: aiError,
+    isAvailable: aiAvailable,
+  } = useAISuggestParticipationNote({ onComplete: onAINoteComplete })
 
   const attendanceVariant = (attendance: string) => {
     switch (attendance) {
@@ -747,6 +766,22 @@ function ParticipantRow({
             <ChevronDown className="h-4 w-4 ml-1" />
           )}
         </Button>
+        {aiAvailable && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              suggestNote({
+                participationId: participation.id,
+                sessionId,
+              })
+            }
+            disabled={aiIsPending}
+          >
+            <Sparkles className="h-4 w-4 mr-1" />
+            {aiIsPending ? "..." : "Suggest"}
+          </Button>
+        )}
         {availableTargetSessions.length > 0 && (
           <Button
             variant="ghost"
@@ -803,9 +838,9 @@ function ParticipantRow({
           <textarea
             className="flex min-h-[80px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
             placeholder="Add notes about this participant..."
-            value={notesValue}
+            value={aiIsStreaming ? aiStreamedText : notesValue}
             onChange={handleNotesChange}
-            disabled={isUpdating}
+            disabled={isUpdating || aiIsStreaming}
           />
           {notesDirty && (
             <Button
@@ -816,6 +851,9 @@ function ParticipantRow({
               <Save className="h-4 w-4 mr-1" />
               {isUpdating ? "Saving..." : "Save Notes"}
             </Button>
+          )}
+          {aiError && (
+            <p className="text-sm text-destructive">{aiError}</p>
           )}
         </div>
       )}

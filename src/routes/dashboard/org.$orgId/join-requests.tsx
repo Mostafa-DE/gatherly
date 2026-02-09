@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { useState, useCallback } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,7 +12,8 @@ import {
 } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { UserPlus, Check, X, Clock } from "lucide-react"
+import { UserPlus, Check, X, Clock, Sparkles } from "lucide-react"
+import { useAISummarizeJoinRequest } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/join-requests")({
   component: JoinRequestsPage,
@@ -20,6 +22,27 @@ export const Route = createFileRoute("/dashboard/org/$orgId/join-requests")({
 function JoinRequestsPage() {
   const { orgId } = Route.useParams()
   const utils = trpc.useUtils()
+
+  const [summaries, setSummaries] = useState<Record<string, string>>({})
+  const [summarizingId, setSummarizingId] = useState<string | null>(null)
+
+  const onSummaryComplete = useCallback(
+    (text: string) => {
+      if (summarizingId) {
+        setSummaries((prev) => ({ ...prev, [summarizingId]: text }))
+        setSummarizingId(null)
+      }
+    },
+    [summarizingId]
+  )
+
+  const {
+    suggest: summarizeRequest,
+    streamedText: aiStreamedText,
+    isStreaming: aiIsStreaming,
+    error: aiError,
+    isAvailable: aiAvailable,
+  } = useAISummarizeJoinRequest({ onComplete: onSummaryComplete })
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
@@ -123,47 +146,83 @@ function JoinRequestsPage() {
               {requests?.map(({ request, user }) => (
                 <div
                   key={request.id}
-                  className="flex items-start gap-4 rounded-lg border p-4"
+                  className="rounded-lg border p-4 space-y-3"
                 >
-                  <Avatar>
-                    <AvatarImage src={user.image ?? undefined} alt={user.name} />
-                    <AvatarFallback>
-                      {user.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                    {request.message && (
-                      <p className="mt-2 text-sm text-muted-foreground italic">
-                        "{request.message}"
+                  <div className="flex items-start gap-4">
+                    <Avatar>
+                      <AvatarImage src={user.image ?? undefined} alt={user.name} />
+                      <AvatarFallback>
+                        {user.name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {user.email}
                       </p>
-                    )}
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Requested {new Date(request.createdAt).toLocaleDateString()}
-                    </p>
+                      {request.message && (
+                        <p className="mt-2 text-sm text-muted-foreground italic">
+                          &ldquo;{request.message}&rdquo;
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Requested {new Date(request.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      {aiAvailable && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSummarizingId(request.id)
+                            summarizeRequest({ requestId: request.id })
+                          }}
+                          disabled={aiIsStreaming}
+                        >
+                          <Sparkles className="mr-1 h-4 w-4" />
+                          Summarize
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => approveMutation.mutate({ requestId: request.id })}
+                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                      >
+                        <Check className="mr-1 h-4 w-4" />
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => rejectMutation.mutate({ requestId: request.id })}
+                        disabled={approveMutation.isPending || rejectMutation.isPending}
+                      >
+                        <X className="mr-1 h-4 w-4" />
+                        Reject
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => approveMutation.mutate({ requestId: request.id })}
-                      disabled={approveMutation.isPending || rejectMutation.isPending}
-                    >
-                      <Check className="mr-1 h-4 w-4" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => rejectMutation.mutate({ requestId: request.id })}
-                      disabled={approveMutation.isPending || rejectMutation.isPending}
-                    >
-                      <X className="mr-1 h-4 w-4" />
-                      Reject
-                    </Button>
-                  </div>
+                  {/* AI Summary */}
+                  {summarizingId === request.id && aiIsStreaming && (
+                    <div className="rounded-md bg-primary/5 p-3">
+                      <p className="text-sm text-muted-foreground">
+                        <Sparkles className="mr-1 inline h-3.5 w-3.5 text-primary" />
+                        {aiStreamedText || "Generating summary..."}
+                      </p>
+                    </div>
+                  )}
+                  {summaries[request.id] && !(summarizingId === request.id && aiIsStreaming) && (
+                    <div className="rounded-md bg-primary/5 p-3">
+                      <p className="text-sm text-muted-foreground">
+                        <Sparkles className="mr-1 inline h-3.5 w-3.5 text-primary" />
+                        {summaries[request.id]}
+                      </p>
+                    </div>
+                  )}
+                  {summarizingId === request.id && aiError && (
+                    <p className="text-sm text-destructive">{aiError}</p>
+                  )}
                 </div>
               ))}
             </div>

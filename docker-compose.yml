@@ -25,13 +25,11 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
-      - ./scripts/ollama-entrypoint.sh:/entrypoint.sh:ro
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_MODEL=mistral:7b
-    entrypoint: ["/entrypoint.sh"]
+      OLLAMA_HOST: "0.0.0.0:11434"
+      OLLAMA_MODEL: "mistral:7b"
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1"]
       interval: 30s
       timeout: 10s
       retries: 5

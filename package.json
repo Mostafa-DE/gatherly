@@ -17,7 +17,11 @@
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",
     "db:seed:demo-user": "pnpm exec tsx --env-file=.env ./scripts/create-demo-user.ts",
-    "auth:generate": "npx @better-auth/cli generate --output ./src/db/auth-schema.ts"
+    "auth:generate": "npx @better-auth/cli generate --output ./src/db/auth-schema.ts",
+    "ollama:up": "docker compose up -d ollama && echo 'Waiting for Ollama...' && sleep 5 && docker exec gatherly-ollama ollama pull mistral:7b",
+    "ollama:stop": "docker compose stop ollama",
+    "railway:deploy:ollama": "sh ./scripts/railway-deploy.sh ollama",
+    "railway:deploy:web": "sh ./scripts/railway-deploy.sh web"
   },
   "dependencies": {
     "@paralleldrive/cuid2": "^3.3.0",
