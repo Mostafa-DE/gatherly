@@ -20,7 +20,7 @@ export const summarizeJoinRequest: AIFeature<typeof inputSchema> = {
   id: "summarizeJoinRequest",
   inputSchema,
   model: "mistral:7b",
-  temperature: 0.5,
+  temperature: 0.3,
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
@@ -67,22 +67,34 @@ export const summarizeJoinRequest: AIFeature<typeof inputSchema> = {
 
   buildPrompt: (_input, context) => {
     const ctx = context as FeatureContext
+    const hasMessage = ctx.message !== null && ctx.message.trim().length > 0
+    const hasFormAnswers = ctx.formAnswers.length > 0
 
     let task = `Summarize the join request from "${ctx.applicantName}" to join "${ctx.orgName}" (submitted ${ctx.requestDate}).`
 
-    if (ctx.message) {
-      task += `\n\nMessage from applicant: "${ctx.message}"`
+    task += "\n\n=== PROVIDED DATA ==="
+
+    if (hasMessage) {
+      task += `\nMessage from applicant: "${ctx.message}"`
     }
 
-    if (ctx.formAnswers.length > 0) {
-      task += `\n\nForm answers:\n${ctx.formAnswers.map((a) => `- ${a}`).join("\n")}`
+    if (hasFormAnswers) {
+      task += `\nForm answers:\n${ctx.formAnswers.map((a) => `- ${a}`).join("\n")}`
     }
+
+    if (!hasMessage && !hasFormAnswers) {
+      task += "\nNo message or form answers were provided by the applicant."
+    }
+
+    task += "\n=== END DATA ==="
 
     return {
       role: `You are helping group admins review join requests for "${ctx.orgName}".`,
       task,
       rules: [
         "Write 2-3 concise, objective sentences",
+        "Only reference information from the applicant's message and form answers provided above",
+        "If no message and no form answers were provided, state that the applicant submitted a join request without additional information",
         "Highlight the most relevant information from the form answers",
         "If there is a personal message, mention its key point",
         "Be factual and neutral — do not recommend approval or rejection",

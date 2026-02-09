@@ -14,15 +14,26 @@ import {
   Tag,
   ArrowLeft,
   ExternalLink,
+  LogIn,
+  UserPlus,
+  Lock,
+  LinkIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
 import { buildSessionUrl } from "@/lib/share-urls"
 
+type SessionSearchParams = {
+  invite?: string
+}
+
 export const Route = createFileRoute(
   "/$username/$groupSlug/sessions/$sessionId"
 )({
   component: PublicSessionPage,
+  validateSearch: (search: Record<string, unknown>): SessionSearchParams => ({
+    invite: typeof search.invite === "string" ? search.invite : undefined,
+  }),
 })
 
 /* ─────────────────────────── helpers ─────────────────────────── */
@@ -55,6 +66,7 @@ function formatTime(date: Date) {
 
 function PublicSessionPage() {
   const { username, groupSlug, sessionId } = Route.useParams()
+  const { invite: inviteToken } = Route.useSearch()
   const { data: session, isPending: sessionPending } = useSession()
   const isLoggedIn = !sessionPending && !!session?.user
 
@@ -67,6 +79,27 @@ function PublicSessionPage() {
     groupSlug,
     sessionId,
   })
+
+  // Check if user is a member of this org (only when logged in)
+  const { data: myOrgs } = trpc.user.myOrgs.useQuery(undefined, {
+    enabled: !!session?.user,
+  })
+
+  // Check pending join request (only when logged in and org is loaded)
+  const orgId = data?.organization.id
+  const { data: pendingRequest } = trpc.joinRequest.myPendingRequest.useQuery(
+    { organizationId: orgId ?? "" },
+    { enabled: !!session?.user && !!orgId }
+  )
+
+  // Validate invite token if present
+  const { data: inviteValidation } = trpc.inviteLink.validate.useQuery(
+    { token: inviteToken ?? "" },
+    { enabled: !!inviteToken }
+  )
+
+  const isMember = myOrgs?.some((m) => m.organization.id === orgId)
+  const isInviteValid = !!inviteToken && !!inviteValidation?.valid
 
   /* ── Loading ── */
   if (isLoading) {
@@ -302,18 +335,19 @@ function PublicSessionPage() {
           {/* ── CTA footer ── */}
           <div className="border-t bg-muted/30 px-6 sm:px-8 py-5">
             <div className="flex flex-col gap-3">
-              {!isLoggedIn ? (
-                <Button asChild size="lg" className="w-full">
-                  <Link to="/login">Sign in to join this session</Link>
-                </Button>
-              ) : (
-                <Button asChild size="lg" className="w-full">
-                  <Link to="/dashboard">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open in Dashboard
-                  </Link>
-                </Button>
-              )}
+              <SessionCTA
+                isLoggedIn={isLoggedIn}
+                isMember={!!isMember}
+                hasPendingRequest={!!pendingRequest}
+                isInviteValid={isInviteValid}
+                inviteToken={inviteToken}
+                defaultJoinMode={org.defaultJoinMode}
+                orgId={org.id}
+                orgName={org.name}
+                username={username}
+                groupSlug={groupSlug}
+                sessionId={sessionId}
+              />
               <div className="flex items-center justify-center gap-2">
                 <Button variant="ghost" size="sm" asChild>
                   <Link
@@ -338,6 +372,138 @@ function PublicSessionPage() {
         </div>
       </div>
     </>
+  )
+}
+
+/* ─────────────────────────── Session CTA ─────────────────────────── */
+
+type SessionCTAProps = {
+  isLoggedIn: boolean
+  isMember: boolean
+  hasPendingRequest: boolean
+  isInviteValid: boolean
+  inviteToken: string | undefined
+  defaultJoinMode: string | null | undefined
+  orgId: string
+  orgName: string
+  username: string
+  groupSlug: string
+  sessionId: string
+}
+
+function SessionCTA({
+  isLoggedIn,
+  isMember,
+  hasPendingRequest,
+  isInviteValid,
+  inviteToken,
+  defaultJoinMode,
+  orgId,
+  orgName,
+  username,
+  groupSlug,
+  sessionId,
+}: SessionCTAProps) {
+  const currentPath = inviteToken
+    ? `/${username}/${groupSlug}/sessions/${sessionId}?invite=${inviteToken}`
+    : `/${username}/${groupSlug}/sessions/${sessionId}`
+  const dashboardSessionPath = `/dashboard/org/${orgId}/sessions/${sessionId}`
+
+  // Not logged in
+  if (!isLoggedIn) {
+    return (
+      <Button asChild size="lg" className="w-full">
+        <Link to="/login" search={{ redirect: currentPath }}>
+          <LogIn className="h-4 w-4 mr-2" />
+          Sign in to join this session
+        </Link>
+      </Button>
+    )
+  }
+
+  // Already a member — go straight to dashboard session
+  if (isMember) {
+    return (
+      <Button asChild size="lg" className="w-full">
+        <Link
+          to="/dashboard/org/$orgId/sessions/$sessionId"
+          params={{ orgId, sessionId }}
+        >
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Open in Dashboard
+        </Link>
+      </Button>
+    )
+  }
+
+  // Has a pending join request
+  if (hasPendingRequest) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-md border border-amber-500/30 bg-amber-500/5 text-sm">
+        <Clock className="h-4 w-4 text-amber-600 flex-shrink-0" />
+        <span className="text-amber-700 dark:text-amber-400 font-medium">
+          Your request to join {orgName} is pending approval
+        </span>
+      </div>
+    )
+  }
+
+  // Has a valid invite token — join via invite
+  if (isInviteValid) {
+    return (
+      <Button asChild size="lg" className="w-full">
+        <Link
+          to="/$username/$groupSlug"
+          params={{ username, groupSlug }}
+          search={{ invite: inviteToken, redirect: dashboardSessionPath }}
+        >
+          <LinkIcon className="h-4 w-4 mr-2" />
+          Join {orgName} via Invite
+        </Link>
+      </Button>
+    )
+  }
+
+  // Open join mode
+  if (defaultJoinMode === "open") {
+    return (
+      <Button asChild size="lg" className="w-full">
+        <Link
+          to="/$username/$groupSlug"
+          params={{ username, groupSlug }}
+          search={{ redirect: dashboardSessionPath }}
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          Join {orgName} to participate
+        </Link>
+      </Button>
+    )
+  }
+
+  // Approval mode
+  if (defaultJoinMode === "approval") {
+    return (
+      <Button asChild size="lg" className="w-full">
+        <Link
+          to="/$username/$groupSlug"
+          params={{ username, groupSlug }}
+          search={{ redirect: currentPath }}
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          Request to join {orgName}
+        </Link>
+      </Button>
+    )
+  }
+
+  // Invite only (no valid token)
+  return (
+    <div className="flex items-center gap-2 p-3 rounded-md border border-muted bg-muted/30 text-sm">
+      <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+      <span className="text-muted-foreground font-medium">
+        This group is invite-only
+      </span>
+    </div>
   )
 }
 

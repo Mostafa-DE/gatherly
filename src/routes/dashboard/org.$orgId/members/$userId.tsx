@@ -122,52 +122,47 @@ function MemberDetailPage() {
   const canManage = member && member.member.role !== "owner" && !isCurrentUser
 
   return (
-    <div className="space-y-10 py-6">
+    <div className="space-y-6 py-6">
       {/* Back link */}
-      <div>
-        <Button variant="ghost" size="sm" asChild className="-ml-2">
-          <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Members
-          </Link>
-        </Button>
-      </div>
+      <Button variant="ghost" size="sm" asChild className="-ml-2">
+        <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Members
+        </Link>
+      </Button>
 
-      {/* Hero Section */}
-      <div>
-        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-          <User className="mr-2 h-3.5 w-3.5" />
-          Member Details
-        </div>
-
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage
-                src={member?.user.image ?? undefined}
-                alt={member?.user.name}
-              />
-              <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                {member?.user.name?.charAt(0).toUpperCase() ?? "?"}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-3xl font-bold tracking-tight">
-                  {member?.user.name ?? "Member"}
-                </h1>
-                {member && <RoleBadge role={member.member.role} />}
-              </div>
-              <p className="mt-1 text-lg text-muted-foreground">
-                {member?.user.email}
-              </p>
-              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                {nickname && (
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-12 w-12">
+            <AvatarImage
+              src={member?.user.image ?? undefined}
+              alt={member?.user.name}
+            />
+            <AvatarFallback className="bg-primary/10 text-primary">
+              {member?.user.name?.charAt(0).toUpperCase() ?? "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+                {member?.user.name ?? "Member"}
+              </h1>
+              {member && <RoleBadge role={member.member.role} />}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted-foreground">
+              <span>{member?.user.email}</span>
+              {nickname && (
+                <>
+                  <span className="hidden sm:inline">·</span>
                   <span>
                     Nickname: <span className="font-medium text-foreground">{nickname}</span>
                   </span>
-                )}
-                {member?.member.createdAt && (
+                </>
+              )}
+              {member?.member.createdAt && (
+                <>
+                  <span className="hidden sm:inline">·</span>
                   <span>
                     Joined{" "}
                     {new Date(member.member.createdAt).toLocaleDateString(
@@ -175,85 +170,85 @@ function MemberDetailPage() {
                       { month: "long", year: "numeric" }
                     )}
                   </span>
-                )}
-              </div>
+                </>
+              )}
             </div>
           </div>
-
-          {/* Quick actions */}
-          {canManage && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {member.member.role === "member" && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      updateRoleMutation.mutate({
-                        memberId: member.member.id,
-                        role: "admin",
-                      })
-                    }
-                  >
-                    <Shield className="mr-2 h-4 w-4" />
-                    Make Admin
-                  </DropdownMenuItem>
-                )}
-                {member.member.role === "admin" && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      updateRoleMutation.mutate({
-                        memberId: member.member.id,
-                        role: "member",
-                      })
-                    }
-                  >
-                    <Users className="mr-2 h-4 w-4" />
-                    Remove Admin
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => setConfirmRemove(true)}
-                >
-                  <UserMinus className="mr-2 h-4 w-4" />
-                  Remove Member
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
 
-        {/* Confirm remove */}
-        {confirmRemove && member && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
-            <p className="flex-1 text-sm text-destructive">
-              Remove {member.user.name} from this group?
-            </p>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => removeMutation.mutate({ memberId: member.member.id })}
-              disabled={removeMutation.isPending}
-            >
-              {removeMutation.isPending ? "Removing..." : "Remove"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(false)}>
-              Cancel
-            </Button>
-          </div>
-        )}
-
-        {(removeMutation.error || updateRoleMutation.error) && (
-          <p className="mt-2 text-sm text-destructive">
-            {removeMutation.error?.message || updateRoleMutation.error?.message}
-          </p>
+        {/* Quick actions */}
+        {canManage && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {member.member.role === "member" && (
+                <DropdownMenuItem
+                  onClick={() =>
+                    updateRoleMutation.mutate({
+                      memberId: member.member.id,
+                      role: "admin",
+                    })
+                  }
+                >
+                  <Shield className="mr-2 h-4 w-4" />
+                  Make Admin
+                </DropdownMenuItem>
+              )}
+              {member.member.role === "admin" && (
+                <DropdownMenuItem
+                  onClick={() =>
+                    updateRoleMutation.mutate({
+                      memberId: member.member.id,
+                      role: "member",
+                    })
+                  }
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Remove Admin
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() => setConfirmRemove(true)}
+              >
+                <UserMinus className="mr-2 h-4 w-4" />
+                Remove Member
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
+
+      {/* Confirm remove */}
+      {confirmRemove && member && (
+        <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3">
+          <p className="flex-1 text-sm text-destructive">
+            Remove {member.user.name} from this group?
+          </p>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => removeMutation.mutate({ memberId: member.member.id })}
+            disabled={removeMutation.isPending}
+          >
+            {removeMutation.isPending ? "Removing..." : "Remove"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setConfirmRemove(false)}>
+            Cancel
+          </Button>
+        </div>
+      )}
+
+      {(removeMutation.error || updateRoleMutation.error) && (
+        <p className="text-sm text-destructive">
+          {removeMutation.error?.message || updateRoleMutation.error?.message}
+        </p>
+      )}
 
       {/* Engagement Stats */}
       {statsLoading ? (
@@ -281,12 +276,30 @@ function MemberDetailPage() {
   )
 }
 
+function getAISummaryCacheKey(orgId: string, userId: string) {
+  return `gatherly:ai-summary:${orgId}:${userId}`
+}
+
 function MemberAISummary({ userId }: { userId: string }) {
-  const [summaryText, setSummaryText] = useState("")
+  const { orgId } = Route.useParams()
+  const cacheKey = getAISummaryCacheKey(orgId, userId)
+
+  const [summaryText, setSummaryText] = useState(() => {
+    try {
+      return localStorage.getItem(cacheKey) ?? ""
+    } catch {
+      return ""
+    }
+  })
 
   const onComplete = useCallback((text: string) => {
     setSummaryText(text)
-  }, [])
+    try {
+      localStorage.setItem(cacheKey, text)
+    } catch {
+      // localStorage full or unavailable — ignore
+    }
+  }, [cacheKey])
 
   const {
     suggest,
@@ -299,6 +312,7 @@ function MemberAISummary({ userId }: { userId: string }) {
 
   if (!isAvailable) return null
 
+  const hasCached = summaryText.length > 0
   const displayText = isStreaming ? streamedText : summaryText
 
   return (
@@ -322,7 +336,7 @@ function MemberAISummary({ userId }: { userId: string }) {
           disabled={isPending}
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-          {isPending ? "Generating..." : summaryText ? "Regenerate" : "Generate Summary"}
+          {isPending ? "Generating..." : hasCached ? "Regenerate" : "Generate Summary"}
         </Button>
       </div>
       {displayText && (

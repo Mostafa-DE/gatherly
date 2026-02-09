@@ -17,7 +17,7 @@ export const suggestSessionDescription: AIFeature<typeof inputSchema> = {
   id: "suggestSessionDescription",
   inputSchema,
   model: "mistral:7b",
-  temperature: 0.7,
+  temperature: 0.5,
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext) => {
@@ -56,6 +56,7 @@ export const suggestSessionDescription: AIFeature<typeof inputSchema> = {
         "Write a concise, engaging description (2-4 sentences)",
         "Match the tone of past descriptions if provided",
         "Include relevant details about what participants can expect",
+        "Do not fabricate specific details about the session content that are not implied by the title",
         "Do not include the title, date, or location in the description (they are shown separately)",
         "Return only the description text, no quotes or labels",
       ],

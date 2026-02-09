@@ -117,6 +117,7 @@ export const organizationRouter = router({
           userSlug: organization.userSlug,
           ownerUsername: organization.ownerUsername,
           logo: organization.logo,
+          defaultJoinMode: organization.defaultJoinMode,
         })
         .from(organization)
         .where(

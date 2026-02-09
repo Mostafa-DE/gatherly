@@ -30,7 +30,7 @@ export const summarizeMemberProfile: AIFeature<typeof inputSchema> = {
   id: "summarizeMemberProfile",
   inputSchema,
   model: "mistral:7b",
-  temperature: 0.6,
+  temperature: 0.3,
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
@@ -85,23 +85,39 @@ export const summarizeMemberProfile: AIFeature<typeof inputSchema> = {
 
   buildPrompt: (_input, context) => {
     const ctx = context as FeatureContext
+    const hasHistory = ctx.recentHistory.length > 0
+    const hasProfile = ctx.profileAnswers.length > 0
+    const hasActivity =
+      ctx.engagementStats.sessionsAttended > 0 ||
+      ctx.engagementStats.noShows > 0 ||
+      ctx.engagementStats.upcomingSessions > 0
 
     let task = `Summarize the profile of member "${ctx.memberName}" (role: ${ctx.memberRole}, joined: ${ctx.joinDate}).`
-    task += `\n\nEngagement: ${ctx.engagementStats.sessionsAttended} sessions attended, ${ctx.engagementStats.noShows} no-shows, ${ctx.engagementStats.attendanceRate}% attendance rate, ${ctx.engagementStats.upcomingSessions} upcoming sessions.`
 
-    if (ctx.profileAnswers.length > 0) {
-      task += `\n\nProfile info:\n${ctx.profileAnswers.map((a) => `- ${a}`).join("\n")}`
+    task += "\n\n=== PROVIDED DATA ==="
+    task += `\nEngagement: ${ctx.engagementStats.sessionsAttended} sessions attended, ${ctx.engagementStats.noShows} no-shows, ${ctx.engagementStats.attendanceRate}% attendance rate, ${ctx.engagementStats.upcomingSessions} upcoming sessions.`
+
+    if (hasProfile) {
+      task += `\nProfile info:\n${ctx.profileAnswers.map((a) => `- ${a}`).join("\n")}`
     }
 
-    if (ctx.recentHistory.length > 0) {
-      task += `\n\nRecent sessions:\n${ctx.recentHistory.map((h) => `- ${h}`).join("\n")}`
+    if (hasHistory) {
+      task += `\nRecent sessions:\n${ctx.recentHistory.map((h) => `- ${h}`).join("\n")}`
     }
+
+    if (!hasActivity && !hasProfile && !hasHistory) {
+      task += "\nThis member has no recorded activity or profile information."
+    }
+
+    task += "\n=== END DATA ==="
 
     return {
       role: "You are helping group admins understand their members at a glance.",
       task,
       rules: [
         "Write 2-4 sentences covering who they are, their engagement level, and any notable patterns",
+        "Only describe what the data shows — do not speculate about the member's interests, personality, or behavior",
+        "If the member has no session history and no profile information, state that limited data is available for this member",
         "Use profile information to add personal context where available",
         "Mention attendance trends (improving, declining, consistent)",
         "Be factual and concise — this is an overview summary",

@@ -5,13 +5,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Calendar, LogIn } from "lucide-react"
+import { navigateToRedirect } from "@/lib/redirect-utils"
+
+type LoginSearchParams = {
+  redirect?: string
+}
 
 export const Route = createFileRoute("/(auth)/login")({
   component: LoginPage,
+  validateSearch: (search: Record<string, unknown>): LoginSearchParams => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
 })
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { redirect: redirectTo } = Route.useSearch()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -31,7 +40,7 @@ function LoginPage() {
       if (result.error) {
         setError("Invalid email or password")
       } else {
-        navigate({ to: "/dashboard" })
+        navigateToRedirect(navigate, redirectTo, "/dashboard")
       }
     } catch {
       setError("An unexpected error occurred")
@@ -122,6 +131,7 @@ function LoginPage() {
           Don't have an account?{" "}
           <Link
             to="/register"
+            search={redirectTo ? { redirect: redirectTo } : {}}
             className="font-medium text-primary hover:text-primary/80 transition-colors"
           >
             Create one

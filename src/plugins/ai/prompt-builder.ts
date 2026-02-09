@@ -16,5 +16,14 @@ export function composePrompt(sections: PromptSections): string {
     parts.push(`Instructions:\n${list}`)
   }
 
+  parts.push(
+    [
+      "IMPORTANT:",
+      "- ONLY use information explicitly provided in the data above. Do NOT infer, assume, or fabricate any details.",
+      "- If the provided data is insufficient or empty, explicitly state that not enough information is available rather than guessing.",
+      "- Do not assume the user has any prior history, group membership, or interactions unless the data explicitly shows it.",
+    ].join("\n")
+  )
+
   return parts.join("\n\n")
 }

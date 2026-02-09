@@ -65,13 +65,9 @@ deploy_web() {
   echo "==> Linking to Railway service: $service"
   railway service "$service"
 
-  # Railway private networking: lowercase service name + .railway.internal
-  ollama_url="http://ollama.railway.internal:11434"
-
   echo "==> Setting variables..."
   railway variables --skip-deploys \
     --set "RAILWAY_DOCKERFILE_PATH=Dockerfile.railway" \
-    --set "OLLAMA_URL=$ollama_url" \
     --set "RAILWAY_HEALTHCHECK_TIMEOUT_SEC=300"
 
   echo "==> Deploying..."
@@ -79,7 +75,6 @@ deploy_web() {
 
   echo ""
   echo "Done! Web deploy triggered for service: $service"
-  echo "OLLAMA_URL = $ollama_url"
 }
 
 # ---------------------------------------------------------------------------

@@ -214,23 +214,15 @@ function SettingsPage() {
   }
 
   return (
-    <div className="space-y-10 py-6">
-      {/* Hero Section */}
-      <div>
-        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-          <Settings className="mr-2 h-3.5 w-3.5" />
-          Settings
+    <div className="space-y-6 py-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+          <Settings className="h-5 w-5 text-primary" />
         </div>
-
-        <h1 className="text-3xl font-bold tracking-tight">
-          Group{" "}
-          <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Settings
-          </span>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+          Group Settings
         </h1>
-        <p className="mt-2 text-lg text-muted-foreground">
-          Configure your group preferences and join form
-        </p>
       </div>
 
       {/* General Settings */}

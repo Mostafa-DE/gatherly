@@ -1,4 +1,5 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
 import { ChevronsUpDown, LogOut, User } from "lucide-react"
 import { useSession, signOut } from "@/auth/client"
 import {
@@ -25,6 +26,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 export function UserMenu() {
   const { data: session, isPending } = useSession()
   const { isMobile, setOpenMobile } = useSidebar()
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
+  const handleSignOut = async () => {
+    await signOut()
+    queryClient.clear()
+    navigate({ to: "/login" })
+  }
 
   const user = session?.user
 
@@ -100,7 +109,7 @@ export function UserMenu() {
                 Profile
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive" onClick={() => signOut()}>
+            <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive" onClick={handleSignOut}>
               <LogOut className="size-4" />
               Sign out
             </DropdownMenuItem>

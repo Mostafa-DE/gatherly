@@ -28,7 +28,7 @@ export const suggestParticipationNote: AIFeature<typeof inputSchema> = {
   id: "suggestParticipationNote",
   inputSchema,
   model: "mistral:7b",
-  temperature: 0.7,
+  temperature: 0.3,
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
@@ -89,22 +89,28 @@ export const suggestParticipationNote: AIFeature<typeof inputSchema> = {
     const ctx = context as FeatureContext
 
     let task = `Write a brief note for a participant in session "${ctx.sessionTitle}" (${ctx.sessionDate}).`
+
+    task += "\n\n=== PROVIDED DATA ==="
     task += `\nAttendance: ${ctx.attendance}, Payment: ${ctx.payment}`
     task += `\nOverall stats: ${ctx.engagementStats.sessionsAttended} sessions attended, ${ctx.engagementStats.noShows} no-shows, ${ctx.engagementStats.attendanceRate}% attendance rate`
 
     if (ctx.existingNotes) {
-      task += `\n\nExisting notes: "${ctx.existingNotes}"`
+      task += `\nExisting notes: "${ctx.existingNotes}"`
     }
 
     if (ctx.recentHistory.length > 0) {
-      task += `\n\nRecent history:\n${ctx.recentHistory.map((h) => `- ${h}`).join("\n")}`
+      task += `\nRecent history:\n${ctx.recentHistory.map((h) => `- ${h}`).join("\n")}`
     }
+
+    task += "\n=== END DATA ==="
 
     return {
       role: "You are helping group admins write brief notes about session participants.",
       task,
       rules: [
         "Write 1-2 factual sentences",
+        "Only reference the attendance, payment, and history data provided above",
+        "If there is no prior history, do not speculate about the participant's patterns",
         "Mention attendance pattern if notable (e.g. consistent shows, recent no-show)",
         "If existing notes are provided, complement them rather than repeat",
         "Return only the note text, no quotes or labels",

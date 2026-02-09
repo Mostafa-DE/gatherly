@@ -114,45 +114,40 @@ function MembersPage() {
   }
 
   return (
-    <div className="space-y-10 py-6">
-      {/* Hero Section */}
-      <div>
-        <div className="mb-4 inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-sm text-primary">
-          <Users className="mr-2 h-3.5 w-3.5" />
-          Members
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div className="space-y-6 py-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+            <Users className="h-5 w-5 text-primary" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              Manage{" "}
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Members
-              </span>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              Members
             </h1>
-            <p className="mt-2 text-lg text-muted-foreground">
-              {members?.length || 0} member{members?.length !== 1 ? "s" : ""} in your group
+            <p className="text-sm text-muted-foreground">
+              {members?.length || 0} member{members?.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button asChild variant="outline">
-              <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }} className="inline-flex items-center">
-                <Mail className="mr-2 h-4 w-4" />
-                Join Requests
-                {pendingJoinRequestsCount > 0 && (
-                  <Badge className="ml-2 h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums">
-                    {pendingJoinRequestsCount > 99 ? "99+" : pendingJoinRequestsCount}
-                  </Badge>
-                )}
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link to="/dashboard/org/$orgId/invitations" params={{ orgId }}>
-                <UserPlus className="mr-2 h-4 w-4" />
-                Invite
-              </Link>
-            </Button>
-          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link to="/dashboard/org/$orgId/join-requests" params={{ orgId }} className="inline-flex items-center">
+              <Mail className="mr-2 h-4 w-4" />
+              Join Requests
+              {pendingJoinRequestsCount > 0 && (
+                <Badge className="ml-2 h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums">
+                  {pendingJoinRequestsCount > 99 ? "99+" : pendingJoinRequestsCount}
+                </Badge>
+              )}
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link to="/dashboard/org/$orgId/invitations" params={{ orgId }}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Invite
+            </Link>
+          </Button>
         </div>
       </div>
 

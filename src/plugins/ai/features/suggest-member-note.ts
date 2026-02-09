@@ -32,7 +32,7 @@ export const suggestMemberNote: AIFeature<typeof inputSchema> = {
   id: "suggestMemberNote",
   inputSchema,
   model: "mistral:7b",
-  temperature: 0.7,
+  temperature: 0.3,
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
@@ -91,17 +91,31 @@ export const suggestMemberNote: AIFeature<typeof inputSchema> = {
 
   buildPrompt: (input, context) => {
     const ctx = context as FeatureContext
+    const hasHistory = ctx.recentHistory.length > 0
+    const hasProfile = ctx.profileAnswers.length > 0
+    const hasActivity =
+      ctx.engagementStats.sessionsAttended > 0 ||
+      ctx.engagementStats.noShows > 0 ||
+      ctx.engagementStats.upcomingSessions > 0
 
     let task = `Write a brief admin note about member "${ctx.memberName}" (role: ${ctx.memberRole}, joined: ${ctx.joinDate}).`
-    task += `\n\nEngagement: ${ctx.engagementStats.sessionsAttended} sessions attended, ${ctx.engagementStats.noShows} no-shows, ${ctx.engagementStats.attendanceRate}% attendance rate, ${ctx.engagementStats.upcomingSessions} upcoming.`
 
-    if (ctx.recentHistory.length > 0) {
-      task += `\n\nRecent activity:\n${ctx.recentHistory.map((h) => `- ${h}`).join("\n")}`
+    task += "\n\n=== PROVIDED DATA ==="
+    task += `\nEngagement: ${ctx.engagementStats.sessionsAttended} sessions attended, ${ctx.engagementStats.noShows} no-shows, ${ctx.engagementStats.attendanceRate}% attendance rate, ${ctx.engagementStats.upcomingSessions} upcoming.`
+
+    if (hasHistory) {
+      task += `\nRecent activity:\n${ctx.recentHistory.map((h) => `- ${h}`).join("\n")}`
     }
 
-    if (ctx.profileAnswers.length > 0) {
-      task += `\n\nProfile:\n${ctx.profileAnswers.map((a) => `- ${a}`).join("\n")}`
+    if (hasProfile) {
+      task += `\nProfile:\n${ctx.profileAnswers.map((a) => `- ${a}`).join("\n")}`
     }
+
+    if (!hasActivity && !hasProfile && !hasHistory) {
+      task += "\nThis member has no recorded engagement data or profile information."
+    }
+
+    task += "\n=== END DATA ==="
 
     return {
       role: `You are an assistant helping group admins write notes about their members in the group "${input.targetUserId}".`,
@@ -110,6 +124,8 @@ export const suggestMemberNote: AIFeature<typeof inputSchema> = {
         ctx.existingNotes.length > 0 ? ctx.existingNotes.slice(0, 3) : undefined,
       rules: [
         "Write 1-3 factual, action-oriented sentences",
+        "Only reference data points explicitly listed above",
+        "If there is no engagement data or profile information to base a note on, state that there is not enough data to suggest a meaningful note",
         "Base the note on the member's actual engagement data and profile",
         "Do NOT repeat or paraphrase existing notes",
         "Mention notable patterns (e.g. consistent attendance, recent no-shows)",

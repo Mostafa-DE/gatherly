@@ -175,53 +175,49 @@ function ProfilePage() {
             <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>
         </div>
-        {role && <RoleBadge role={role} />}
-      </div>
 
-      {/* ── Nickname section ── */}
-      <div className="rounded-xl border bg-card p-5">
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
-          Nickname
-        </h2>
-        {editingNickname ? (
-          <div className="flex items-center gap-2">
-            <Input
-              value={nicknameValue}
-              onChange={(e) => setNicknameValue(e.target.value)}
-              placeholder="Enter a nickname for this group"
-              maxLength={100}
-              className="bg-white dark:bg-input/30 max-w-sm"
-            />
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={handleNicknameSave}
-              disabled={updateProfile.isPending}
-            >
-              <Check className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="ghost" onClick={handleNicknameCancel}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span className={cn("text-sm", !currentNickname && "text-muted-foreground italic")}>
-              {currentNickname || "No nickname set"}
-            </span>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
+        <div className="flex items-center gap-3">
+          {/* Nickname */}
+          {editingNickname ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={nicknameValue}
+                onChange={(e) => setNicknameValue(e.target.value)}
+                placeholder="Enter a nickname"
+                maxLength={100}
+                className="h-8 w-48 bg-white dark:bg-input/30 text-sm"
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={handleNicknameSave}
+                disabled={updateProfile.isPending}
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleNicknameCancel}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <button
+              className="inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm transition-colors hover:border-primary/50"
               onClick={() => {
                 setNicknameValue(currentNickname ?? "")
                 setEditingNickname(true)
               }}
             >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )}
+              <span className="text-muted-foreground">Nickname:</span>
+              <span className={cn("font-medium", !currentNickname && "text-muted-foreground italic")}>
+                {currentNickname || "Not set"}
+              </span>
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+
+          {role && <RoleBadge role={role} />}
+        </div>
       </div>
 
       {/* ── Engagement stats ── */}

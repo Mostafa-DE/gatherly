@@ -7,9 +7,17 @@ import { Label } from "@/components/ui/label"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { Calendar, UserPlus, Check, X, Loader2 } from "lucide-react"
 import { useUsernameAvailable } from "@/hooks/use-username-available"
+import { navigateToRedirect } from "@/lib/redirect-utils"
+
+type RegisterSearchParams = {
+  redirect?: string
+}
 
 export const Route = createFileRoute("/(auth)/register")({
   component: RegisterPage,
+  validateSearch: (search: Record<string, unknown>): RegisterSearchParams => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+  }),
 })
 
 const SIGNUP_GENERIC_ERROR =
@@ -17,6 +25,7 @@ const SIGNUP_GENERIC_ERROR =
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { redirect: redirectTo } = Route.useSearch()
   const [name, setName] = useState("")
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
@@ -82,11 +91,11 @@ function RegisterPage() {
 
         if (signInResult.error) {
           setError("Account created, but automatic sign-in failed. Please sign in.")
-          navigate({ to: "/login" })
+          navigate({ to: "/login", search: redirectTo ? { redirect: redirectTo } : {} })
           return
         }
 
-        navigate({ to: "/dashboard" })
+        navigateToRedirect(navigate, redirectTo, "/dashboard")
       }
     } catch {
       setError(SIGNUP_GENERIC_ERROR)
@@ -264,6 +273,7 @@ function RegisterPage() {
           Already have an account?{" "}
           <Link
             to="/login"
+            search={redirectTo ? { redirect: redirectTo } : {}}
             className="font-medium text-primary hover:text-primary/80 transition-colors"
           >
             Sign in

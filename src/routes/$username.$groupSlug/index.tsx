@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { trpc } from "@/lib/trpc"
-import { useSession } from "@/auth/client"
+import { useSession, organization as orgClient } from "@/auth/client"
 import { LandingNavbar } from "@/components/landing/landing-navbar"
 import { ShareDialog } from "@/components/share-dialog"
 import { Button } from "@/components/ui/button"
@@ -31,21 +31,24 @@ import { Users, Lock, UserPlus, Clock, CheckCircle, LinkIcon } from "lucide-reac
 import type { FormField } from "@/types/form"
 import { buildOrgUrl } from "@/lib/share-urls"
 import { toast } from "sonner"
+import { navigateToRedirect } from "@/lib/redirect-utils"
 
 type OrgSearchParams = {
   invite?: string
+  redirect?: string
 }
 
 export const Route = createFileRoute("/$username/$groupSlug/")({
   component: PublicOrgPage,
   validateSearch: (search: Record<string, unknown>): OrgSearchParams => ({
     invite: typeof search.invite === "string" ? search.invite : undefined,
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
   }),
 })
 
 function PublicOrgPage() {
   const { username, groupSlug } = Route.useParams()
-  const { invite: inviteToken } = Route.useSearch()
+  const { invite: inviteToken, redirect: redirectTo } = Route.useSearch()
   const navigate = useNavigate()
   const { data: session, isPending: sessionPending } = useSession()
   const isLoggedIn = !sessionPending && !!session?.user
@@ -56,7 +59,9 @@ function PublicOrgPage() {
   const [formError, setFormError] = useState("")
 
   // Get public org info
-  const { data: org, isLoading: orgLoading, error: orgError } = trpc.organization.getPublicInfo.useQuery({ username, groupSlug })
+  const { data: org, isLoading: orgLoading, error: orgError } = trpc.organization.getPublicInfo.useQuery(
+    { username, groupSlug }
+  )
 
   // Get join form schema (only if org is loaded)
   const { data: formSchemaData } = trpc.organization.getJoinFormSchema.useQuery(
@@ -78,9 +83,12 @@ function PublicOrgPage() {
 
   // Join org mutation (for open mode)
   const joinOrgMutation = trpc.organization.joinOrg.useMutation({
-    onSuccess: () => {
-      utils.user.myOrgs.invalidate()
-      navigate({ to: "/dashboard" })
+    onSuccess: async () => {
+      if (org?.id) {
+        await orgClient.setActive({ organizationId: org.id })
+      }
+      await utils.user.myOrgs.invalidate()
+      navigateToRedirect(navigate, redirectTo, "/dashboard")
     },
   })
 
@@ -88,6 +96,9 @@ function PublicOrgPage() {
   const requestJoinMutation = trpc.joinRequest.request.useMutation({
     onSuccess: () => {
       utils.joinRequest.myPendingRequest.invalidate()
+      if (redirectTo) {
+        navigateToRedirect(navigate, redirectTo, `/${username}/${groupSlug}`)
+      }
     },
   })
 
@@ -100,10 +111,13 @@ function PublicOrgPage() {
 
   // Use invite token mutation
   const useTokenMutation = trpc.inviteLink.useToken.useMutation({
-    onSuccess: () => {
-      utils.user.myOrgs.invalidate()
+    onSuccess: async () => {
+      if (org?.id) {
+        await orgClient.setActive({ organizationId: org.id })
+      }
+      await utils.user.myOrgs.invalidate()
       toast.success("You've joined the group!")
-      navigate({ to: "/dashboard" })
+      navigateToRedirect(navigate, redirectTo, "/dashboard")
     },
     onError: (err) => {
       toast.error(err.message)
@@ -147,7 +161,7 @@ function PublicOrgPage() {
 
   const handleJoin = () => {
     if (!session?.user) {
-      navigate({ to: "/login" })
+      navigate({ to: "/login", search: { redirect: `/${username}/${groupSlug}` } })
       return
     }
 
@@ -297,7 +311,18 @@ function PublicOrgPage() {
 
           {/* Not authenticated */}
           {!session?.user && (
-            <Button onClick={() => navigate({ to: "/login" })} className="w-full">
+            <Button
+              onClick={() => {
+                const currentPath = inviteToken
+                  ? `/${username}/${groupSlug}?invite=${inviteToken}`
+                  : `/${username}/${groupSlug}`
+                const redirectParam = redirectTo
+                  ? `${currentPath}${currentPath.includes("?") ? "&" : "?"}redirect=${encodeURIComponent(redirectTo)}`
+                  : currentPath
+                navigate({ to: "/login", search: { redirect: redirectParam } })
+              }}
+              className="w-full"
+            >
               <UserPlus className="mr-2 h-4 w-4" />
               {isInviteValid ? "Sign in to Accept Invite" : "Sign in to Join"}
             </Button>
