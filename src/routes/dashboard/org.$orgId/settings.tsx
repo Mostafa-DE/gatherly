@@ -35,6 +35,8 @@ import { ShareDialog } from "@/components/share-dialog"
 import { buildOrgUrl } from "@/lib/share-urls"
 import { TimezoneSelect } from "@/components/ui/timezone-select"
 import { pluginCatalog } from "@/plugins/catalog"
+import { InterestPicker } from "@/components/onboarding/interest-picker"
+import { Tags } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
   component: SettingsPage,
@@ -60,6 +62,7 @@ function SettingsPage() {
   const [timezoneDraft, setTimezoneDraft] = useState<string | null>(null)
   const [joinModeDraft, setJoinModeDraft] = useState<"open" | "invite" | "approval" | null>(null)
   const [currencyDraft, setCurrencyDraft] = useState<SupportedCurrency | "" | null>(null)
+  const [interestsDraft, setInterestsDraft] = useState<string[] | null>(null)
 
   const org = whoami?.activeOrganization
   const [generalError, setGeneralError] = useState("")
@@ -131,6 +134,29 @@ function SettingsPage() {
       setFormError(err.message)
     },
   })
+
+  // Organization interests
+  const showInterests = (joinMode !== "invite")
+
+  const { data: orgInterestIds } = trpc.onboarding.getOrganizationInterests.useQuery(
+    undefined,
+    { enabled: isAdmin && showInterests }
+  )
+
+  const persistedInterests = orgInterestIds ?? []
+  const currentInterests = interestsDraft ?? persistedInterests
+  const interestsDirty = interestsDraft !== null
+
+  const saveOrgInterests = trpc.onboarding.setOrganizationInterests.useMutation({
+    onSuccess: () => {
+      utils.onboarding.getOrganizationInterests.invalidate()
+      setInterestsDraft(null)
+    },
+  })
+
+  const handleSaveInterests = () => {
+    saveOrgInterests.mutate({ interestIds: currentInterests })
+  }
 
   const generateFieldId = () => `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
@@ -398,6 +424,38 @@ function SettingsPage() {
                 }
               />
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Interest Tags */}
+      {isAdmin && showInterests && (
+        <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Tags className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Interest Tags</h2>
+              <p className="text-sm text-muted-foreground">
+                Tag your group with interests to help people discover it
+              </p>
+            </div>
+          </div>
+
+          <InterestPicker
+            selected={currentInterests}
+            onChange={setInterestsDraft}
+          />
+
+          <div className="mt-6 border-t border-border/50 pt-6">
+            <Button
+              onClick={handleSaveInterests}
+              disabled={!interestsDirty || saveOrgInterests.isPending}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saveOrgInterests.isPending ? "Saving..." : "Save Interests"}
+            </Button>
           </div>
         </div>
       )}

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select"
 import { getTimezones } from "@/lib/timezones"
 import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
+import { InterestPicker } from "@/components/onboarding/interest-picker"
 
 export const Route = createFileRoute("/dashboard/groups/create")({
   component: CreateGroupPage,
@@ -53,6 +54,7 @@ function CreateGroupPage() {
     "open" | "invite" | "approval"
   >("invite")
   const [error, setError] = useState("")
+  const [interestIds, setInterestIds] = useState<string[]>([])
   const timezones = useMemo(() => getTimezones(), [])
 
   const utils = trpc.useUtils()
@@ -103,6 +105,7 @@ function CreateGroupPage() {
       timezone,
       defaultJoinMode,
       currency: currency as typeof SUPPORTED_CURRENCIES[number],
+      interestIds: defaultJoinMode !== "invite" ? interestIds : undefined,
     })
   }
 
@@ -220,6 +223,19 @@ function CreateGroupPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {defaultJoinMode !== "invite" && (
+                <div className="space-y-2">
+                  <Label>Interests (optional)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Tag your group with interests to help people discover it
+                  </p>
+                  <InterestPicker
+                    selected={interestIds}
+                    onChange={setInterestIds}
+                  />
+                </div>
+              )}
             </CardContent>
 
             <CardFooter className="flex justify-between">

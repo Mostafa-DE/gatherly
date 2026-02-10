@@ -95,7 +95,7 @@ function RegisterPage() {
           return
         }
 
-        navigateToRedirect(navigate, redirectTo, "/dashboard")
+        navigateToRedirect(navigate, redirectTo, "/onboarding")
       }
     } catch {
       setError(SIGNUP_GENERIC_ERROR)

@@ -36,6 +36,20 @@
       "when": 1770641864926,
       "tag": "0004_flowery_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770737010911,
+      "tag": "0005_overjoyed_sauron",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1770739296740,
+      "tag": "0006_moaning_thor",
+      "breakpoints": true
     }
   ]
 }

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
@@ -38,6 +39,11 @@ import { Route as DashboardOrgOrgIdSessionsSessionIdIndexRouteImport } from './r
 import { Route as DashboardOrgOrgIdSessionsSessionIdRosterRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/roster'
 import { Route as DashboardOrgOrgIdSessionsSessionIdEditRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/edit'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -196,6 +202,7 @@ const DashboardOrgOrgIdSessionsSessionIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/onboarding': typeof OnboardingRoute
   '/login': typeof authLoginRoute
   '/register': typeof authRegisterRoute
   '/api/health': typeof ApiHealthRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/onboarding': typeof OnboardingRoute
   '/login': typeof authLoginRoute
   '/register': typeof authRegisterRoute
   '/api/health': typeof ApiHealthRoute
@@ -254,6 +262,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/onboarding': typeof OnboardingRoute
   '/(auth)/login': typeof authLoginRoute
   '/(auth)/register': typeof authRegisterRoute
   '/api/health': typeof ApiHealthRoute
@@ -286,6 +295,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/dashboard'
+    | '/onboarding'
     | '/login'
     | '/register'
     | '/api/health'
@@ -315,6 +325,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/onboarding'
     | '/login'
     | '/register'
     | '/api/health'
@@ -343,6 +354,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/dashboard'
+    | '/onboarding'
     | '/(auth)/login'
     | '/(auth)/register'
     | '/api/health'
@@ -374,6 +386,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  OnboardingRoute: typeof OnboardingRoute
   authLoginRoute: typeof authLoginRoute
   authRegisterRoute: typeof authRegisterRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -385,6 +398,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -660,6 +680,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  OnboardingRoute: OnboardingRoute,
   authLoginRoute: authLoginRoute,
   authRegisterRoute: authRegisterRoute,
   ApiHealthRoute: ApiHealthRoute,

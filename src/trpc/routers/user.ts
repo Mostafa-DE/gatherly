@@ -8,6 +8,7 @@ import { organizationSettings } from "@/db/schema"
 import { auth } from "@/auth"
 import { NotFoundError, BadRequestError } from "@/exceptions"
 import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
+import { setOrganizationInterests } from "@/data-access/interests"
 
 export const userRouter = router({
   me: protectedProcedure.query(async ({ ctx }) => {
@@ -88,6 +89,7 @@ export const userRouter = router({
         timezone: z.string().optional(),
         defaultJoinMode: z.enum(["open", "invite", "approval"]).default("invite"),
         currency: z.enum(SUPPORTED_CURRENCIES).nullable().optional(),
+        interestIds: z.array(z.string()).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -120,6 +122,11 @@ export const userRouter = router({
           joinFormSchema: null,
           joinFormVersion: 1,
         })
+      }
+
+      // Save organization interests if provided
+      if (input.interestIds && input.interestIds.length > 0) {
+        await setOrganizationInterests(org.id, input.interestIds)
       }
 
       return org

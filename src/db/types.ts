@@ -7,6 +7,10 @@ import type {
   joinRequest,
   inviteLink,
   memberNote,
+  interestCategory,
+  interest,
+  userInterest,
+  organizationInterest,
 } from "@/db/schema"
 
 // Auth types (from Better Auth)
@@ -36,3 +40,11 @@ export type InviteLink = typeof inviteLink.$inferSelect
 export type NewInviteLink = typeof inviteLink.$inferInsert
 export type MemberNote = typeof memberNote.$inferSelect
 export type NewMemberNote = typeof memberNote.$inferInsert
+export type InterestCategory = typeof interestCategory.$inferSelect
+export type NewInterestCategory = typeof interestCategory.$inferInsert
+export type Interest = typeof interest.$inferSelect
+export type NewInterest = typeof interest.$inferInsert
+export type UserInterest = typeof userInterest.$inferSelect
+export type NewUserInterest = typeof userInterest.$inferInsert
+export type OrganizationInterest = typeof organizationInterest.$inferSelect
+export type NewOrganizationInterest = typeof organizationInterest.$inferInsert

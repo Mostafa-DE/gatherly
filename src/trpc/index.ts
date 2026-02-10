@@ -5,10 +5,25 @@ import superjson from "superjson"
 import type { Context } from "@/trpc/context"
 import { ValidationError } from "@/exceptions"
 import { organization, member } from "@/db/auth-schema"
+import { logger } from "@/lib/logger"
+
+const trpcLogger = logger.withTag("trpc")
+
+const expectedCodes = new Set([
+  "NOT_FOUND",
+  "BAD_REQUEST",
+  "UNAUTHORIZED",
+  "FORBIDDEN",
+])
 
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter(opts) {
+    // Log unexpected server errors
+    if (!expectedCodes.has(opts.error.code)) {
+      trpcLogger.error(opts.error.message, opts.error.cause ?? "")
+    }
+
     // Normalize ValidationError to BAD_REQUEST
     if (opts.error.cause instanceof ValidationError) {
       return {

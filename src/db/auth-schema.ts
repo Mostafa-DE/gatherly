@@ -21,6 +21,11 @@ export const user = pgTable("user", {
     .notNull(),
   phoneNumber: text("phone_number").notNull().unique(),
   username: text("username").notNull().unique(),
+  intent: text("intent"),
+  country: text("country"),
+  city: text("city"),
+  timezone: text("timezone"),
+  onboardingCompleted: boolean("onboarding_completed").default(false),
 });
 
 export const session = pgTable(

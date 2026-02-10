@@ -15,6 +15,7 @@ import {
   uniqueIndex,
   numeric,
   boolean,
+  primaryKey,
 } from "drizzle-orm/pg-core"
 import { createId } from "@paralleldrive/cuid2"
 import { user, organization } from "@/db/auth-schema"
@@ -263,6 +264,83 @@ export const inviteLink = pgTable(
 )
 
 // =============================================================================
+// Interest Category
+// =============================================================================
+
+export const interestCategory = pgTable("interest_category", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  displayOrder: integer("display_order").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+})
+
+// =============================================================================
+// Interest
+// =============================================================================
+
+export const interest = pgTable(
+  "interest",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    categoryId: text("category_id")
+      .notNull()
+      .references(() => interestCategory.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    popular: boolean("popular").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("interest_category_slug_idx").on(table.categoryId, table.slug),
+  ]
+)
+
+// =============================================================================
+// User Interest (many-to-many)
+// =============================================================================
+
+export const userInterest = pgTable(
+  "user_interest",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    interestId: text("interest_id")
+      .notNull()
+      .references(() => interest.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.interestId] }),
+  ]
+)
+
+// =============================================================================
+// Organization Interest (many-to-many)
+// =============================================================================
+
+export const organizationInterest = pgTable(
+  "organization_interest",
+  {
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    interestId: text("interest_id")
+      .notNull()
+      .references(() => interest.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.interestId] }),
+  ]
+)
+
+// =============================================================================
 // Relations
 // =============================================================================
 
@@ -356,6 +434,41 @@ export const joinRequestRelations = relations(joinRequest, ({ one }) => ({
   }),
 }))
 
+export const interestCategoryRelations = relations(interestCategory, ({ many }) => ({
+  interests: many(interest),
+}))
+
+export const interestRelations = relations(interest, ({ one, many }) => ({
+  category: one(interestCategory, {
+    fields: [interest.categoryId],
+    references: [interestCategory.id],
+  }),
+  userInterests: many(userInterest),
+  organizationInterests: many(organizationInterest),
+}))
+
+export const userInterestRelations = relations(userInterest, ({ one }) => ({
+  user: one(user, {
+    fields: [userInterest.userId],
+    references: [user.id],
+  }),
+  interest: one(interest, {
+    fields: [userInterest.interestId],
+    references: [interest.id],
+  }),
+}))
+
+export const organizationInterestRelations = relations(organizationInterest, ({ one }) => ({
+  organization: one(organization, {
+    fields: [organizationInterest.organizationId],
+    references: [organization.id],
+  }),
+  interest: one(interest, {
+    fields: [organizationInterest.interestId],
+    references: [interest.id],
+  }),
+}))
+
 // =============================================================================
 // Type Exports
 // =============================================================================
@@ -385,4 +498,12 @@ export type {
   NewInviteLink,
   MemberNote,
   NewMemberNote,
+  InterestCategory,
+  NewInterestCategory,
+  Interest,
+  NewInterest,
+  UserInterest,
+  NewUserInterest,
+  OrganizationInterest,
+  NewOrganizationInterest,
 } from "@/db/types"

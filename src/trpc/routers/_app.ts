@@ -9,6 +9,7 @@ import { organizationRouter } from "@/trpc/routers/organization"
 import { inviteLinkRouter } from "@/trpc/routers/invite-link"
 import { memberNoteRouter } from "@/trpc/routers/member-note"
 import { pluginRouter } from "@/plugins/registry"
+import { onboardingRouter } from "@/trpc/routers/onboarding"
 
 export const appRouter = router({
   user: userRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   inviteLink: inviteLinkRouter,
   memberNote: memberNoteRouter,
   plugin: pluginRouter,
+  onboarding: onboardingRouter,
 })
 
 export type AppRouter = typeof appRouter

@@ -70,6 +70,32 @@ export const auth = betterAuth({
         unique: true,
         input: true,
       },
+      intent: {
+        type: "string",
+        required: false,
+        input: true,
+      },
+      country: {
+        type: "string",
+        required: false,
+        input: true,
+      },
+      city: {
+        type: "string",
+        required: false,
+        input: true,
+      },
+      timezone: {
+        type: "string",
+        required: false,
+        input: true,
+      },
+      onboardingCompleted: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: true,
+      },
     },
   },
   plugins: [

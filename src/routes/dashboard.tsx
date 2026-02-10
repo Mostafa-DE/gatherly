@@ -21,6 +21,10 @@ function DashboardLayout() {
     return <Navigate to="/login" />
   }
 
+  if (!isPending && session?.user && !session.user.onboardingCompleted) {
+    return <Navigate to="/onboarding" />
+  }
+
   // Show loading while checking auth or redirecting
   if (isPending || !session?.user) {
     return (
