@@ -55,9 +55,12 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy built output
 COPY --from=build /app/.output ./.output
 
-# Copy drizzle config and migrations for runtime migrations
-COPY drizzle.config.ts ./
+# Copy drizzle config, migrations, and tsconfig for runtime migrations & seeding
+COPY drizzle.config.ts tsconfig.json ./
 COPY --from=build /app/src/db ./src/db
+
+# Copy seed scripts for runtime seeding
+COPY --from=build /app/scripts ./scripts
 
 # Create startup script that runs migrations then starts server
 COPY <<'EOF' /app/start.sh
@@ -66,6 +69,9 @@ set -e
 
 echo "Running database migrations..."
 npx drizzle-kit migrate
+
+echo "Running seed scripts..."
+npx tsx ./scripts/seed-interests.ts
 
 echo "Starting server..."
 exec node .output/server/index.mjs
