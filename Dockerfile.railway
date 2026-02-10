@@ -71,7 +71,7 @@ echo "Running database migrations..."
 npx drizzle-kit migrate
 
 echo "Running seed scripts..."
-npx tsx ./scripts/seed-interests.ts
+pnpm exec tsx ./scripts/seed-interests.ts
 
 echo "Starting server..."
 exec node .output/server/index.mjs
