@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { and, eq, inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { db } from "@/db"
 import {

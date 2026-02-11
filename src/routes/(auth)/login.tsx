@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
-import { signIn } from "@/auth/client"
+import { signIn, useSession } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -21,6 +21,10 @@ export const Route = createFileRoute("/(auth)/login")({
 function LoginPage() {
   const navigate = useNavigate()
   const { redirect: redirectTo } = Route.useSearch()
+  // Keep session atom subscribed so sign-in can update it.
+  // Better Auth delays the session signal by 10ms after sign-in,
+  // so we explicitly refetch before navigating.
+  const { refetch } = useSession()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -39,12 +43,13 @@ function LoginPage() {
 
       if (result.error) {
         setError("Invalid email or password")
+        setLoading(false)
       } else {
+        await refetch()
         navigateToRedirect(navigate, redirectTo, "/dashboard")
       }
     } catch {
       setError("An unexpected error occurred")
-    } finally {
       setLoading(false)
     }
   }

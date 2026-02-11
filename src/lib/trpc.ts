@@ -9,7 +9,7 @@ export function getTrpcClient() {
   return trpc.createClient({
     links: [
       loggerLink({
-        enabled: (opts) =>
+        enabled: () =>
           process.env.NODE_ENV === "development" &&
           typeof window !== "undefined",
       }),

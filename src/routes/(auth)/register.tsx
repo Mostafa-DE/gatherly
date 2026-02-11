@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
-import { signIn, signUp } from "@/auth/client"
+import { signIn, signUp, useSession } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +26,7 @@ const SIGNUP_GENERIC_ERROR =
 function RegisterPage() {
   const navigate = useNavigate()
   const { redirect: redirectTo } = Route.useSearch()
+  const { refetch } = useSession()
   const [name, setName] = useState("")
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
@@ -95,6 +96,7 @@ function RegisterPage() {
           return
         }
 
+        await refetch()
         navigateToRedirect(navigate, redirectTo, "/onboarding")
       }
     } catch {
