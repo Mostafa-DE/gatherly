@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { eq, and } from "drizzle-orm"
 import { router, publicProcedure, protectedProcedure } from "@/trpc"
-import { getUserById, getUserByUsername, updateUser } from "@/data-access/users"
+import { getPublicUserById, getUserByUsername, updateUser } from "@/data-access/users"
 import { updateProfileSchema, usernameSchema } from "@/schemas/user"
 import { organization, member, invitation } from "@/db/auth-schema"
 import { organizationSettings } from "@/db/schema"
@@ -18,7 +18,7 @@ export const userRouter = router({
   getById: publicProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
-      return getUserById(input.id)
+      return getPublicUserById(input.id)
     }),
 
   updateProfile: protectedProcedure

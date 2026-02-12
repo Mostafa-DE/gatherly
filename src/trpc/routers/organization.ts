@@ -194,6 +194,8 @@ export const organizationRouter = router({
    * List organization members (Admin only)
    */
   listMembers: orgProcedure.query(async ({ ctx }) => {
+    assertOwnerOrAdmin(ctx.membership.role)
+
     return ctx.db
       .select({
         member: member,

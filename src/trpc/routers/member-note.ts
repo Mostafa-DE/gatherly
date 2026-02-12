@@ -43,7 +43,12 @@ export const memberNoteRouter = router({
     .input(updateMemberNoteSchema)
     .mutation(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      const updated = await updateMemberNote(input.noteId, ctx.user.id, input.content)
+      const updated = await updateMemberNote(
+        ctx.activeOrganization.id,
+        input.noteId,
+        ctx.user.id,
+        input.content
+      )
       if (!updated) {
         throw new NotFoundError("Note not found or you are not the author")
       }
@@ -54,7 +59,11 @@ export const memberNoteRouter = router({
     .input(deleteMemberNoteSchema)
     .mutation(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      const deleted = await deleteMemberNote(input.noteId, ctx.user.id)
+      const deleted = await deleteMemberNote(
+        ctx.activeOrganization.id,
+        input.noteId,
+        ctx.user.id
+      )
       if (!deleted) {
         throw new NotFoundError("Note not found or you are not the author")
       }

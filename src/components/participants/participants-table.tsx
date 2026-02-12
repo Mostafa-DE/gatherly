@@ -451,7 +451,7 @@ export function ParticipantsTable({
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 w-7 p-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="h-7 w-7 p-0 text-muted-foreground sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                               onClick={(e) => e.stopPropagation()}
                               disabled={isMoving}
                               title="Move to another session"

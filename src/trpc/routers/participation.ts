@@ -132,7 +132,22 @@ export const participationRouter = router({
     .query(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSession(input.sessionId)
-        return getSessionParticipants(input.sessionId, input)
+        const participants = await getSessionParticipants(input.sessionId, input)
+        const isAdmin =
+          ctx.membership.role === "owner" || ctx.membership.role === "admin"
+
+        if (isAdmin) {
+          return participants
+        }
+
+        return participants.map((entry) => ({
+          ...entry,
+          user: {
+            ...entry.user,
+            email: "",
+            phoneNumber: "",
+          },
+        }))
       })
     }),
 

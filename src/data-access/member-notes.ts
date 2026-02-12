@@ -47,6 +47,7 @@ export async function listMemberNotes(
 }
 
 export async function updateMemberNote(
+  organizationId: string,
   noteId: string,
   authorUserId: string,
   content: string
@@ -57,6 +58,7 @@ export async function updateMemberNote(
     .where(
       and(
         eq(memberNote.id, noteId),
+        eq(memberNote.organizationId, organizationId),
         eq(memberNote.authorUserId, authorUserId)
       )
     )
@@ -65,6 +67,7 @@ export async function updateMemberNote(
 }
 
 export async function deleteMemberNote(
+  organizationId: string,
   noteId: string,
   authorUserId: string
 ): Promise<boolean> {
@@ -73,6 +76,7 @@ export async function deleteMemberNote(
     .where(
       and(
         eq(memberNote.id, noteId),
+        eq(memberNote.organizationId, organizationId),
         eq(memberNote.authorUserId, authorUserId)
       )
     )

@@ -11,6 +11,20 @@ export async function getUserById(id: string) {
   return result[0] ?? null
 }
 
+export async function getPublicUserById(id: string) {
+  const result = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      image: user.image,
+      username: user.username,
+    })
+    .from(user)
+    .where(eq(user.id, id))
+    .limit(1)
+  return result[0] ?? null
+}
+
 export async function getUserByUsername(username: string) {
   const result = await db
     .select()
