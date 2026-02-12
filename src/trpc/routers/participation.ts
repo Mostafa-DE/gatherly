@@ -1,6 +1,7 @@
 import { router, orgProcedure } from "@/trpc"
-import { ForbiddenError, NotFoundError } from "@/exceptions"
+import { ForbiddenError, NotFoundError, BadRequestError } from "@/exceptions"
 import { withOrgScope } from "@/data-access/org-scope"
+import { parseJoinFormSchema, validateJoinFormAnswers } from "@/use-cases/form-validation"
 import {
   joinSession,
   cancelParticipation,
@@ -58,8 +59,17 @@ export const participationRouter = router({
     .input(joinSessionSchema)
     .mutation(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSession(input.sessionId)
-        return joinSession(input.sessionId, ctx.user.id)
+        const session = await scope.requireSession(input.sessionId)
+        const formSchema = parseJoinFormSchema(session.joinFormSchema)
+
+        if (formSchema && formSchema.fields.length > 0) {
+          if (!input.formAnswers) {
+            throw new BadRequestError("This session requires a join form to be filled out")
+          }
+          validateJoinFormAnswers(formSchema, input.formAnswers)
+        }
+
+        return joinSession(input.sessionId, ctx.user.id, input.formAnswers)
       })
     }),
 

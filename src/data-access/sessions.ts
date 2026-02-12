@@ -301,6 +301,7 @@ export async function createSession(
       maxCapacity: data.maxCapacity,
       maxWaitlist: data.maxWaitlist,
       joinMode: data.joinMode,
+      joinFormSchema: data.joinFormSchema ?? null,
       status: "draft",
     })
     .returning()

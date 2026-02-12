@@ -253,7 +253,8 @@ export async function getWaitlistPosition(
  */
 export async function joinSession(
   sessionId: string,
-  userId: string
+  userId: string,
+  formAnswers?: Record<string, unknown>
 ): Promise<Participation> {
   return await db.transaction(async (tx) => {
     // 1. Lock session row — concurrent requests serialize here
@@ -344,6 +345,7 @@ export async function joinSession(
           sessionId,
           userId,
           status,
+          formAnswers: formAnswers ?? null,
           joinedAt: new Date(),
         })
         .returning()

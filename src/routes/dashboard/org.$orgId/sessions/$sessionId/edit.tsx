@@ -21,6 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Plus, ChevronDown, ChevronUp } from "lucide-react"
+import { FormFieldEditor, useFormFields } from "@/components/form-field-editor"
+import type { JoinFormSchema } from "@/types/form"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/edit"
@@ -74,6 +77,9 @@ function EditSessionPage() {
 
   const [formDraft, setFormDraft] = useState<SessionFormDraft | null>(null)
   const [error, setError] = useState("")
+  const [showJoinForm, setShowJoinForm] = useState(false)
+  const [joinFormInitialized, setJoinFormInitialized] = useState<string | null>(null)
+  const joinForm = useFormFields([])
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
@@ -199,6 +205,16 @@ function EditSessionPage() {
     )
   }
 
+  // Initialize join form fields from session data (once per session)
+  if (joinFormInitialized !== sessionId) {
+    const existingFields = (sessionData.joinFormSchema as JoinFormSchema | null)?.fields ?? []
+    joinForm.reset(existingFields)
+    if (existingFields.length > 0) {
+      setShowJoinForm(true)
+    }
+    setJoinFormInitialized(sessionId)
+  }
+
   const initialForm: SessionForm = {
     title: sessionData.title,
     description: sessionData.description || "",
@@ -271,6 +287,24 @@ function EditSessionPage() {
       return
     }
 
+    // Validate join form fields
+    for (const field of joinForm.fields) {
+      if (!field.label.trim()) {
+        setError("All join form fields must have a label")
+        return
+      }
+      if (
+        (field.type === "select" || field.type === "multiselect") &&
+        (!field.options || field.options.length === 0)
+      ) {
+        setError(`Field "${field.label}" needs at least one option`)
+        return
+      }
+    }
+
+    const joinFormSchema: JoinFormSchema | null =
+      joinForm.fields.length > 0 ? { fields: joinForm.fields } : null
+
     updateSession.mutate({
       sessionId,
       title: form.title.trim(),
@@ -281,6 +315,7 @@ function EditSessionPage() {
       maxWaitlist: waitlist,
       joinMode: form.joinMode,
       price: trimmedPrice || null,
+      joinFormSchema,
     })
   }
 
@@ -443,6 +478,73 @@ function EditSessionPage() {
                       </Link>{" "}
                       to enable pricing.
                     </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Join Form (optional) */}
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  onClick={() => setShowJoinForm(!showJoinForm)}
+                >
+                  <div>
+                    <Label className="cursor-pointer">Join Form (optional)</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {joinForm.fields.length > 0
+                        ? `${joinForm.fields.length} field${joinForm.fields.length !== 1 ? "s" : ""} configured`
+                        : "Add custom fields members fill when joining"}
+                    </p>
+                  </div>
+                  {showJoinForm ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </button>
+
+                {showJoinForm && (
+                  <div className="space-y-3 rounded-lg border border-border/50 p-4">
+                    {joinForm.fields.length === 0 ? (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          No form fields yet. Add fields that members will fill out when joining this session.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={joinForm.addField}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add First Field
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        {joinForm.fields.map((field, index) => (
+                          <FormFieldEditor
+                            key={field.id}
+                            field={field}
+                            index={index}
+                            totalFields={joinForm.fields.length}
+                            onUpdate={(updates) => joinForm.updateField(field.id, updates)}
+                            onRemove={() => joinForm.removeField(field.id)}
+                            onMoveUp={() => joinForm.moveField(index, "up")}
+                            onMoveDown={() => joinForm.moveField(index, "down")}
+                          />
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={joinForm.addField}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Field
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

@@ -50,6 +50,13 @@
       "when": 1770739296740,
       "tag": "0006_moaning_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1770914167228,
+      "tag": "0007_aromatic_thena",
+      "breakpoints": true
     }
   ]
 }

@@ -41,6 +41,7 @@ export const participationInsertSchema = createInsertSchema(participation, {
 /** Join a session */
 export const joinSessionSchema = z.object({
   sessionId: z.string(),
+  formAnswers: z.record(z.string(), z.unknown()).optional(),
 })
 
 /** Cancel participation */

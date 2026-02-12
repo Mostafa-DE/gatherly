@@ -33,6 +33,8 @@ import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
 import { ShareDialog } from "@/components/share-dialog"
 import { buildSessionUrl } from "@/lib/share-urls"
+import { SessionJoinFormDialog } from "@/components/session-join-form-dialog"
+import type { JoinFormSchema } from "@/types/form"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/"
@@ -95,6 +97,7 @@ function SessionDetailPage() {
   const utils = trpc.useUtils()
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showJoinFormDialog, setShowJoinFormDialog] = useState(false)
 
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin =
@@ -245,6 +248,23 @@ function SessionDetailPage() {
     (sessionData.status === "draft" || sessionData.status === "published")
 
   const showParticipants = !isDraft || isAdmin
+  const sessionFormFields = (sessionData.joinFormSchema as JoinFormSchema | null)?.fields ?? []
+  const hasJoinForm = sessionFormFields.length > 0
+
+  const handleJoinClick = () => {
+    if (hasJoinForm) {
+      setShowJoinFormDialog(true)
+    } else {
+      joinMutation.mutate({ sessionId })
+    }
+  }
+
+  const handleJoinFormSubmit = (answers: Record<string, unknown>) => {
+    joinMutation.mutate(
+      { sessionId, formAnswers: answers },
+      { onSuccess: () => setShowJoinFormDialog(false) }
+    )
+  }
 
   return (
     <div className="py-6 space-y-6 max-w-4xl">
@@ -601,7 +621,7 @@ function SessionDetailPage() {
               sessionJoinMode={sessionData.joinMode}
               myParticipation={myParticipation}
               spotsLeft={spotsLeft}
-              onJoin={() => joinMutation.mutate({ sessionId })}
+              onJoin={handleJoinClick}
               onCancel={() =>
                 cancelMutation.mutate({
                   participationId: myParticipation!.id,
@@ -699,6 +719,18 @@ function SessionDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Join Form Dialog */}
+      {hasJoinForm && (
+        <SessionJoinFormDialog
+          open={showJoinFormDialog}
+          onOpenChange={setShowJoinFormDialog}
+          fields={sessionFormFields}
+          sessionTitle={sessionData.title}
+          onSubmit={handleJoinFormSubmit}
+          isPending={joinMutation.isPending}
+        />
       )}
     </div>
   )

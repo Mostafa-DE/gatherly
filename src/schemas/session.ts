@@ -7,6 +7,7 @@ import {
   type SessionStatus,
   type JoinMode,
 } from "@/lib/sessions/state-machine"
+import { joinFormSchemaSchema } from "@/schemas/organization-settings"
 
 // =============================================================================
 // Zod Enums
@@ -45,6 +46,7 @@ export const createSessionSchema = z.object({
   maxWaitlist: z.number().int().nonnegative().default(0),
   joinMode: joinModeSchema.default("open"),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format").nullable().optional(),
+  joinFormSchema: joinFormSchemaSchema.nullable().optional(),
 })
 
 /** Update an existing session */
@@ -57,6 +59,7 @@ export const updateSessionSchema = z.object({
   maxWaitlist: z.number().int().nonnegative().optional(),
   joinMode: joinModeSchema.optional(),
   price: z.string().regex(/^\d+(\.\d{1,2})?$/, "Invalid price format").nullable().optional(),
+  joinFormSchema: joinFormSchemaSchema.nullable().optional(),
 })
 
 /** Update session status */

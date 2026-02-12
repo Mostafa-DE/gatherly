@@ -22,7 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square, UserPlus, ArrowRightLeft, Sparkles } from "lucide-react"
+import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square, UserPlus, ArrowRightLeft, Sparkles, FileText } from "lucide-react"
+import type { FormField, JoinFormSchema } from "@/types/form"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useAISuggestParticipationNote } from "@/plugins/ai/hooks/use-ai-suggestion"
 
@@ -192,6 +193,8 @@ function SessionRosterPage() {
   const availableTargetSessions = orgSessions?.filter(
     (s) => s.id !== sessionId && s.status !== "cancelled" && s.status !== "completed"
   ) ?? []
+
+  const sessionFormFields = (sessionData?.joinFormSchema as JoinFormSchema | null)?.fields ?? []
 
   if (whoamiLoading) {
     return (
@@ -505,6 +508,7 @@ function SessionRosterPage() {
                           participation={item.participation}
                           user={item.user}
                           sessionId={sessionId}
+                          formFields={sessionFormFields}
                           onUpdate={(data) =>
                             updateParticipation.mutate({
                               participationId: item.participation.id,
@@ -626,6 +630,7 @@ type ParticipantRowProps = {
     attendance: string
     payment: string
     notes: string | null
+    formAnswers: unknown
   }
   user: {
     id: string
@@ -634,6 +639,7 @@ type ParticipantRowProps = {
     image: string | null
   }
   sessionId: string
+  formFields: FormField[]
   onUpdate: (data: { attendance?: "pending" | "show" | "no_show"; payment?: "unpaid" | "paid"; notes?: string | null }) => void
   isUpdating: boolean
   availableTargetSessions: Array<{ id: string; title: string; status: string }>
@@ -647,6 +653,7 @@ function ParticipantRow({
   participation,
   user,
   sessionId,
+  formFields,
   onUpdate,
   isUpdating,
   availableTargetSessions,
@@ -656,6 +663,7 @@ function ParticipantRow({
   onMove,
 }: ParticipantRowProps) {
   const [showNotes, setShowNotes] = useState(false)
+  const [showFormAnswers, setShowFormAnswers] = useState(false)
   const [notesValue, setNotesValue] = useState(participation.notes || "")
   const [notesDirty, setNotesDirty] = useState(false)
   const [selectedTargetSession, setSelectedTargetSession] = useState("")
@@ -793,6 +801,21 @@ function ParticipantRow({
             Move
           </Button>
         )}
+        {formFields.length > 0 && !!participation.formAnswers && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowFormAnswers(!showFormAnswers)}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            Form
+            {showFormAnswers ? (
+              <ChevronUp className="h-4 w-4 ml-1" />
+            ) : (
+              <ChevronDown className="h-4 w-4 ml-1" />
+            )}
+          </Button>
+        )}
       </div>
       {showMoveUI && availableTargetSessions.length > 0 && (
         <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
@@ -831,6 +854,26 @@ function ParticipantRow({
           >
             Cancel
           </Button>
+        </div>
+      )}
+      {showFormAnswers && formFields.length > 0 && !!participation.formAnswers && (
+        <div className="rounded-md bg-muted/50 p-3 space-y-1.5">
+          {formFields.map((field) => {
+            const answers = participation.formAnswers as Record<string, unknown>
+            const answer = answers[field.id]
+            if (answer === undefined || answer === null) return null
+            const displayValue = Array.isArray(answer)
+              ? answer.join(", ")
+              : typeof answer === "boolean"
+                ? answer ? "Yes" : "No"
+                : String(answer)
+            return (
+              <div key={field.id} className="flex gap-2 text-sm">
+                <span className="font-medium text-muted-foreground">{field.label}:</span>
+                <span>{displayValue}</span>
+              </div>
+            )
+          })}
         </div>
       )}
       {showNotes && (

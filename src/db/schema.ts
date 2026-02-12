@@ -104,6 +104,7 @@ export const eventSession = pgTable(
     price: numeric("price", { precision: 10, scale: 2 }), // null = free
     joinMode: text("join_mode").default("open").notNull(), // 'open' | 'approval_required' | 'invite_only'
     status: text("status").default("draft").notNull(), // 'draft' | 'published' | 'cancelled' | 'completed'
+    joinFormSchema: jsonb("join_form_schema"), // Custom form fields for session join
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -144,6 +145,7 @@ export const participation = pgTable(
     paymentRef: text("payment_ref"),
     checkInRef: text("check_in_ref"),
     notes: text("notes"),
+    formAnswers: jsonb("form_answers"), // Answers to session join form
     joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
