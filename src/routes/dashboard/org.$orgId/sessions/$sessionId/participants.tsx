@@ -4,28 +4,24 @@ import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { ArrowLeft, MessageSquare, ChevronDown, ChevronUp, Save, CheckSquare, Square, UserPlus, ArrowRightLeft, Sparkles, FileText } from "lucide-react"
-import type { FormField, JoinFormSchema } from "@/types/form"
-import { Checkbox } from "@/components/ui/checkbox"
-import { useAISuggestParticipationNote } from "@/plugins/ai/hooks/use-ai-suggestion"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ArrowLeft } from "lucide-react"
+import { toast } from "sonner"
+import type { JoinFormSchema } from "@/types/form"
+import type { AttendanceStatus, PaymentStatus } from "@/lib/sessions/state-machine"
+import {
+  ParticipantsToolbar,
+  ParticipantsTable,
+  BulkActionBar,
+  AddParticipantDialog,
+} from "@/components/participants"
+import type { ParticipantData, UpdateParticipationData } from "@/components/participants"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/participants"
@@ -37,32 +33,34 @@ function SessionParticipantsPage() {
   const { orgId, sessionId } = Route.useParams()
   const utils = trpc.useUtils()
 
+  // UI state
+  const [activeTab, setActiveTab] = useState<"joined" | "waitlisted" | "pending">("joined")
+  const [search, setSearch] = useState("")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [bulkAction, setBulkAction] = useState<"pending" | "show" | "no_show">("show")
+  const [bulkAttendanceAction, setBulkAttendanceAction] = useState<AttendanceStatus>("show")
+  const [bulkPaymentAction, setBulkPaymentAction] = useState<PaymentStatus>("paid")
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
-  // Add participant state
-  const [addIdentifier, setAddIdentifier] = useState("")
-  const [addError, setAddError] = useState("")
-
-  // Move participant state
-  const [movingParticipationId, setMovingParticipationId] = useState<string | null>(null)
-
+  // Auth
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
 
+  // Session data
   const { data: sessionData } = trpc.session.getById.useQuery({ sessionId })
 
-  // Get other sessions in the org for moving participants
+  // Other sessions for move feature
   const { data: orgSessions } = trpc.session.list.useQuery(
     { limit: 100 },
     { enabled: isAdmin }
   )
 
+  // Participant queries — all three tabs, with search
   const {
     data: joinedParticipants,
     isLoading: joinedLoading,
   } = trpc.participation.participants.useQuery(
-    { sessionId, status: "joined", limit: 100 },
+    { sessionId, status: "joined", search: search || undefined, limit: 500 },
     { enabled: isAdmin }
   )
 
@@ -70,7 +68,7 @@ function SessionParticipantsPage() {
     data: waitlistedParticipants,
     isLoading: waitlistedLoading,
   } = trpc.participation.participants.useQuery(
-    { sessionId, status: "waitlisted", limit: 100 },
+    { sessionId, status: "waitlisted", search: search || undefined, limit: 500 },
     { enabled: isAdmin }
   )
 
@@ -78,132 +76,172 @@ function SessionParticipantsPage() {
     data: pendingParticipants,
     isLoading: pendingLoading,
   } = trpc.participation.participants.useQuery(
-    { sessionId, status: "pending", limit: 100 },
+    { sessionId, status: "pending", search: search || undefined, limit: 500 },
     { enabled: isAdmin }
   )
 
+  // Invalidation helper
+  const invalidateAll = useCallback(() => {
+    utils.participation.participants.invalidate({ sessionId })
+    utils.session.list.invalidate()
+    utils.session.getById.invalidate({ sessionId })
+    utils.session.getWithCounts.invalidate({ sessionId })
+  }, [utils, sessionId])
+
+  // Mutations
   const updateParticipation = trpc.participation.update.useMutation({
     onSuccess: () => {
-      utils.participation.participants.invalidate({ sessionId })
+      invalidateAll()
     },
+    onError: (err) => toast.error(err.message),
   })
 
   const bulkUpdateAttendance = trpc.participation.bulkUpdateAttendance.useMutation({
-    onSuccess: () => {
-      utils.participation.participants.invalidate({ sessionId })
+    onSuccess: (data) => {
+      invalidateAll()
       setSelectedIds(new Set())
+      toast.success(`Attendance updated for ${data.count} participants`)
     },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const bulkUpdatePayment = trpc.participation.bulkUpdatePayment.useMutation({
+    onSuccess: (data) => {
+      invalidateAll()
+      setSelectedIds(new Set())
+      toast.success(`Payment updated for ${data.count} participants`)
+    },
+    onError: (err) => toast.error(err.message),
   })
 
   const adminAdd = trpc.participation.adminAdd.useMutation({
     onSuccess: () => {
-      utils.participation.participants.invalidate({ sessionId })
-      // Invalidate session list and details for participant count update
-      utils.session.list.invalidate()
-      utils.session.getById.invalidate({ sessionId })
-      setAddIdentifier("")
-      setAddError("")
+      invalidateAll()
+      setAddDialogOpen(false)
+      setAddError(null)
+      toast.success("Participant added")
     },
-    onError: (error) => {
-      setAddError(error.message)
-    },
+    onError: (err) => setAddError(err.message),
   })
 
   const moveParticipant = trpc.participation.move.useMutation({
     onSuccess: (_data, variables) => {
-      // Invalidate source session participants
-      utils.participation.participants.invalidate({ sessionId })
-      // Invalidate target session participants
+      invalidateAll()
       utils.participation.participants.invalidate({ sessionId: variables.targetSessionId })
-      // Invalidate session list (for participant counts)
-      utils.session.list.invalidate()
-      // Invalidate both session details
-      utils.session.getById.invalidate({ sessionId })
       utils.session.getById.invalidate({ sessionId: variables.targetSessionId })
-      setMovingParticipationId(null)
+      toast.success("Participant moved")
     },
+    onError: (err) => toast.error(err.message),
   })
 
   const approvePending = trpc.participation.approvePending.useMutation({
     onSuccess: () => {
-      utils.participation.participants.invalidate({ sessionId })
-      utils.session.getById.invalidate({ sessionId })
-      utils.session.getWithCounts.invalidate({ sessionId })
-      utils.session.list.invalidate()
+      invalidateAll()
+      toast.success("Request approved")
     },
+    onError: (err) => toast.error(err.message),
   })
 
   const rejectPending = trpc.participation.rejectPending.useMutation({
     onSuccess: () => {
-      utils.participation.participants.invalidate({ sessionId })
-      utils.session.getById.invalidate({ sessionId })
-      utils.session.getWithCounts.invalidate({ sessionId })
-      utils.session.list.invalidate()
+      invalidateAll()
+      toast.success("Request rejected")
     },
+    onError: (err) => toast.error(err.message),
   })
 
-  const handleSelectAll = () => {
+  // Handlers
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const handleSelectAll = useCallback(() => {
     if (joinedParticipants) {
       setSelectedIds(new Set(joinedParticipants.map((p) => p.participation.id)))
     }
-  }
+  }, [joinedParticipants])
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     setSelectedIds(new Set())
-  }
+  }, [])
 
-  const handleToggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-      return next
-    })
-  }
-
-  const handleBulkUpdate = () => {
+  const handleApplyBulkAttendance = useCallback(() => {
     if (selectedIds.size === 0) return
     bulkUpdateAttendance.mutate({
       sessionId,
       updates: Array.from(selectedIds).map((participationId) => ({
         participationId,
-        attendance: bulkAction,
+        attendance: bulkAttendanceAction,
       })),
     })
-  }
+  }, [selectedIds, sessionId, bulkAttendanceAction, bulkUpdateAttendance])
 
-  const handleAddParticipant = (e: React.FormEvent) => {
-    e.preventDefault()
-    setAddError("")
-    if (!addIdentifier.trim()) {
-      setAddError("Please enter an email or phone number")
-      return
-    }
-    adminAdd.mutate({ sessionId, identifier: addIdentifier.trim() })
-  }
+  const handleApplyBulkPayment = useCallback(() => {
+    if (selectedIds.size === 0) return
+    bulkUpdatePayment.mutate({
+      sessionId,
+      updates: Array.from(selectedIds).map((participationId) => ({
+        participationId,
+        payment: bulkPaymentAction,
+      })),
+    })
+  }, [selectedIds, sessionId, bulkPaymentAction, bulkUpdatePayment])
 
-  const handleMove = (participationId: string, targetSessionId: string) => {
-    moveParticipant.mutate({ participationId, targetSessionId })
-  }
+  const handleUpdate = useCallback(
+    (data: UpdateParticipationData) => {
+      updateParticipation.mutate(data)
+    },
+    [updateParticipation]
+  )
 
-  // Filter sessions that can be moved to (same org, not current, not cancelled/completed)
+  const handleAddParticipant = useCallback(
+    (identifier: string) => {
+      setAddError(null)
+      adminAdd.mutate({ sessionId, identifier })
+    },
+    [adminAdd, sessionId]
+  )
+
+  const handleMove = useCallback(
+    (participationId: string, targetSessionId: string) => {
+      moveParticipant.mutate({ participationId, targetSessionId })
+    },
+    [moveParticipant]
+  )
+
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value as "joined" | "waitlisted" | "pending")
+    setSelectedIds(new Set())
+  }, [])
+
+  // Derived data
   const availableTargetSessions = orgSessions?.filter(
     (s) => s.id !== sessionId && s.status !== "cancelled" && s.status !== "completed"
   ) ?? []
 
   const sessionFormFields = (sessionData?.joinFormSchema as JoinFormSchema | null)?.fields ?? []
 
+  const joinedCount = joinedParticipants?.length ?? 0
+  const waitlistedCount = waitlistedParticipants?.length ?? 0
+  const pendingCount = pendingParticipants?.length ?? 0
+
+  // Loading state
   if (whoamiLoading) {
     return (
-      <div className="py-4">
+      <div className="py-4 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-10 w-full max-w-sm" />
         <Skeleton className="h-64 w-full" />
       </div>
     )
   }
 
+  // Access denied
   if (!isAdmin) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -230,7 +268,8 @@ function SessionParticipantsPage() {
   }
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-4 py-4">
+      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="sm" asChild>
           <Link
@@ -238,675 +277,124 @@ function SessionParticipantsPage() {
             params={{ orgId, sessionId }}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Session
+            Back
           </Link>
         </Button>
-      </div>
-
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Session Participants</h1>
-        {sessionData && (
-          <p className="text-muted-foreground">{sessionData.title}</p>
-        )}
-      </div>
-
-      {/* Add Participant */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5" />
-            Add Participant
-          </CardTitle>
-          <CardDescription>
-            Add an organization member to this session by email or phone
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddParticipant} className="flex gap-2">
-            <div className="flex-1">
-              <Label htmlFor="identifier" className="sr-only">Email or Phone</Label>
-              <Input
-                id="identifier"
-                type="text"
-                placeholder="Email or phone number (+12025551234)"
-                value={addIdentifier}
-                onChange={(e) => setAddIdentifier(e.target.value)}
-                disabled={adminAdd.isPending}
-              />
-            </div>
-            <Button type="submit" disabled={adminAdd.isPending}>
-              {adminAdd.isPending ? "Adding..." : "Add"}
-            </Button>
-          </form>
-          {addError && (
-            <p className="mt-2 text-sm text-destructive">{addError}</p>
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight">Session Participants</h1>
+          {sessionData && (
+            <p className="text-sm text-muted-foreground truncate">{sessionData.title}</p>
           )}
-          {adminAdd.isSuccess && (
-            <p className="mt-2 text-sm text-green-600">Participant added successfully!</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Pending Requests */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Pending Requests ({pendingParticipants?.length ?? 0})</CardTitle>
-          <CardDescription>
-            Join requests waiting for admin approval or move
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {pendingLoading && (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          )}
-
-          {pendingParticipants && pendingParticipants.length === 0 && (
-            <p className="text-muted-foreground">No pending requests</p>
-          )}
-
-          {pendingParticipants && pendingParticipants.length > 0 && (
-            <div className="space-y-3">
-              {pendingParticipants.map((item, index) => (
-                <div key={item.participation.id}>
-                  {index > 0 && <Separator className="my-3" />}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium">{item.user.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {item.user.email}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {availableTargetSessions.length > 0 && (
-                        <>
-                          {movingParticipationId === item.participation.id ? (
-                            <div className="flex items-center gap-2">
-                              <Select
-                                onValueChange={(targetId) => {
-                                  if (targetId) {
-                                    handleMove(item.participation.id, targetId)
-                                  }
-                                }}
-                              >
-                                <SelectTrigger className="w-[180px]">
-                                  <SelectValue placeholder="Move to session" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availableTargetSessions.map((s) => (
-                                    <SelectItem key={s.id} value={s.id}>
-                                      {s.title}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setMovingParticipationId(null)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setMovingParticipationId(item.participation.id)}
-                              disabled={
-                                approvePending.isPending ||
-                                rejectPending.isPending ||
-                                moveParticipant.isPending
-                              }
-                            >
-                              <ArrowRightLeft className="h-4 w-4 mr-1" />
-                              Move
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          approvePending.mutate({
-                            participationId: item.participation.id,
-                          })
-                        }
-                        disabled={
-                          approvePending.isPending ||
-                          rejectPending.isPending ||
-                          moveParticipant.isPending
-                        }
-                      >
-                        Approve
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          rejectPending.mutate({
-                            participationId: item.participation.id,
-                          })
-                        }
-                        disabled={
-                          approvePending.isPending ||
-                          rejectPending.isPending ||
-                          moveParticipant.isPending
-                        }
-                      >
-                        Reject
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(approvePending.error || rejectPending.error || moveParticipant.error) && (
-            <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive mt-3">
-              {approvePending.error?.message || rejectPending.error?.message || moveParticipant.error?.message}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Joined Participants */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Joined ({joinedParticipants?.length ?? 0})
-            </CardTitle>
-            <CardDescription>
-              Participants registered for this session
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Bulk Actions */}
-            {joinedParticipants && joinedParticipants.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 p-3 rounded-md border bg-muted/50">
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAll}
-                  >
-                    <CheckSquare className="h-4 w-4 mr-1" />
-                    Select All
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDeselectAll}
-                    disabled={selectedIds.size === 0}
-                  >
-                    <Square className="h-4 w-4 mr-1" />
-                    Deselect All
-                  </Button>
-                </div>
-                <Separator orientation="vertical" className="h-6" />
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    {selectedIds.size} selected
-                  </span>
-                  <Select
-                    value={bulkAction}
-                    onValueChange={(v) => setBulkAction(v as "pending" | "show" | "no_show")}
-                  >
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="show">Present</SelectItem>
-                      <SelectItem value="no_show">No Show</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    onClick={handleBulkUpdate}
-                    disabled={selectedIds.size === 0 || bulkUpdateAttendance.isPending}
-                  >
-                    {bulkUpdateAttendance.isPending ? "Updating..." : "Apply"}
-                  </Button>
-                </div>
-              </div>
-            )}
-            {bulkUpdateAttendance.error && (
-              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
-                {bulkUpdateAttendance.error.message}
-              </div>
-            )}
-
-            {joinedLoading && (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            )}
-            {joinedParticipants && joinedParticipants.length === 0 && (
-              <p className="text-muted-foreground">No participants yet</p>
-            )}
-            {joinedParticipants && joinedParticipants.length > 0 && (
-              <div className="space-y-3">
-                {joinedParticipants.map((item, index) => (
-                  <div key={item.participation.id}>
-                    {index > 0 && <Separator className="my-3" />}
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        checked={selectedIds.has(item.participation.id)}
-                        onCheckedChange={() => handleToggleSelect(item.participation.id)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <ParticipantRow
-                          participation={item.participation}
-                          user={item.user}
-                          sessionId={sessionId}
-                          formFields={sessionFormFields}
-                          onUpdate={(data) =>
-                            updateParticipation.mutate({
-                              participationId: item.participation.id,
-                              ...data,
-                            })
-                          }
-                          isUpdating={updateParticipation.isPending}
-                          availableTargetSessions={availableTargetSessions}
-                          isMoving={moveParticipant.isPending && movingParticipationId === item.participation.id}
-                          showMoveUI={movingParticipationId === item.participation.id}
-                          onToggleMove={() => setMovingParticipationId(
-                            movingParticipationId === item.participation.id ? null : item.participation.id
-                          )}
-                          onMove={(targetSessionId) => handleMove(item.participation.id, targetSessionId)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Waitlisted Participants */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Waitlist ({waitlistedParticipants?.length ?? 0})
-            </CardTitle>
-            <CardDescription>
-              Participants waiting for a spot
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {waitlistedLoading && (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            )}
-            {waitlistedParticipants && waitlistedParticipants.length === 0 && (
-              <p className="text-muted-foreground">No one on waitlist</p>
-            )}
-            {waitlistedParticipants && waitlistedParticipants.length > 0 && (
-              <div className="space-y-3">
-                {waitlistedParticipants.map((item, index) => (
-                  <div key={item.participation.id}>
-                    {index > 0 && <Separator className="my-3" />}
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                        {index + 1}
-                      </span>
-                      <div className="flex-1">
-                        <p className="font-medium">{item.user.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.user.email}
-                        </p>
-                        {availableTargetSessions.length > 0 && (
-                          <div className="mt-2">
-                            {movingParticipationId === item.participation.id ? (
-                              <div className="flex items-center gap-2">
-                                <Select
-                                  onValueChange={(targetId) => {
-                                    if (targetId) {
-                                      handleMove(item.participation.id, targetId)
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="w-[180px]">
-                                    <SelectValue placeholder="Select session" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableTargetSessions.map((s) => (
-                                      <SelectItem key={s.id} value={s.id}>
-                                        {s.title}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setMovingParticipationId(null)}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setMovingParticipationId(item.participation.id)}
-                                disabled={moveParticipant.isPending}
-                              >
-                                <ArrowRightLeft className="h-4 w-4 mr-1" />
-                                Move
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
-
-type ParticipantRowProps = {
-  participation: {
-    id: string
-    attendance: string
-    payment: string
-    notes: string | null
-    formAnswers: unknown
-  }
-  user: {
-    id: string
-    name: string
-    email: string
-    image: string | null
-  }
-  sessionId: string
-  formFields: FormField[]
-  onUpdate: (data: { attendance?: "pending" | "show" | "no_show"; payment?: "unpaid" | "paid"; notes?: string | null }) => void
-  isUpdating: boolean
-  availableTargetSessions: Array<{ id: string; title: string; status: string }>
-  isMoving: boolean
-  showMoveUI: boolean
-  onToggleMove: () => void
-  onMove: (targetSessionId: string) => void
-}
-
-function ParticipantRow({
-  participation,
-  user,
-  sessionId,
-  formFields,
-  onUpdate,
-  isUpdating,
-  availableTargetSessions,
-  isMoving,
-  showMoveUI,
-  onToggleMove,
-  onMove,
-}: ParticipantRowProps) {
-  const [showNotes, setShowNotes] = useState(false)
-  const [showFormAnswers, setShowFormAnswers] = useState(false)
-  const [notesValue, setNotesValue] = useState(participation.notes || "")
-  const [notesDirty, setNotesDirty] = useState(false)
-  const [selectedTargetSession, setSelectedTargetSession] = useState("")
-
-  const onAINoteComplete = useCallback((text: string) => {
-    setNotesValue(text)
-    setNotesDirty(true)
-    setShowNotes(true)
-  }, [])
-
-  const {
-    suggest: suggestNote,
-    streamedText: aiStreamedText,
-    isStreaming: aiIsStreaming,
-    isPending: aiIsPending,
-    error: aiError,
-    isAvailable: aiAvailable,
-  } = useAISuggestParticipationNote({ onComplete: onAINoteComplete })
-
-  const attendanceVariant = (attendance: string) => {
-    switch (attendance) {
-      case "show":
-        return "default"
-      case "no_show":
-        return "destructive"
-      default:
-        return "secondary"
-    }
-  }
-
-  const paymentVariant = (payment: string) => {
-    switch (payment) {
-      case "paid":
-        return "default"
-      default:
-        return "outline"
-    }
-  }
-
-  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setNotesValue(e.target.value)
-    setNotesDirty(true)
-  }
-
-  const handleSaveNotes = () => {
-    onUpdate({ notes: notesValue.trim() || null })
-    setNotesDirty(false)
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="font-medium">{user.name}</p>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
-        </div>
-        <div className="flex gap-2">
-          <Badge variant={attendanceVariant(participation.attendance)}>
-            {participation.attendance}
-          </Badge>
-          <Badge variant={paymentVariant(participation.payment)}>
-            {participation.payment}
-          </Badge>
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <Select
-          value={participation.attendance}
-          onValueChange={(value) =>
-            onUpdate({ attendance: value as "pending" | "show" | "no_show" })
-          }
-          disabled={isUpdating}
-        >
-          <SelectTrigger className="w-[120px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="show">Show</SelectItem>
-            <SelectItem value="no_show">No Show</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={participation.payment}
-          onValueChange={(value) =>
-            onUpdate({ payment: value as "unpaid" | "paid" })
-          }
-          disabled={isUpdating}
-        >
-          <SelectTrigger className="w-[100px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unpaid">Unpaid</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowNotes(!showNotes)}
-        >
-          <MessageSquare className="h-4 w-4 mr-1" />
-          {participation.notes ? "Edit Notes" : "Add Notes"}
-          {showNotes ? (
-            <ChevronUp className="h-4 w-4 ml-1" />
-          ) : (
-            <ChevronDown className="h-4 w-4 ml-1" />
-          )}
-        </Button>
-        {aiAvailable && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              suggestNote({
-                participationId: participation.id,
-                sessionId,
-              })
-            }
-            disabled={aiIsPending}
-          >
-            <Sparkles className="h-4 w-4 mr-1" />
-            {aiIsPending ? "..." : "Suggest"}
-          </Button>
-        )}
-        {availableTargetSessions.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleMove}
-            disabled={isMoving}
-          >
-            <ArrowRightLeft className="h-4 w-4 mr-1" />
-            Move
-          </Button>
-        )}
-        {formFields.length > 0 && !!participation.formAnswers && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowFormAnswers(!showFormAnswers)}
-          >
-            <FileText className="h-4 w-4 mr-1" />
-            Form
-            {showFormAnswers ? (
-              <ChevronUp className="h-4 w-4 ml-1" />
-            ) : (
-              <ChevronDown className="h-4 w-4 ml-1" />
-            )}
-          </Button>
-        )}
-      </div>
-      {showMoveUI && availableTargetSessions.length > 0 && (
-        <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-          <span className="text-sm text-muted-foreground">Move to:</span>
-          <Select
-            value={selectedTargetSession}
-            onValueChange={setSelectedTargetSession}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Select session" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableTargetSessions.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            onClick={() => {
-              if (selectedTargetSession) {
-                onMove(selectedTargetSession)
-                setSelectedTargetSession("")
-              }
-            }}
-            disabled={!selectedTargetSession || isMoving}
-          >
-            {isMoving ? "Moving..." : "Confirm"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleMove}
-          >
-            Cancel
-          </Button>
-        </div>
-      )}
-      {showFormAnswers && formFields.length > 0 && !!participation.formAnswers && (
-        <div className="rounded-md bg-muted/50 p-3 space-y-1.5">
-          {formFields.map((field) => {
-            const answers = participation.formAnswers as Record<string, unknown>
-            const answer = answers[field.id]
-            if (answer === undefined || answer === null) return null
-            const displayValue = Array.isArray(answer)
-              ? answer.join(", ")
-              : typeof answer === "boolean"
-                ? answer ? "Yes" : "No"
-                : String(answer)
-            return (
-              <div key={field.id} className="flex gap-2 text-sm">
-                <span className="font-medium text-muted-foreground">{field.label}:</span>
-                <span>{displayValue}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-      {showNotes && (
-        <div className="space-y-2 pt-2">
-          <textarea
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-popover px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
-            placeholder="Add notes about this participant..."
-            value={aiIsStreaming ? aiStreamedText : notesValue}
-            onChange={handleNotesChange}
-            disabled={isUpdating || aiIsStreaming}
+
+      {/* Toolbar */}
+      <ParticipantsToolbar
+        search={search}
+        onSearchChange={setSearch}
+        onAddClick={() => {
+          setAddError(null)
+          setAddDialogOpen(true)
+        }}
+      />
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList>
+          <TabsTrigger value="joined">
+            Joined
+            <span className="ml-1.5 font-mono text-xs">({joinedCount})</span>
+          </TabsTrigger>
+          <TabsTrigger value="waitlisted">
+            Waitlist
+            <span className="ml-1.5 font-mono text-xs">({waitlistedCount})</span>
+          </TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending
+            <span className="ml-1.5 font-mono text-xs">({pendingCount})</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Bulk action bar — only for joined tab */}
+        {activeTab === "joined" && (
+          <BulkActionBar
+            selectedCount={selectedIds.size}
+            totalCount={joinedCount}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            attendanceAction={bulkAttendanceAction}
+            onAttendanceActionChange={setBulkAttendanceAction}
+            paymentAction={bulkPaymentAction}
+            onPaymentActionChange={setBulkPaymentAction}
+            onApplyAttendance={handleApplyBulkAttendance}
+            onApplyPayment={handleApplyBulkPayment}
+            isApplyingAttendance={bulkUpdateAttendance.isPending}
+            isApplyingPayment={bulkUpdatePayment.isPending}
           />
-          {notesDirty && (
-            <Button
-              size="sm"
-              onClick={handleSaveNotes}
-              disabled={isUpdating}
-            >
-              <Save className="h-4 w-4 mr-1" />
-              {isUpdating ? "Saving..." : "Save Notes"}
-            </Button>
-          )}
-          {aiError && (
-            <p className="text-sm text-destructive">{aiError}</p>
-          )}
-        </div>
-      )}
-      {!showNotes && participation.notes && (
-        <p className="text-sm text-muted-foreground italic pl-1">
-          {participation.notes.length > 50
-            ? participation.notes.slice(0, 50) + "..."
-            : participation.notes}
-        </p>
-      )}
+        )}
+
+        <TabsContent value="joined">
+          <ParticipantsTable
+            participants={joinedParticipants as ParticipantData[] | undefined}
+            isLoading={joinedLoading}
+            tab="joined"
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onUpdate={handleUpdate}
+            isUpdating={updateParticipation.isPending}
+            sessionId={sessionId}
+            formFields={sessionFormFields}
+            availableTargetSessions={availableTargetSessions}
+            onMove={handleMove}
+            isMoving={moveParticipant.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="waitlisted">
+          <ParticipantsTable
+            participants={waitlistedParticipants as ParticipantData[] | undefined}
+            isLoading={waitlistedLoading}
+            tab="waitlisted"
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onUpdate={handleUpdate}
+            isUpdating={updateParticipation.isPending}
+            sessionId={sessionId}
+            formFields={sessionFormFields}
+            availableTargetSessions={availableTargetSessions}
+            onMove={handleMove}
+            isMoving={moveParticipant.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="pending">
+          <ParticipantsTable
+            participants={pendingParticipants as ParticipantData[] | undefined}
+            isLoading={pendingLoading}
+            tab="pending"
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onUpdate={handleUpdate}
+            onApprove={(id) => approvePending.mutate({ participationId: id })}
+            onReject={(id) => rejectPending.mutate({ participationId: id })}
+            isUpdating={approvePending.isPending || rejectPending.isPending}
+            sessionId={sessionId}
+            formFields={sessionFormFields}
+            availableTargetSessions={availableTargetSessions}
+            onMove={handleMove}
+            isMoving={moveParticipant.isPending}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Add Participant Dialog */}
+      <AddParticipantDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onAdd={handleAddParticipant}
+        isPending={adminAdd.isPending}
+        error={addError}
+      />
     </div>
   )
 }

@@ -1,7 +1,8 @@
 import { z } from "zod"
-import { getJoinRequestWithDetails } from "@/data-access/join-requests"
+import { getUserById } from "@/data-access/users"
 import { getOrCreateOrgSettings } from "@/data-access/organization-settings"
 import type { AIFeature, AIFeatureContext } from "@/plugins/ai/types"
+import { withAIFeatureScope } from "@/plugins/ai/org-scope"
 import type { FormField } from "@/types/form"
 
 const inputSchema = z.object({
@@ -24,45 +25,39 @@ export const summarizeJoinRequest: AIFeature<typeof inputSchema> = {
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
-    const [requestDetails, settings] = await Promise.all([
-      getJoinRequestWithDetails(input.requestId),
-      getOrCreateOrgSettings(ctx.activeOrganization.id),
-    ])
+    return withAIFeatureScope(
+      ctx.activeOrganization.id,
+      async (scope) => {
+        const request = await scope.requireJoinRequest(input.requestId)
 
-    if (!requestDetails) {
-      return {
-        orgName: ctx.activeOrganization.name,
-        applicantName: "Unknown",
-        message: null,
-        formAnswers: [],
-        requestDate: "unknown",
-      } satisfies FeatureContext
-    }
+        const [applicant, settings] = await Promise.all([
+          getUserById(request.userId),
+          getOrCreateOrgSettings(scope.organizationId),
+        ])
 
-    const joinFormSchema = settings.joinFormSchema as {
-      fields?: FormField[]
-    } | null
-    const formFields = joinFormSchema?.fields || []
-    const answers =
-      (requestDetails.request.formAnswers as Record<string, unknown>) || {}
+        const joinFormSchema = settings.joinFormSchema as {
+          fields?: FormField[]
+        } | null
+        const formFields = joinFormSchema?.fields || []
+        const answers = (request.formAnswers as Record<string, unknown>) || {}
 
-    const formAnswers = formFields
-      .map((f) => {
-        const val = answers[f.id]
-        if (val === undefined || val === null || val === "") return null
-        return `${f.label}: ${Array.isArray(val) ? val.join(", ") : String(val)}`
-      })
-      .filter((x): x is string => x !== null)
+        const formAnswers = formFields
+          .map((f) => {
+            const val = answers[f.id]
+            if (val === undefined || val === null || val === "") return null
+            return `${f.label}: ${Array.isArray(val) ? val.join(", ") : String(val)}`
+          })
+          .filter((x): x is string => x !== null)
 
-    return {
-      orgName: requestDetails.organization.name,
-      applicantName: requestDetails.user.name ?? "Unknown",
-      message: requestDetails.request.message,
-      formAnswers,
-      requestDate: new Date(
-        requestDetails.request.createdAt
-      ).toLocaleDateString(),
-    } satisfies FeatureContext
+        return {
+          orgName: ctx.activeOrganization.name,
+          applicantName: applicant?.name ?? "Unknown",
+          message: request.message,
+          formAnswers,
+          requestDate: new Date(request.createdAt).toLocaleDateString(),
+        } satisfies FeatureContext
+      }
+    )
   },
 
   buildPrompt: (_input, context) => {

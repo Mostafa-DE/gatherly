@@ -2,10 +2,10 @@ import { z } from "zod"
 import { getEngagementStats } from "@/data-access/engagement-stats"
 import { getUserHistory } from "@/data-access/participations"
 import { getProfileByOrgAndUser } from "@/data-access/group-member-profiles"
-import { getOrganizationMemberByUserId } from "@/data-access/organizations"
 import { getUserById } from "@/data-access/users"
 import { getOrCreateOrgSettings } from "@/data-access/organization-settings"
 import type { AIFeature, AIFeatureContext } from "@/plugins/ai/types"
+import { withAIFeatureScope } from "@/plugins/ai/org-scope"
 import type { FormField } from "@/types/form"
 
 const inputSchema = z.object({
@@ -34,53 +34,57 @@ export const summarizeMemberProfile: AIFeature<typeof inputSchema> = {
   access: "admin",
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
-    const orgId = ctx.activeOrganization.id
-    const userId = input.userId
+    return withAIFeatureScope(
+      ctx.activeOrganization.id,
+      async (scope) => {
+        const userId = input.userId
+        const membership = await scope.requireMember(userId)
 
-    const [userRecord, membership, stats, history, profile, settings] =
-      await Promise.all([
-        getUserById(userId),
-        getOrganizationMemberByUserId(orgId, userId),
-        getEngagementStats(userId, orgId),
-        getUserHistory(orgId, userId, { limit: 5, offset: 0 }),
-        getProfileByOrgAndUser(orgId, userId),
-        getOrCreateOrgSettings(orgId),
-      ])
+        const [userRecord, stats, history, profile, settings] =
+          await Promise.all([
+            getUserById(userId),
+            getEngagementStats(userId, scope.organizationId),
+            getUserHistory(scope.organizationId, userId, { limit: 5, offset: 0 }),
+            getProfileByOrgAndUser(scope.organizationId, userId),
+            getOrCreateOrgSettings(scope.organizationId),
+          ])
 
-    const joinFormSchema = settings.joinFormSchema as {
-      fields?: FormField[]
-    } | null
-    const formFields = joinFormSchema?.fields || []
-    const answers = (profile?.answers as Record<string, unknown>) || {}
+        const joinFormSchema = settings.joinFormSchema as {
+          fields?: FormField[]
+        } | null
+        const formFields = joinFormSchema?.fields || []
+        const answers = (profile?.answers as Record<string, unknown>) || {}
 
-    const profileAnswers = formFields
-      .map((f) => {
-        const val = answers[f.id]
-        if (val === undefined || val === null || val === "") return null
-        return `${f.label}: ${Array.isArray(val) ? val.join(", ") : String(val)}`
-      })
-      .filter((x): x is string => x !== null)
+        const profileAnswers = formFields
+          .map((f) => {
+            const val = answers[f.id]
+            if (val === undefined || val === null || val === "") return null
+            return `${f.label}: ${Array.isArray(val) ? val.join(", ") : String(val)}`
+          })
+          .filter((x): x is string => x !== null)
 
-    const recentHistory = history.map(
-      (h) =>
-        `${h.session.title} (${new Date(h.session.dateTime).toLocaleDateString()}) - ${h.participation.attendance}`
+        const recentHistory = history.map(
+          (h) =>
+            `${h.session.title} (${new Date(h.session.dateTime).toLocaleDateString()}) - ${h.participation.attendance}`
+        )
+
+        return {
+          memberName: userRecord?.name ?? "Unknown",
+          memberRole: membership.role,
+          joinDate: membership.createdAt
+            ? new Date(membership.createdAt).toLocaleDateString()
+            : "unknown",
+          engagementStats: {
+            sessionsAttended: stats.sessionsAttended,
+            noShows: stats.noShows,
+            attendanceRate: stats.attendanceRate,
+            upcomingSessions: stats.upcomingSessions,
+          },
+          recentHistory,
+          profileAnswers,
+        } satisfies FeatureContext
+      }
     )
-
-    return {
-      memberName: userRecord?.name ?? "Unknown",
-      memberRole: membership?.role ?? "member",
-      joinDate: membership?.createdAt
-        ? new Date(membership.createdAt).toLocaleDateString()
-        : "unknown",
-      engagementStats: {
-        sessionsAttended: stats.sessionsAttended,
-        noShows: stats.noShows,
-        attendanceRate: stats.attendanceRate,
-        upcomingSessions: stats.upcomingSessions,
-      },
-      recentHistory,
-      profileAnswers,
-    } satisfies FeatureContext
   },
 
   buildPrompt: (_input, context) => {

@@ -64,6 +64,7 @@ export const getMyHistorySchema = z.object({
 export const getParticipantsSchema = z.object({
   sessionId: z.string(),
   status: participationStatusSchema.optional(),
+  search: z.string().max(100).optional(),
   limit: z.number().int().positive().max(500).default(100),
   offset: z.number().int().nonnegative().default(0),
 })
@@ -83,6 +84,17 @@ export const bulkUpdateAttendanceSchema = z.object({
     z.object({
       participationId: z.string(),
       attendance: attendanceStatusSchema,
+    })
+  ).min(1).max(100),
+})
+
+/** Bulk update payment (admin) */
+export const bulkUpdatePaymentSchema = z.object({
+  sessionId: z.string(),
+  updates: z.array(
+    z.object({
+      participationId: z.string(),
+      payment: paymentStatusSchema,
     })
   ).min(1).max(100),
 })
@@ -134,6 +146,7 @@ export type GetMyHistoryInput = z.infer<typeof getMyHistorySchema>
 export type GetParticipantsInput = z.infer<typeof getParticipantsSchema>
 export type UpdateParticipationInput = z.infer<typeof updateParticipationSchema>
 export type BulkUpdateAttendanceInput = z.infer<typeof bulkUpdateAttendanceSchema>
+export type BulkUpdatePaymentInput = z.infer<typeof bulkUpdatePaymentSchema>
 export type GetUserHistoryInput = z.infer<typeof getUserHistorySchema>
 export type AdminAddParticipantInput = z.infer<typeof adminAddParticipantSchema>
 export type MoveParticipantInput = z.infer<typeof moveParticipantSchema>

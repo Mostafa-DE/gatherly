@@ -10,6 +10,7 @@ import {
   getSessionParticipants,
   updateParticipation,
   bulkUpdateAttendance,
+  bulkUpdatePayment,
   getUserHistory,
   getWaitlistPosition,
   adminAddParticipant,
@@ -26,6 +27,7 @@ import {
   getParticipantsSchema,
   updateParticipationSchema,
   bulkUpdateAttendanceSchema,
+  bulkUpdatePaymentSchema,
   getUserHistorySchema,
   adminAddParticipantSchema,
   moveParticipantSchema,
@@ -160,6 +162,21 @@ export const participationRouter = router({
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSession(input.sessionId)
         const count = await bulkUpdateAttendance(input.sessionId, input.updates)
+        return { success: true, count }
+      })
+    }),
+
+  /**
+   * Bulk update payment for multiple participations (Admin)
+   */
+  bulkUpdatePayment: orgProcedure
+    .input(bulkUpdatePaymentSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSession(input.sessionId)
+        const count = await bulkUpdatePayment(input.sessionId, input.updates)
         return { success: true, count }
       })
     }),

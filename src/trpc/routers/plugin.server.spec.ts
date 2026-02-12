@@ -10,6 +10,8 @@ import {
 import { createTRPCContext } from "@/trpc/context"
 import { appRouter } from "@/trpc/routers/_app"
 import * as aiClient from "@/plugins/ai/client"
+import { db } from "@/db"
+import { eventSession, joinRequest, participation } from "@/db/schema"
 
 vi.mock("@/plugins/ai/client", async () => {
   const actual = await vi.importActual<typeof import("@/plugins/ai/client")>(
@@ -63,25 +65,34 @@ async function* createChunkStream(chunks: string[]) {
 
 describe("plugin router", () => {
   let organizationId = ""
+  let otherOrganizationId = ""
   let owner!: User
   let admin!: User
   let memberUser!: User
+  let externalMember!: User
+  let externalJoinRequestId = ""
+  let externalSessionId = ""
+  let externalParticipationId = ""
   const organizationIds: string[] = []
   const userIds: string[] = []
 
   beforeEach(async () => {
     const organization = await createTestOrganization("plugins-owner")
+    const otherOrganization = await createTestOrganization("plugins-other-owner")
     const ownerUser = await createTestUser("Plugin Owner")
     const adminUser = await createTestUser("Plugin Admin")
     const member = await createTestUser("Plugin Member")
+    const external = await createTestUser("Plugin External Member")
 
     organizationId = organization.id
+    otherOrganizationId = otherOrganization.id
     owner = ownerUser
     admin = adminUser
     memberUser = member
+    externalMember = external
 
-    organizationIds.push(organizationId)
-    userIds.push(owner.id, admin.id, memberUser.id)
+    organizationIds.push(organizationId, otherOrganizationId)
+    userIds.push(owner.id, admin.id, memberUser.id, externalMember.id)
 
     await createTestMembership({
       organizationId,
@@ -98,6 +109,48 @@ describe("plugin router", () => {
       userId: memberUser.id,
       role: "member",
     })
+    await createTestMembership({
+      organizationId: otherOrganizationId,
+      userId: externalMember.id,
+      role: "member",
+    })
+
+    const [createdJoinRequest] = await db
+      .insert(joinRequest)
+      .values({
+        organizationId: otherOrganizationId,
+        userId: externalMember.id,
+        status: "pending",
+        message: "I would like to join",
+      })
+      .returning({ id: joinRequest.id })
+    externalJoinRequestId = createdJoinRequest.id
+
+    const [createdSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId: otherOrganizationId,
+        title: "External Session",
+        dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        maxCapacity: 10,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+      })
+      .returning({ id: eventSession.id })
+    externalSessionId = createdSession.id
+
+    const [createdParticipation] = await db
+      .insert(participation)
+      .values({
+        sessionId: externalSessionId,
+        userId: externalMember.id,
+        status: "joined",
+        attendance: "pending",
+        payment: "unpaid",
+      })
+      .returning({ id: participation.id })
+    externalParticipationId = createdParticipation.id
 
     vi.mocked(aiClient.checkOllamaHealth).mockResolvedValue(true)
     vi.mocked(aiClient.generateText).mockResolvedValue("unused")
@@ -117,6 +170,10 @@ describe("plugin router", () => {
     }
 
     organizationId = ""
+    otherOrganizationId = ""
+    externalJoinRequestId = ""
+    externalSessionId = ""
+    externalParticipationId = ""
     organizationIds.length = 0
     userIds.length = 0
   })
@@ -300,5 +357,60 @@ describe("plugin router", () => {
     expect(request.model).toBe("mistral:7b")
     expect(request.prompt).toContain("=== GROUP HEALTH ===")
     expect(request.prompt).toContain("=== REVENUE ===")
+  })
+
+  it("blocks cross-organization join request summaries", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await ownerCaller.organizationSettings.togglePlugin({
+      pluginId: "ai",
+      enabled: true,
+    })
+
+    const streamPromise = ownerCaller.plugin.ai.summarizeJoinRequest({
+      requestId: externalJoinRequestId,
+    })
+
+    await expect(collectStreamFromPromise(streamPromise)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    })
+    expect(aiClient.generateTextStream).not.toHaveBeenCalled()
+  })
+
+  it("blocks cross-organization member summaries", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await ownerCaller.organizationSettings.togglePlugin({
+      pluginId: "ai",
+      enabled: true,
+    })
+
+    const streamPromise = ownerCaller.plugin.ai.summarizeMemberProfile({
+      userId: externalMember.id,
+    })
+
+    await expect(collectStreamFromPromise(streamPromise)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    })
+    expect(aiClient.generateTextStream).not.toHaveBeenCalled()
+  })
+
+  it("blocks cross-organization participation note suggestions", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await ownerCaller.organizationSettings.togglePlugin({
+      pluginId: "ai",
+      enabled: true,
+    })
+
+    const streamPromise = ownerCaller.plugin.ai.suggestParticipationNote({
+      participationId: externalParticipationId,
+      sessionId: externalSessionId,
+    })
+
+    await expect(collectStreamFromPromise(streamPromise)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    })
+    expect(aiClient.generateTextStream).not.toHaveBeenCalled()
   })
 })

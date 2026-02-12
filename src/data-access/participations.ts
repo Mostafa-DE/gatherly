@@ -1,4 +1,4 @@
-import { and, count, eq, ne, sql, desc, asc, isNull } from "drizzle-orm"
+import { and, count, eq, ne, sql, desc, asc, isNull, ilike, or } from "drizzle-orm"
 import { db } from "@/db"
 import { eventSession, participation, user } from "@/db/schema"
 import type { Participation } from "@/db/types"
@@ -117,6 +117,7 @@ export async function getSessionParticipants(
   sessionId: string,
   options: {
     status?: "pending" | "joined" | "waitlisted" | "cancelled"
+    search?: string
     limit: number
     offset: number
   }
@@ -125,6 +126,13 @@ export async function getSessionParticipants(
 
   if (options.status) {
     conditions.push(eq(participation.status, options.status))
+  }
+
+  if (options.search) {
+    const pattern = `%${options.search}%`
+    conditions.push(
+      or(ilike(user.name, pattern), ilike(user.email, pattern))!
+    )
   }
 
   return db
@@ -607,6 +615,40 @@ export async function bulkUpdateAttendance(
         .update(participation)
         .set({
           attendance: update.attendance,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(participation.id, update.participationId),
+            eq(participation.sessionId, sessionId)
+          )
+        )
+        .returning({ id: participation.id })
+
+      if (updated.length === 0) {
+        throw new NotFoundError(
+          `Participation '${update.participationId}' not found in session`
+        )
+      }
+    }
+  })
+
+  return updates.length
+}
+
+/**
+ * Bulk update payment (admin)
+ */
+export async function bulkUpdatePayment(
+  sessionId: string,
+  updates: Array<{ participationId: string; payment: PaymentStatus }>
+): Promise<number> {
+  await db.transaction(async (tx) => {
+    for (const update of updates) {
+      const updated = await tx
+        .update(participation)
+        .set({
+          payment: update.payment,
           updatedAt: new Date(),
         })
         .where(
