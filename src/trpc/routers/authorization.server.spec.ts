@@ -101,12 +101,12 @@ describe("admin router authorization", () => {
     expect(createdSession.organizationId).toBe(organizationId)
   })
 
-  it("allows admin to view session roster", async () => {
+  it("allows admin to view session participants", async () => {
     const [session] = await db
       .insert(eventSession)
       .values({
         organizationId,
-        title: "Roster Session",
+        title: "Participants Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 5,
         maxWaitlist: 0,
@@ -118,13 +118,13 @@ describe("admin router authorization", () => {
 
     const adminCaller = buildCaller(admin, organizationId)
 
-    const roster = await adminCaller.participation.roster({
+    const participants = await adminCaller.participation.participants({
       sessionId: session.id,
       limit: 20,
       offset: 0,
     })
 
-    expect(Array.isArray(roster)).toBe(true)
+    expect(Array.isArray(participants)).toBe(true)
   })
 
   it("allows admin to update organization settings", async () => {

@@ -117,7 +117,7 @@ function formatLabel(segment: string): string {
     "join-requests": "Join Requests",
     settings: "Settings",
     profile: "Group Profile",
-    roster: "Participants",
+    participants: "Participants",
   }
 
   return labels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)

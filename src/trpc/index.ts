@@ -71,7 +71,7 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
 /**
  * Organization procedure - user must be authenticated AND have an active organization.
  * Adds activeOrganization and membership to context.
- * Use for: managing activities, sessions, rosters, etc.
+ * Use for: managing activities, sessions, participants, etc.
  */
 export const orgProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const activeOrganizationId = ctx.session.activeOrganizationId

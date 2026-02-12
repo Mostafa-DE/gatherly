@@ -7,7 +7,7 @@ import {
   cancelParticipation,
   getMyParticipation,
   getMyHistory,
-  getSessionRoster,
+  getSessionParticipants,
   updateParticipation,
   bulkUpdateAttendance,
   getUserHistory,
@@ -23,7 +23,7 @@ import {
   cancelParticipationSchema,
   getMyParticipationSchema,
   getMyHistorySchema,
-  getRosterSchema,
+  getParticipantsSchema,
   updateParticipationSchema,
   bulkUpdateAttendanceSchema,
   getUserHistorySchema,
@@ -123,14 +123,14 @@ export const participationRouter = router({
     }),
 
   /**
-   * Get roster for a session (All members can view participants)
+   * Get participants for a session (All members can view participants)
    */
-  roster: orgProcedure
-    .input(getRosterSchema)
+  participants: orgProcedure
+    .input(getParticipantsSchema)
     .query(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireSession(input.sessionId)
-        return getSessionRoster(input.sessionId, input)
+        return getSessionParticipants(input.sessionId, input)
       })
     }),
 

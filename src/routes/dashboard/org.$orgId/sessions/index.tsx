@@ -130,7 +130,7 @@ function PendingApprovalsNotice({
         {summary.sessions.map((session) => (
           <Button key={session.sessionId} size="sm" variant="outline" asChild>
             <Link
-              to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+              to="/dashboard/org/$orgId/sessions/$sessionId/participants"
               params={{ orgId, sessionId: session.sessionId }}
             >
               {session.title} ({session.pendingCount})

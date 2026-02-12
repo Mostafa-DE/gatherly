@@ -116,7 +116,7 @@ function SessionDetailPage() {
   const canLoadParticipation = sessionData
     ? sessionData.status !== "draft"
     : false
-  const canLoadRoster = sessionData
+  const canLoadParticipants = sessionData
     ? sessionData.status !== "draft" || isAdmin
     : false
 
@@ -126,20 +126,20 @@ function SessionDetailPage() {
       { enabled: canLoadParticipation }
     )
 
-  const { data: roster } = trpc.participation.roster.useQuery(
+  const { data: participants } = trpc.participation.participants.useQuery(
     {
       sessionId,
       status: "joined",
       limit: 8,
     },
-    { enabled: canLoadRoster }
+    { enabled: canLoadParticipants }
   )
 
   const joinMutation = trpc.participation.join.useMutation({
     onSuccess: () => {
       utils.participation.myParticipation.invalidate({ sessionId })
       utils.session.getWithCounts.invalidate({ sessionId })
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
     },
   })
 
@@ -147,7 +147,7 @@ function SessionDetailPage() {
     onSuccess: () => {
       utils.participation.myParticipation.invalidate({ sessionId })
       utils.session.getWithCounts.invalidate({ sessionId })
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
     },
   })
 
@@ -299,7 +299,7 @@ function SessionDetailPage() {
           {isAdmin && !isDraft && (
             <Button variant="outline" size="sm" asChild>
               <Link
-                to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                to="/dashboard/org/$orgId/sessions/$sessionId/participants"
                 params={{ orgId, sessionId }}
               >
                 <ClipboardList className="h-4 w-4 mr-1.5" />
@@ -347,7 +347,7 @@ function SessionDetailPage() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
                   <Link
-                    to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                    to="/dashboard/org/$orgId/sessions/$sessionId/participants"
                     params={{ orgId, sessionId }}
                   >
                     <ClipboardList className="mr-2 h-4 w-4" />
@@ -664,7 +664,7 @@ function SessionDetailPage() {
             {isAdmin && (
               <Button variant="ghost" size="sm" asChild className="text-xs">
                 <Link
-                  to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                  to="/dashboard/org/$orgId/sessions/$sessionId/participants"
                   params={{ orgId, sessionId }}
                 >
                   View Participants
@@ -674,9 +674,9 @@ function SessionDetailPage() {
             )}
           </div>
 
-          {roster && roster.length > 0 ? (
+          {participants && participants.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {roster.slice(0, 8).map((p, i) => (
+              {participants.slice(0, 8).map((p, i) => (
                 <div
                   key={p.participation.id}
                   className="group relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 transition-colors hover:bg-muted/50"

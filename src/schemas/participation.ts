@@ -60,8 +60,8 @@ export const getMyHistorySchema = z.object({
   offset: z.number().int().nonnegative().default(0),
 })
 
-/** Get session roster (admin) */
-export const getRosterSchema = z.object({
+/** Get session participants (admin) */
+export const getParticipantsSchema = z.object({
   sessionId: z.string(),
   status: participationStatusSchema.optional(),
   limit: z.number().int().positive().max(500).default(100),
@@ -131,7 +131,7 @@ export type JoinSessionInput = z.infer<typeof joinSessionSchema>
 export type CancelParticipationInput = z.infer<typeof cancelParticipationSchema>
 export type GetMyParticipationInput = z.infer<typeof getMyParticipationSchema>
 export type GetMyHistoryInput = z.infer<typeof getMyHistorySchema>
-export type GetRosterInput = z.infer<typeof getRosterSchema>
+export type GetParticipantsInput = z.infer<typeof getParticipantsSchema>
 export type UpdateParticipationInput = z.infer<typeof updateParticipationSchema>
 export type BulkUpdateAttendanceInput = z.infer<typeof bulkUpdateAttendanceSchema>
 export type GetUserHistoryInput = z.infer<typeof getUserHistorySchema>

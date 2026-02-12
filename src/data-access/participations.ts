@@ -113,7 +113,7 @@ export async function getMyHistory(
     .offset(options.offset)
 }
 
-export async function getSessionRoster(
+export async function getSessionParticipants(
   sessionId: string,
   options: {
     status?: "pending" | "joined" | "waitlisted" | "cancelled"

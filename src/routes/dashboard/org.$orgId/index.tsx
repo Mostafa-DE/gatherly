@@ -330,7 +330,7 @@ function AdminPendingActions({
               {pendingSessionApprovals.sessions.map((session) => (
                 <Button key={session.sessionId} size="sm" variant="outline" asChild>
                   <Link
-                    to="/dashboard/org/$orgId/sessions/$sessionId/roster"
+                    to="/dashboard/org/$orgId/sessions/$sessionId/participants"
                     params={{ orgId, sessionId: session.sessionId }}
                   >
                     <ClipboardList className="mr-1.5 h-3.5 w-3.5" />

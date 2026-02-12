@@ -28,12 +28,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useAISuggestParticipationNote } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 export const Route = createFileRoute(
-  "/dashboard/org/$orgId/sessions/$sessionId/roster"
+  "/dashboard/org/$orgId/sessions/$sessionId/participants"
 )({
-  component: SessionRosterPage,
+  component: SessionParticipantsPage,
 })
 
-function SessionRosterPage() {
+function SessionParticipantsPage() {
   const { orgId, sessionId } = Route.useParams()
   const utils = trpc.useUtils()
 
@@ -61,7 +61,7 @@ function SessionRosterPage() {
   const {
     data: joinedParticipants,
     isLoading: joinedLoading,
-  } = trpc.participation.roster.useQuery(
+  } = trpc.participation.participants.useQuery(
     { sessionId, status: "joined", limit: 100 },
     { enabled: isAdmin }
   )
@@ -69,7 +69,7 @@ function SessionRosterPage() {
   const {
     data: waitlistedParticipants,
     isLoading: waitlistedLoading,
-  } = trpc.participation.roster.useQuery(
+  } = trpc.participation.participants.useQuery(
     { sessionId, status: "waitlisted", limit: 100 },
     { enabled: isAdmin }
   )
@@ -77,27 +77,27 @@ function SessionRosterPage() {
   const {
     data: pendingParticipants,
     isLoading: pendingLoading,
-  } = trpc.participation.roster.useQuery(
+  } = trpc.participation.participants.useQuery(
     { sessionId, status: "pending", limit: 100 },
     { enabled: isAdmin }
   )
 
   const updateParticipation = trpc.participation.update.useMutation({
     onSuccess: () => {
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
     },
   })
 
   const bulkUpdateAttendance = trpc.participation.bulkUpdateAttendance.useMutation({
     onSuccess: () => {
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
       setSelectedIds(new Set())
     },
   })
 
   const adminAdd = trpc.participation.adminAdd.useMutation({
     onSuccess: () => {
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
       // Invalidate session list and details for participant count update
       utils.session.list.invalidate()
       utils.session.getById.invalidate({ sessionId })
@@ -111,10 +111,10 @@ function SessionRosterPage() {
 
   const moveParticipant = trpc.participation.move.useMutation({
     onSuccess: (_data, variables) => {
-      // Invalidate source session roster
-      utils.participation.roster.invalidate({ sessionId })
-      // Invalidate target session roster
-      utils.participation.roster.invalidate({ sessionId: variables.targetSessionId })
+      // Invalidate source session participants
+      utils.participation.participants.invalidate({ sessionId })
+      // Invalidate target session participants
+      utils.participation.participants.invalidate({ sessionId: variables.targetSessionId })
       // Invalidate session list (for participant counts)
       utils.session.list.invalidate()
       // Invalidate both session details
@@ -126,7 +126,7 @@ function SessionRosterPage() {
 
   const approvePending = trpc.participation.approvePending.useMutation({
     onSuccess: () => {
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
       utils.session.getById.invalidate({ sessionId })
       utils.session.getWithCounts.invalidate({ sessionId })
       utils.session.list.invalidate()
@@ -135,7 +135,7 @@ function SessionRosterPage() {
 
   const rejectPending = trpc.participation.rejectPending.useMutation({
     onSuccess: () => {
-      utils.participation.roster.invalidate({ sessionId })
+      utils.participation.participants.invalidate({ sessionId })
       utils.session.getById.invalidate({ sessionId })
       utils.session.getWithCounts.invalidate({ sessionId })
       utils.session.list.invalidate()
