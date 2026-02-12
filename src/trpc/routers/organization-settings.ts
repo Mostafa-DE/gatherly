@@ -71,8 +71,17 @@ export const organizationSettingsRouter = router({
     .mutation(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
 
-      if (!pluginMetaMap[input.pluginId]) {
+      const pluginMeta = pluginMetaMap[input.pluginId]
+
+      if (!pluginMeta) {
         throw new BadRequestError(`Unknown plugin: ${input.pluginId}`)
+      }
+
+      if (pluginMeta.alwaysEnabled) {
+        throw new BadRequestError(
+          pluginMeta.alwaysEnabledReason ??
+            `${pluginMeta.name} is always enabled and cannot be disabled.`
+        )
       }
 
       return updateEnabledPlugins(

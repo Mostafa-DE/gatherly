@@ -29,6 +29,7 @@ import { Route as DashboardOrgOrgIdProfileRouteImport } from './routes/dashboard
 import { Route as DashboardOrgOrgIdJoinRequestsRouteImport } from './routes/dashboard/org.$orgId/join-requests'
 import { Route as DashboardOrgOrgIdInviteLinksRouteImport } from './routes/dashboard/org.$orgId/invite-links'
 import { Route as DashboardOrgOrgIdInvitationsRouteImport } from './routes/dashboard/org.$orgId/invitations'
+import { Route as DashboardOrgOrgIdAnalyticsRouteImport } from './routes/dashboard/org.$orgId/analytics'
 import { Route as UsernameGroupSlugSessionsSessionIdRouteImport } from './routes/$username.$groupSlug/sessions.$sessionId'
 import { Route as DashboardOrgOrgIdSessionsIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/index'
 import { Route as DashboardOrgOrgIdMembersIndexRouteImport } from './routes/dashboard/org.$orgId/members/index'
@@ -144,6 +145,12 @@ const DashboardOrgOrgIdInvitationsRoute =
     path: '/invitations',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
+const DashboardOrgOrgIdAnalyticsRoute =
+  DashboardOrgOrgIdAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => DashboardOrgOrgIdRoute,
+  } as any)
 const UsernameGroupSlugSessionsSessionIdRoute =
   UsernameGroupSlugSessionsSessionIdRouteImport.update({
     id: '/$username/$groupSlug/sessions/$sessionId',
@@ -215,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
+  '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/invite-links': typeof DashboardOrgOrgIdInviteLinksRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
@@ -244,6 +252,7 @@ export interface FileRoutesByTo {
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/$username/$groupSlug': typeof UsernameGroupSlugIndexRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
+  '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/invite-links': typeof DashboardOrgOrgIdInviteLinksRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
@@ -275,6 +284,7 @@ export interface FileRoutesById {
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
+  '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/invite-links': typeof DashboardOrgOrgIdInviteLinksRoute
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId'
     | '/$username/$groupSlug/'
     | '/$username/$groupSlug/sessions/$sessionId'
+    | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/invite-links'
     | '/dashboard/org/$orgId/join-requests'
@@ -337,6 +348,7 @@ export interface FileRouteTypes {
     | '/dashboard/groups/create'
     | '/$username/$groupSlug'
     | '/$username/$groupSlug/sessions/$sessionId'
+    | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/invite-links'
     | '/dashboard/org/$orgId/join-requests'
@@ -367,6 +379,7 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId'
     | '/$username/$groupSlug/'
     | '/$username/$groupSlug/sessions/$sessionId'
+    | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/invite-links'
     | '/dashboard/org/$orgId/join-requests'
@@ -538,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdInvitationsRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
+    '/dashboard/org/$orgId/analytics': {
+      id: '/dashboard/org/$orgId/analytics'
+      path: '/analytics'
+      fullPath: '/dashboard/org/$orgId/analytics'
+      preLoaderRoute: typeof DashboardOrgOrgIdAnalyticsRouteImport
+      parentRoute: typeof DashboardOrgOrgIdRoute
+    }
     '/$username/$groupSlug/sessions/$sessionId': {
       id: '/$username/$groupSlug/sessions/$sessionId'
       path: '/$username/$groupSlug/sessions/$sessionId'
@@ -626,6 +646,7 @@ const DashboardOrgOrgIdSessionsSessionIdRouteWithChildren =
   )
 
 interface DashboardOrgOrgIdRouteChildren {
+  DashboardOrgOrgIdAnalyticsRoute: typeof DashboardOrgOrgIdAnalyticsRoute
   DashboardOrgOrgIdInvitationsRoute: typeof DashboardOrgOrgIdInvitationsRoute
   DashboardOrgOrgIdInviteLinksRoute: typeof DashboardOrgOrgIdInviteLinksRoute
   DashboardOrgOrgIdJoinRequestsRoute: typeof DashboardOrgOrgIdJoinRequestsRoute
@@ -640,6 +661,7 @@ interface DashboardOrgOrgIdRouteChildren {
 }
 
 const DashboardOrgOrgIdRouteChildren: DashboardOrgOrgIdRouteChildren = {
+  DashboardOrgOrgIdAnalyticsRoute: DashboardOrgOrgIdAnalyticsRoute,
   DashboardOrgOrgIdInvitationsRoute: DashboardOrgOrgIdInvitationsRoute,
   DashboardOrgOrgIdInviteLinksRoute: DashboardOrgOrgIdInviteLinksRoute,
   DashboardOrgOrgIdJoinRequestsRoute: DashboardOrgOrgIdJoinRequestsRoute,

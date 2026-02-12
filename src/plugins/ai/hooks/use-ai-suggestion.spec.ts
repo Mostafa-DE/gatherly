@@ -3,7 +3,10 @@
 import { skipToken } from "@tanstack/react-query"
 import { act, renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useAISuggestion } from "@/plugins/ai/hooks/use-ai-suggestion"
+import {
+  useAIAnalyzeAnalytics,
+  useAISuggestion,
+} from "@/plugins/ai/hooks/use-ai-suggestion"
 import { trpc } from "@/lib/trpc"
 
 vi.mock("@/lib/trpc", () => ({
@@ -14,6 +17,9 @@ vi.mock("@/lib/trpc", () => ({
           useQuery: vi.fn(),
         },
         suggestSessionDescription: {
+          useQuery: vi.fn(),
+        },
+        analyzeAnalytics: {
           useQuery: vi.fn(),
         },
       },
@@ -30,6 +36,7 @@ type SuggestQueryState = {
 
 describe("useAISuggestion", () => {
   let suggestState: SuggestQueryState
+  let analyticsState: SuggestQueryState
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -39,6 +46,12 @@ describe("useAISuggestion", () => {
     } as ReturnType<typeof trpc.plugin.ai.checkAvailability.useQuery>)
 
     suggestState = {
+      data: undefined,
+      status: "pending",
+      fetchStatus: "idle",
+      error: null,
+    }
+    analyticsState = {
       data: undefined,
       status: "pending",
       fetchStatus: "idle",
@@ -61,6 +74,21 @@ describe("useAISuggestion", () => {
         >
       }
     )
+
+    vi.mocked(trpc.plugin.ai.analyzeAnalytics.useQuery).mockImplementation((input) => {
+      if (input === skipToken) {
+        return {
+          data: undefined,
+          status: "pending",
+          fetchStatus: "idle",
+          error: null,
+        } as ReturnType<typeof trpc.plugin.ai.analyzeAnalytics.useQuery>
+      }
+
+      return analyticsState as ReturnType<
+        typeof trpc.plugin.ai.analyzeAnalytics.useQuery
+      >
+    })
   })
 
   it("exposes AI availability and streaming state", () => {
@@ -140,5 +168,73 @@ describe("useAISuggestion", () => {
 
     expect(result.current.isStreaming).toBe(false)
     expect(onComplete).toHaveBeenCalledWith("Generated description")
+  })
+
+  it("handles analytics stream completion and invokes onComplete", () => {
+    const onComplete = vi.fn()
+    const { result, rerender } = renderHook(() =>
+      useAIAnalyzeAnalytics({
+        onComplete,
+      })
+    )
+
+    analyticsState = {
+      data: [],
+      status: "pending",
+      fetchStatus: "fetching",
+      error: null,
+    }
+
+    act(() => {
+      result.current.analyze({ days: "30" })
+    })
+
+    expect(result.current.isStreaming).toBe(true)
+
+    analyticsState = {
+      data: ["1) Insight", "\n2) Action"],
+      status: "success",
+      fetchStatus: "idle",
+      error: null,
+    }
+    rerender()
+
+    expect(result.current.isStreaming).toBe(false)
+    expect(onComplete).toHaveBeenCalledWith("1) Insight\n2) Action")
+  })
+
+  it("exposes analytics query errors and allows clearing them", () => {
+    const { result, rerender } = renderHook(() =>
+      useAIAnalyzeAnalytics({
+        onComplete: vi.fn(),
+      })
+    )
+
+    analyticsState = {
+      data: undefined,
+      status: "pending",
+      fetchStatus: "fetching",
+      error: null,
+    }
+
+    act(() => {
+      result.current.analyze({ days: "7" })
+    })
+
+    analyticsState = {
+      data: undefined,
+      status: "error",
+      fetchStatus: "idle",
+      error: new Error("Analytics AI failed"),
+    }
+    rerender()
+
+    expect(result.current.error).toBe("Analytics AI failed")
+
+    act(() => {
+      result.current.clearError()
+    })
+
+    expect(result.current.error).toBe("")
   })
 })

@@ -231,3 +231,37 @@ export function useAISummarizeMemberProfile(options: {
     isAvailable,
   }
 }
+
+// Hook for analyzing analytics
+export function useAIAnalyzeAnalytics(options: {
+  onComplete: (text: string) => void
+}) {
+  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
+  const isAvailable = aiAvailability?.available === true
+
+  type Input = { days: "7" | "30" | "90" }
+
+  const [input, setInput] = useState<Input | typeof skipToken>(skipToken)
+
+  const queryResult = trpc.plugin.ai.analyzeAnalytics.useQuery(
+    input === skipToken ? skipToken : input,
+    { gcTime: 0, retry: false }
+  )
+
+  const core = useStreamingCore(queryResult, options.onComplete, setInput)
+
+  const analyze = useCallback((params: Input) => {
+    core.setError("")
+    setInput(params)
+  }, [core])
+
+  return {
+    analyze,
+    streamedText: core.streamedText,
+    isStreaming: core.isStreaming,
+    isPending: core.isPending,
+    error: core.error,
+    clearError: core.clearError,
+    isAvailable,
+  }
+}

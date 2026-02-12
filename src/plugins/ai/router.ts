@@ -8,6 +8,7 @@ import {
   summarizeJoinRequest,
   suggestParticipationNote,
   summarizeMemberProfile,
+  analyzeAnalytics,
 } from "@/plugins/ai/features"
 
 function isPluginEnabled(enabledPlugins: unknown, pluginId: string): boolean {
@@ -56,5 +57,11 @@ export const aiRouter = router({
     .input(summarizeMemberProfile.inputSchema)
     .query(async function* ({ ctx, input }) {
       yield* executeAIFeatureStream(summarizeMemberProfile, ctx, input)
+    }),
+
+  analyzeAnalytics: orgProcedure
+    .input(analyzeAnalytics.inputSchema)
+    .query(async function* ({ ctx, input }) {
+      yield* executeAIFeatureStream(analyzeAnalytics, ctx, input)
     }),
 })

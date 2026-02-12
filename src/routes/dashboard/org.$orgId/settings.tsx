@@ -407,7 +407,8 @@ function SettingsPage() {
             <div>
               <h2 className="font-semibold">Plugins</h2>
               <p className="text-sm text-muted-foreground">
-                Enable or disable plugins for your group
+                Manage plugins for your group. Some plugins are required and
+                cannot be disabled.
               </p>
             </div>
           </div>
@@ -420,8 +421,14 @@ function SettingsPage() {
                 name={plugin.name}
                 description={plugin.description}
                 enabled={
-                  ((settings?.enabledPlugins ?? {}) as Record<string, boolean>)[plugin.id] === true
+                  plugin.alwaysEnabled
+                    ? true
+                    : ((settings?.enabledPlugins ?? {}) as Record<string, boolean>)[
+                        plugin.id
+                      ] === true
                 }
+                alwaysEnabled={plugin.alwaysEnabled}
+                alwaysEnabledReason={plugin.alwaysEnabledReason}
               />
             ))}
           </div>
@@ -680,10 +687,20 @@ type PluginToggleProps = {
   name: string
   description: string
   enabled: boolean
+  alwaysEnabled?: boolean
+  alwaysEnabledReason?: string
 }
 
-function PluginToggle({ pluginId, name, description, enabled }: PluginToggleProps) {
+function PluginToggle({
+  pluginId,
+  name,
+  description,
+  enabled,
+  alwaysEnabled,
+  alwaysEnabledReason,
+}: PluginToggleProps) {
   const utils = trpc.useUtils()
+  const locked = alwaysEnabled === true
 
   const togglePlugin = trpc.organizationSettings.togglePlugin.useMutation({
     onSuccess: () => {
@@ -697,11 +714,18 @@ function PluginToggle({ pluginId, name, description, enabled }: PluginToggleProp
       <div className="space-y-0.5">
         <p className="font-medium">{name}</p>
         <p className="text-sm text-muted-foreground">{description}</p>
+        {locked && (
+          <p className="text-xs text-muted-foreground">
+            {alwaysEnabledReason ??
+              "This plugin is required and cannot be disabled."}
+          </p>
+        )}
       </div>
       <Switch
-        checked={enabled}
-        disabled={togglePlugin.isPending}
+        checked={locked ? true : enabled}
+        disabled={locked || togglePlugin.isPending}
         onCheckedChange={(checked) => {
+          if (locked) return
           togglePlugin.mutate({ pluginId, enabled: checked })
         }}
       />

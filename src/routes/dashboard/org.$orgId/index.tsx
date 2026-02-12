@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils"
 import { buildOrgUrl } from "@/lib/share-urls"
 import { formatPrice, hasPrice } from "@/lib/format-price"
+import { AnalyticsSummaryWidget } from "@/plugins/analytics/components/analytics-summary"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/")({
   component: OrgOverviewPage,
@@ -185,6 +186,9 @@ function OrgOverviewPage() {
           pendingSessionApprovals={pendingSessionApprovals}
         />
       )}
+
+      {/* ── Analytics summary (admin-only) ── */}
+      {isAdmin && <AnalyticsSummaryWidget orgId={orgId} />}
 
       {/* ── Quick nav ── */}
       <div className="flex flex-wrap gap-2">

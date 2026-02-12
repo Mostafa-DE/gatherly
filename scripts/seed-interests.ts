@@ -25,6 +25,8 @@ const CATEGORIES: SeedCategory[] = [
       { name: "Running", popular: true },
       { name: "Yoga", popular: true },
       { name: "Swimming" },
+      { name: "Padel", popular: true },
+      { name: "Ping Pong" },
       { name: "Tennis" },
       { name: "Cycling" },
       { name: "Hiking" },

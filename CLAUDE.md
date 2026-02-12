@@ -204,6 +204,37 @@ When working on any task:
 
 ---
 
+## Performance & Scalability
+
+- Always design database queries with performance and scalability in mind.
+- Use proper indexes, avoid N+1 queries, prefer single aggregated queries over multiple round-trips.
+- For analytics or aggregate queries, use SQL-level aggregation (`COUNT`, `SUM`, `AVG`, `GROUP BY`) — never fetch all rows and compute in application code.
+- Consider query performance at scale (thousands of members, thousands of sessions) when writing data-access functions.
+- Use `EXPLAIN ANALYZE` mentally — if a query would do a full table scan at scale, add an index or restructure.
+
+---
+
+## Research Before Solving
+
+- Before assuming a solution, use available tools to research first:
+  - **Web search** for current best practices, library docs, and patterns.
+  - **Context7** for up-to-date documentation of libraries used in the project.
+  - **Available skills** (frontend-design, code-review, webapp-testing, etc.) to validate and improve solutions.
+- Do not rely solely on training knowledge — verify against current docs and community patterns.
+
+---
+
+## Design & UX Process
+
+- For any new UI work, use sub-agents to help plan and design before implementing:
+  - Explore existing UI patterns in the codebase for consistency.
+  - Review the design system (`docs/DESIGN_SYSTEM.md`) for colors, typography, spacing, and component conventions.
+  - Use the frontend-design skill for layout and visual decisions.
+  - Ensure new UI aligns with the rest of the application in look, feel, and interaction patterns.
+- Never build UI in isolation — always check how similar pages/components are built in the project first.
+
+---
+
 ## Do NOT
 
 - Use `"use client"` or `"use server"` directives — this is **not** Next.js. TanStack Start + Nitro does not use React Server Components. All components are client components by default.

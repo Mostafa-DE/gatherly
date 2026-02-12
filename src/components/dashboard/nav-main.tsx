@@ -7,6 +7,7 @@ import {
   Settings,
   Shield,
   UserPlus,
+  BarChart3,
 } from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import {
@@ -56,6 +57,12 @@ const adminNavItems: NavItem[] = [
     title: "Members",
     url: "/dashboard/org/$orgId/members",
     icon: Users,
+    adminOnly: true,
+  },
+  {
+    title: "Analytics",
+    url: "/dashboard/org/$orgId/analytics",
+    icon: BarChart3,
     adminOnly: true,
   },
   {

@@ -20,9 +20,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { TimezoneSelect } from "@/components/ui/timezone-select"
 import { getTimezones } from "@/lib/timezones"
 import { SUPPORTED_CURRENCIES } from "@/schemas/organization-settings"
 import { InterestPicker } from "@/components/onboarding/interest-picker"
+import { Info } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/groups/create")({
   component: CreateGroupPage,
@@ -48,7 +51,9 @@ function CreateGroupPage() {
   const username = session?.user?.username ?? ""
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
-  const [timezone, setTimezone] = useState("")
+  const [timezone, setTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone
+  )
   const [currency, setCurrency] = useState("")
   const [defaultJoinMode, setDefaultJoinMode] = useState<
     "open" | "invite" | "approval"
@@ -165,21 +170,12 @@ function CreateGroupPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone *</Label>
-                  <Select
+                  <TimezoneSelect
+                    id="timezone"
                     value={timezone}
-                    onValueChange={setTimezone}
-                  >
-                    <SelectTrigger id="timezone">
-                      <SelectValue placeholder="Select timezone" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {timezones.map((zone) => (
-                        <SelectItem key={zone} value={zone}>
-                          {zone}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={setTimezone}
+                    timezones={timezones}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -222,6 +218,19 @@ function CreateGroupPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {defaultJoinMode === "invite" && (
+                  <Alert className="mt-2">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Your group will be hidden and no one can request to join.
+                      You will need to send an invite separately for every
+                      member. If that&apos;s not what you want, consider
+                      switching to Approval Required so people can request to
+                      join. You can always change this in group settings after
+                      creating.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               {defaultJoinMode !== "invite" && (

@@ -33,7 +33,7 @@ export async function checkOllamaHealth(): Promise<boolean> {
 
 export async function generateText(
   request: OllamaGenerateRequest,
-  timeoutMs = 60000
+  timeoutMs = 120000
 ): Promise<string> {
   const response = await fetch(`${getOllamaUrl()}/api/generate`, {
     method: "POST",
@@ -57,52 +57,74 @@ type OllamaStreamChunk = {
 
 export async function* generateTextStream(
   request: Omit<OllamaGenerateRequest, "stream">,
-  timeoutMs = 60000
+  idleTimeoutMs = 90000
 ): AsyncGenerator<string> {
-  const response = await fetch(`${getOllamaUrl()}/api/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...request, stream: true }),
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+  // Idle timeout: aborts if no data arrives within the window.
+  // The timer resets on every chunk so active streams run freely,
+  // but a stuck model gets killed after idleTimeoutMs of silence.
+  const controller = new AbortController()
+  let timer = setTimeout(() => controller.abort(), idleTimeoutMs)
 
-  if (!response.ok) {
-    throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`)
+  const resetTimer = () => {
+    clearTimeout(timer)
+    timer = setTimeout(() => controller.abort(), idleTimeoutMs)
   }
-
-  const reader = response.body?.getReader()
-  if (!reader) {
-    throw new Error("No response body from Ollama")
-  }
-
-  const decoder = new TextDecoder()
-  let buffer = ""
 
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+    const response = await fetch(`${getOllamaUrl()}/api/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...request, stream: true }),
+      signal: controller.signal,
+    })
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split("\n")
-      buffer = lines.pop() ?? ""
+    // Connection established — reset so the model has a full window to
+    // process the prompt and emit the first token.
+    resetTimer()
 
-      for (const line of lines) {
-        if (!line.trim()) continue
-        const chunk = JSON.parse(line) as OllamaStreamChunk
+    if (!response.ok) {
+      throw new Error(`Ollama request failed: ${response.status} ${response.statusText}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error("No response body from Ollama")
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ""
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        // Got data — model is alive, reset idle timer.
+        resetTimer()
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() ?? ""
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          const chunk = JSON.parse(line) as OllamaStreamChunk
+          if (chunk.response) {
+            yield chunk.response
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        const chunk = JSON.parse(buffer) as OllamaStreamChunk
         if (chunk.response) {
           yield chunk.response
         }
       }
-    }
-
-    if (buffer.trim()) {
-      const chunk = JSON.parse(buffer) as OllamaStreamChunk
-      if (chunk.response) {
-        yield chunk.response
-      }
+    } finally {
+      reader.releaseLock()
     }
   } finally {
-    reader.releaseLock()
+    clearTimeout(timer)
   }
 }

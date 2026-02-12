@@ -51,7 +51,32 @@ This guide consolidates coding conventions from `~/code/spank/AGENTS.md`, `~/cod
 - Never edit generated files directly (e.g., Better Auth schema outputs, router generated files).
 - Modify source configuration and regenerate instead.
 
-## 7. Practical Decision Rules
+## 7. Performance & Scalability
+
+- Always design database queries with performance and scalability in mind.
+- Use proper indexes, avoid N+1 queries, prefer single aggregated queries over multiple round-trips.
+- For analytics or aggregate queries, use SQL-level aggregation (`COUNT`, `SUM`, `AVG`, `GROUP BY`) — never fetch all rows and compute in application code.
+- Consider query performance at scale (thousands of members, thousands of sessions) when writing data-access functions.
+- Use `EXPLAIN ANALYZE` mentally — if a query would do a full table scan at scale, add an index or restructure.
+
+## 8. Research Before Solving
+
+- Before assuming a solution, use available tools to research first:
+  - **Web search** for current best practices, library docs, and patterns.
+  - **Context7** for up-to-date documentation of libraries used in the project.
+  - **Available skills** (frontend-design, code-review, webapp-testing, etc.) to validate and improve solutions.
+- Do not rely solely on training knowledge — verify against current docs and community patterns.
+
+## 9. Design & UX Process
+
+- For any new UI work, use sub-agents to help plan and design before implementing:
+  - Explore existing UI patterns in the codebase for consistency.
+  - Review the design system (`docs/DESIGN_SYSTEM.md`) for colors, typography, spacing, and component conventions.
+  - Use the frontend-design skill for layout and visual decisions.
+  - Ensure new UI aligns with the rest of the application in look, feel, and interaction patterns.
+- Never build UI in isolation — always check how similar pages/components are built in the project first.
+
+## 10. Practical Decision Rules
 
 - If requirements are unclear, stop and clarify before coding.
 - Make small, safe, incremental changes.

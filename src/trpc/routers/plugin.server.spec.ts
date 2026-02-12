@@ -156,6 +156,20 @@ describe("plugin router", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" })
   })
 
+  it("rejects attempts to toggle always-enabled analytics plugin", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await expect(
+      ownerCaller.organizationSettings.togglePlugin({
+        pluginId: "analytics",
+        enabled: false,
+      })
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "Analytics is a core capability and is always enabled for every group.",
+    })
+  })
+
   it("returns unavailable and skips health check when AI plugin is disabled", async () => {
     const memberCaller = buildCaller(memberUser, organizationId)
 
@@ -260,5 +274,31 @@ describe("plugin router", () => {
       code: "BAD_REQUEST",
     })
     expect(aiClient.generateTextStream).not.toHaveBeenCalled()
+  })
+
+  it("streams analytics analysis for admins when plugin is enabled", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await ownerCaller.organizationSettings.togglePlugin({
+      pluginId: "ai",
+      enabled: true,
+    })
+
+    vi.mocked(aiClient.generateTextStream).mockImplementationOnce(() =>
+      createChunkStream(["Insight 1", "\nInsight 2"])
+    )
+
+    const streamPromise = ownerCaller.plugin.ai.analyzeAnalytics({
+      days: "30",
+    })
+
+    const chunks = await collectStreamFromPromise(streamPromise)
+    expect(chunks).toEqual(["Insight 1", "\nInsight 2"])
+
+    expect(aiClient.generateTextStream).toHaveBeenCalledTimes(1)
+    const [request] = vi.mocked(aiClient.generateTextStream).mock.calls[0]
+    expect(request.model).toBe("mistral:7b")
+    expect(request.prompt).toContain("=== GROUP HEALTH ===")
+    expect(request.prompt).toContain("=== REVENUE ===")
   })
 })
