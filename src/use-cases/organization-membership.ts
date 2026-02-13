@@ -61,18 +61,22 @@ type UpdateMemberRoleDependencies = {
 
 type UpdateOrganizationSettingsInput = {
   organizationId: string
+  name?: string
   timezone?: string
   defaultJoinMode?: "open" | "invite" | "approval"
+  callerRole: string
 }
 
 type UpdateOrganizationSettingsDependencies = {
   updateOrganizationById: (
     organizationId: string,
     updates: Partial<{
+      name: string
       timezone: string | null
       defaultJoinMode: "open" | "invite" | "approval"
     }>
   ) => Promise<void>
+  lockOrganizationNameChange: (organizationId: string) => Promise<boolean>
 }
 
 export async function joinOrganization(
@@ -174,9 +178,26 @@ export async function updateOrganizationSettings(
   input: UpdateOrganizationSettingsInput
 ): Promise<{ success: true }> {
   const updates: Partial<{
+    name: string
     timezone: string | null
     defaultJoinMode: "open" | "invite" | "approval"
   }> = {}
+
+  if (input.name !== undefined) {
+    // Only the owner can change the group name
+    if (input.callerRole !== "owner") {
+      throw new ForbiddenError("Only the group owner can change the group name")
+    }
+
+    const lockAcquired = await deps.lockOrganizationNameChange(input.organizationId)
+    if (!lockAcquired) {
+      throw new BadRequestError(
+        "The group name has already been changed and cannot be modified again"
+      )
+    }
+
+    updates.name = input.name
+  }
 
   if (input.timezone !== undefined) {
     updates.timezone = input.timezone || null

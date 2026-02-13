@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
+import { useActivityContext } from "@/hooks/use-activity-context"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/")({
   component: SessionsPage,
@@ -42,6 +43,9 @@ function getInitials(name: string | null) {
 
 function SessionsPage() {
   const { orgId } = Route.useParams()
+  const { selectedActivityId } = useActivityContext(orgId)
+  const activityId = selectedActivityId ?? undefined
+
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin =
     whoami?.membership?.role === "owner" ||
@@ -77,13 +81,13 @@ function SessionsPage() {
       )}
 
       {/* Draft Sessions */}
-      <DraftSessions orgId={orgId} isAdmin={isAdmin} currency={orgCurrency} />
+      <DraftSessions orgId={orgId} isAdmin={isAdmin} currency={orgCurrency} activityId={activityId} showActivity={!activityId} />
 
       {/* Upcoming Sessions */}
-      <UpcomingSessions orgId={orgId} currency={orgCurrency} />
+      <UpcomingSessions orgId={orgId} currency={orgCurrency} activityId={activityId} showActivity={!activityId} />
 
       {/* Past Sessions */}
-      <PastSessions orgId={orgId} currency={orgCurrency} />
+      <PastSessions orgId={orgId} currency={orgCurrency} activityId={activityId} showActivity={!activityId} />
     </div>
   )
 }
@@ -151,10 +155,14 @@ function DraftSessions({
   orgId,
   isAdmin,
   currency,
+  activityId,
+  showActivity,
 }: {
   orgId: string
   isAdmin: boolean
   currency: string | null
+  activityId?: string
+  showActivity: boolean
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
@@ -164,7 +172,7 @@ function DraftSessions({
     error,
     isFetching,
   } = trpc.session.listDraftsWithCounts.useQuery(
-    { limit },
+    { limit, activityId },
     { enabled: isAdmin }
   )
 
@@ -203,6 +211,7 @@ function DraftSessions({
             session={session}
             orgId={orgId}
             currency={currency}
+            showActivity={showActivity}
           />
         ))}
       </div>
@@ -219,9 +228,13 @@ function DraftSessions({
 function UpcomingSessions({
   orgId,
   currency,
+  activityId,
+  showActivity,
 }: {
   orgId: string
   currency: string | null
+  activityId?: string
+  showActivity: boolean
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
@@ -230,7 +243,7 @@ function UpcomingSessions({
     isLoading,
     error,
     isFetching,
-  } = trpc.session.listUpcomingWithCounts.useQuery({ limit })
+  } = trpc.session.listUpcomingWithCounts.useQuery({ limit, activityId })
 
   const hasMore = sessions && sessions.length === limit
 
@@ -279,6 +292,7 @@ function UpcomingSessions({
             session={session}
             orgId={orgId}
             currency={currency}
+            showActivity={showActivity}
           />
         ))}
       </div>
@@ -295,9 +309,13 @@ function UpcomingSessions({
 function PastSessions({
   orgId,
   currency,
+  activityId,
+  showActivity,
 }: {
   orgId: string
   currency: string | null
+  activityId?: string
+  showActivity: boolean
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
@@ -306,7 +324,7 @@ function PastSessions({
     isLoading,
     error,
     isFetching,
-  } = trpc.session.listPastWithCounts.useQuery({ limit })
+  } = trpc.session.listPastWithCounts.useQuery({ limit, activityId })
 
   const hasMore = sessions && sessions.length === limit
 
@@ -342,6 +360,7 @@ function PastSessions({
             orgId={orgId}
             isPast
             currency={currency}
+            showActivity={showActivity}
           />
         ))}
       </div>
@@ -412,6 +431,7 @@ type SessionWithCounts = {
   price: string | null
   joinedCount: number
   waitlistCount: number
+  activityName: string | null
   participants: Array<{
     id: string
     name: string | null
@@ -424,11 +444,13 @@ function SessionCard({
   orgId,
   isPast = false,
   currency,
+  showActivity = false,
 }: {
   session: SessionWithCounts
   orgId: string
   isPast?: boolean
   currency: string | null
+  showActivity?: boolean
 }) {
   const spotsLeft = session.maxCapacity - session.joinedCount
   const capacityPercent = (session.joinedCount / session.maxCapacity) * 100
@@ -442,9 +464,16 @@ function SessionCard({
     >
       {/* Title + status */}
       <div className="mb-3 flex items-start justify-between gap-2">
-        <h3 className="font-semibold leading-snug min-w-0 truncate">
-          {session.title}
-        </h3>
+        <div className="min-w-0">
+          {showActivity && session.activityName && (
+            <p className="mb-1 text-sm font-medium text-primary truncate">
+              {session.activityName}
+            </p>
+          )}
+          <h3 className="font-semibold leading-snug min-w-0 truncate">
+            {session.title}
+          </h3>
+        </div>
         <SessionStatusBadge
           status={session.status}
           spotsLeft={spotsLeft}

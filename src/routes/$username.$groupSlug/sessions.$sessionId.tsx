@@ -99,7 +99,9 @@ function PublicSessionPage() {
   )
 
   const isMember = myOrgs?.some((m) => m.organization.id === orgId)
-  const isInviteValid = !!inviteToken && !!inviteValidation?.valid
+  const hasInviteToken = !!inviteToken
+  const isInviteValid = hasInviteToken && inviteValidation?.valid === true
+  const isInviteInvalid = hasInviteToken && inviteValidation?.valid === false
 
   /* ── Loading ── */
   if (isLoading) {
@@ -340,6 +342,7 @@ function PublicSessionPage() {
                 isMember={!!isMember}
                 hasPendingRequest={!!pendingRequest}
                 isInviteValid={isInviteValid}
+                isInviteInvalid={isInviteInvalid}
                 inviteToken={inviteToken}
                 defaultJoinMode={org.defaultJoinMode}
                 orgId={org.id}
@@ -382,6 +385,7 @@ type SessionCTAProps = {
   isMember: boolean
   hasPendingRequest: boolean
   isInviteValid: boolean
+  isInviteInvalid: boolean
   inviteToken: string | undefined
   defaultJoinMode: string | null | undefined
   orgId: string
@@ -396,6 +400,7 @@ function SessionCTA({
   isMember,
   hasPendingRequest,
   isInviteValid,
+  isInviteInvalid,
   inviteToken,
   defaultJoinMode,
   orgId,
@@ -464,8 +469,19 @@ function SessionCTA({
     )
   }
 
+  if (isInviteInvalid) {
+    return (
+      <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/10 text-sm">
+        <Lock className="h-4 w-4 text-destructive flex-shrink-0" />
+        <span className="text-destructive font-medium">
+          This invite link is invalid, expired, deactivated, or already used.
+        </span>
+      </div>
+    )
+  }
+
   // Open join mode
-  if (defaultJoinMode === "open") {
+  if (!inviteToken && defaultJoinMode === "open") {
     return (
       <Button asChild size="lg" className="w-full">
         <Link
@@ -481,7 +497,7 @@ function SessionCTA({
   }
 
   // Approval mode
-  if (defaultJoinMode === "approval") {
+  if (!inviteToken && defaultJoinMode === "approval") {
     return (
       <Button asChild size="lg" className="w-full">
         <Link

@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm"
+import { and, eq, isNull, sql } from "drizzle-orm"
 import { db } from "@/db"
 import { organizationSettings } from "@/db/schema"
 import type { OrganizationSettings } from "@/db/types"
@@ -106,6 +106,38 @@ export async function updateEnabledPlugins(
     .returning()
 
   return result
+}
+
+/**
+ * Mark organization name as changed (one-time lock)
+ */
+export async function markNameChanged(organizationId: string): Promise<void> {
+  await getOrCreateOrgSettings(organizationId)
+  await db
+    .update(organizationSettings)
+    .set({ nameChangedAt: new Date(), updatedAt: new Date() })
+    .where(eq(organizationSettings.organizationId, organizationId))
+}
+
+/**
+ * Atomically lock organization name changes.
+ * Returns false when the name was already changed before.
+ */
+export async function lockOrganizationNameChange(organizationId: string): Promise<boolean> {
+  await getOrCreateOrgSettings(organizationId)
+
+  const [updated] = await db
+    .update(organizationSettings)
+    .set({ nameChangedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(organizationSettings.organizationId, organizationId),
+        isNull(organizationSettings.nameChangedAt)
+      )
+    )
+    .returning({ organizationId: organizationSettings.organizationId })
+
+  return !!updated
 }
 
 /**

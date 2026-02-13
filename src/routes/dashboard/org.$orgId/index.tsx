@@ -18,11 +18,13 @@ import {
   AlertCircle,
   ClipboardList,
   Mail,
+  Layers,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { buildOrgUrl } from "@/lib/share-urls"
 import { formatPrice, hasPrice } from "@/lib/format-price"
 import { AnalyticsSummaryWidget } from "@/plugins/analytics/components/analytics-summary"
+import { useActivityContext } from "@/hooks/use-activity-context"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/")({
   component: OrgOverviewPage,
@@ -89,11 +91,15 @@ function RoleBadge({ role }: { role: string }) {
 
 function OrgOverviewPage() {
   const { orgId } = Route.useParams()
+  const { selectedActivityId } = useActivityContext(orgId)
+  const activityId = selectedActivityId ?? undefined
+
   const { data: whoami, isLoading: whoamiLoading } =
     trpc.user.whoami.useQuery()
   const { data: upcomingSessions, isLoading: sessionsLoading } =
     trpc.session.listUpcomingWithCounts.useQuery({
       limit: 3,
+      activityId,
     })
 
   const isAdmin =
@@ -188,7 +194,7 @@ function OrgOverviewPage() {
       )}
 
       {/* ── Analytics summary (admin-only) ── */}
-      {isAdmin && <AnalyticsSummaryWidget orgId={orgId} />}
+      {isAdmin && <AnalyticsSummaryWidget orgId={orgId} activityId={activityId} />}
 
       {/* ── Quick nav ── */}
       <div className="flex flex-wrap gap-2">
@@ -209,6 +215,17 @@ function OrgOverviewPage() {
           >
             <Users className="h-4 w-4 text-primary" />
             Members
+            <ArrowRight className="h-3 w-3 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        )}
+        {isAdmin && (
+          <Link
+            to="/dashboard/org/$orgId/activities"
+            params={{ orgId }}
+            className="group inline-flex items-center gap-2 rounded-lg border bg-card px-4 py-2.5 text-sm font-medium transition-colors hover:border-primary/50 hover:bg-primary/5"
+          >
+            <Layers className="h-4 w-4 text-primary" />
+            Activities
             <ArrowRight className="h-3 w-3 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
           </Link>
         )}

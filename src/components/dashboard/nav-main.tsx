@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link, useParams, useRouterState } from "@tanstack/react-router"
 import {
   LayoutDashboard,
@@ -8,8 +9,15 @@ import {
   Shield,
   UserPlus,
   BarChart3,
+  Layers,
+  Check,
+  LogIn,
+  Clock,
+  ClipboardList,
 } from "lucide-react"
+import { toast } from "sonner"
 import { trpc } from "@/lib/trpc"
+import { useActivityContext } from "@/hooks/use-activity-context"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -18,6 +26,16 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -54,9 +72,21 @@ const adminNavItems: NavItem[] = [
     adminOnly: true,
   },
   {
+    title: "Activity Requests",
+    url: "/dashboard/org/$orgId/activity-requests",
+    icon: ClipboardList,
+    adminOnly: true,
+  },
+  {
     title: "Members",
     url: "/dashboard/org/$orgId/members",
     icon: Users,
+    adminOnly: true,
+  },
+  {
+    title: "Activities",
+    url: "/dashboard/org/$orgId/activities",
+    icon: Layers,
     adminOnly: true,
   },
   {
@@ -78,7 +108,11 @@ export function NavMain() {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
   const { setOpenMobile } = useSidebar()
+  const [confirmJoinActivityId, setConfirmJoinActivityId] = useState<string | null>(null)
 
+  const { activities, isMultiActivity, selectedActivityId, setSelectedActivity } =
+    useActivityContext(orgId ?? "")
+  const utils = trpc.useUtils()
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
   const { data: pendingJoinRequests } = trpc.joinRequest.listPending.useQuery(
@@ -89,9 +123,30 @@ export function NavMain() {
     { limit: 1 },
     { enabled: isAdmin }
   )
+  const { data: pendingActivityRequestsCount } = trpc.activityMembership.countAllPendingRequests.useQuery(
+    undefined,
+    { enabled: isAdmin }
+  )
+
+  const joinActivity = trpc.activityMembership.join.useMutation({
+    onSuccess: () => {
+      utils.activity.list.invalidate()
+      toast.success("Joined activity")
+    },
+    onError: (err) => toast.error(err.message),
+  })
+  const requestJoinActivity = trpc.activityMembership.requestJoin.useMutation({
+    onSuccess: () => {
+      utils.activity.list.invalidate()
+      utils.activityMembership.countAllPendingRequests.invalidate()
+      toast.success("Join request sent")
+    },
+    onError: (err) => toast.error(err.message),
+  })
 
   const pendingJoinRequestsCount = pendingJoinRequests?.length ?? 0
   const pendingSessionApprovalsCount = pendingApprovals?.totalPending ?? 0
+  const activityRequestsBadgeCount = pendingActivityRequestsCount ?? 0
 
   const handleNavClick = () => {
     setOpenMobile(false)
@@ -111,6 +166,7 @@ export function NavMain() {
     if (!isAdmin) return 0
     if (title === "Sessions") return pendingSessionApprovalsCount
     if (title === "Join Requests") return pendingJoinRequestsCount
+    if (title === "Activity Requests") return activityRequestsBadgeCount
     return 0
   }
 
@@ -199,6 +255,155 @@ export function NavMain() {
                         </Badge>
                       )}
                     </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+      )}
+
+      {/* Join Request Confirmation Dialog */}
+      <AlertDialog
+        open={confirmJoinActivityId !== null}
+        onOpenChange={(open) => { if (!open) setConfirmJoinActivityId(null) }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Request to Join Activity</AlertDialogTitle>
+            <AlertDialogDescription>
+              This activity requires admin approval. Your request will be reviewed
+              by an administrator. You&apos;ll be notified once it&apos;s been approved or declined.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmJoinActivityId) {
+                  requestJoinActivity.mutate({ activityId: confirmJoinActivityId })
+                  setConfirmJoinActivityId(null)
+                }
+              }}
+            >
+              Send Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {isMultiActivity && (
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1.5">
+            <Layers className="size-3" />
+            Activities
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                tooltip="All Activities"
+                isActive={selectedActivityId === null}
+                onClick={() => {
+                  setSelectedActivity(null)
+                  handleNavClick()
+                }}
+                className={cn(
+                  "transition-all duration-200 cursor-pointer",
+                  selectedActivityId === null && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                )}
+              >
+                <Layers className={cn(
+                  "size-4",
+                  selectedActivityId === null && "text-primary"
+                )} />
+                <span>All Activities</span>
+                {selectedActivityId === null && (
+                  <Check className="ml-auto size-4 text-primary group-data-[collapsible=icon]:hidden" />
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {activities.map((a) => {
+              const isSelected = selectedActivityId === a.id
+              const isMember = a.myMembershipStatus === "active"
+              const hasPendingRequest = a.myJoinRequestStatus === "pending"
+              const canJoin = !isAdmin && !isMember && !hasPendingRequest && a.joinMode === "open"
+              const canRequest = !isAdmin && !isMember && !hasPendingRequest && a.joinMode === "require_approval"
+              const isMutating = joinActivity.isPending || requestJoinActivity.isPending
+
+              // Hide invite-only activities from non-admin non-members
+              if (!isAdmin && !isMember && a.joinMode === "invite") {
+                return null
+              }
+
+              // Admins can always select any activity, members can select their activities
+              if (isMember || isAdmin) {
+                return (
+                  <SidebarMenuItem key={a.id}>
+                    <SidebarMenuButton
+                      tooltip={a.name}
+                      isActive={isSelected}
+                      onClick={() => {
+                        setSelectedActivity(a.id)
+                        handleNavClick()
+                      }}
+                      className={cn(
+                        "transition-all duration-200 cursor-pointer",
+                        isSelected && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                      )}
+                    >
+                      <span className={cn(
+                        "size-4 flex items-center justify-center rounded text-[10px] font-bold shrink-0",
+                        isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}>
+                        {a.name.charAt(0).toUpperCase()}
+                      </span>
+                      <span className="truncate">{a.name}</span>
+                      {isSelected && (
+                        <Check className="ml-auto size-4 text-primary group-data-[collapsible=icon]:hidden" />
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              }
+
+              return (
+                <SidebarMenuItem key={a.id}>
+                  <SidebarMenuButton
+                    tooltip={
+                      hasPendingRequest ? `${a.name} (request pending)`
+                      : canJoin ? `Join ${a.name}`
+                      : canRequest ? `Request to join ${a.name}`
+                      : a.name
+                    }
+                    disabled={isMutating || hasPendingRequest}
+                    onClick={() => {
+                      if (hasPendingRequest) return
+                      if (canJoin) {
+                        joinActivity.mutate({ activityId: a.id })
+                      } else if (canRequest) {
+                        setConfirmJoinActivityId(a.id)
+                      }
+                    }}
+                    className={cn(
+                      "transition-all duration-200",
+                      hasPendingRequest
+                        ? "text-muted-foreground opacity-70 cursor-default"
+                        : "cursor-pointer text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <span className="size-4 flex items-center justify-center rounded text-[10px] font-bold shrink-0 bg-muted text-muted-foreground">
+                      {a.name.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="truncate">{a.name}</span>
+                    {hasPendingRequest && (
+                      <Clock className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                    )}
+                    {canJoin && (
+                      <LogIn className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                    )}
+                    {canRequest && (
+                      <UserPlus className="ml-auto size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )

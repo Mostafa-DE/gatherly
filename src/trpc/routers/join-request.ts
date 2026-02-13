@@ -7,8 +7,8 @@ import {
   cancelJoinRequest,
   approveJoinRequest,
   rejectJoinRequest,
-  getJoinRequestById,
-  getJoinRequestWithDetails,
+  getJoinRequestByIdForOrg,
+  getJoinRequestWithDetailsForOrg,
   getPendingRequest,
   listPendingRequestsForOrg,
   listMyJoinRequests,
@@ -124,20 +124,15 @@ export const joinRequestRouter = router({
       assertAdmin(ctx.membership.role)
 
       // Get the request with details
-      const requestData = await getJoinRequestWithDetails(input.requestId)
+      const requestData = await getJoinRequestWithDetailsForOrg(
+        input.requestId,
+        ctx.activeOrganization.id
+      )
       if (!requestData) {
         throw new NotFoundError("Join request not found")
       }
 
-      // Verify request belongs to this org
-      if (requestData.request.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Request does not belong to this organization")
-      }
-
-      // Update request status first
-      const updatedRequest = await approveJoinRequest(input.requestId, ctx.user.id)
-
-      // Add user as member via Better Auth
+      // Add user as member first; only mark request approved once membership exists.
       await auth.api.addMember({
         body: {
           userId: requestData.request.userId,
@@ -145,6 +140,8 @@ export const joinRequestRouter = router({
           organizationId: ctx.activeOrganization.id,
         },
       })
+
+      const updatedRequest = await approveJoinRequest(input.requestId, ctx.user.id)
 
       // Save form answers as profile if present
       const formAnswers = requestData.request.formAnswers as Record<string, unknown> | null
@@ -168,14 +165,12 @@ export const joinRequestRouter = router({
       assertAdmin(ctx.membership.role)
 
       // Get the request
-      const request = await getJoinRequestById(input.requestId)
+      const request = await getJoinRequestByIdForOrg(
+        input.requestId,
+        ctx.activeOrganization.id
+      )
       if (!request) {
         throw new NotFoundError("Join request not found")
-      }
-
-      // Verify request belongs to this org
-      if (request.organizationId !== ctx.activeOrganization.id) {
-        throw new ForbiddenError("Request does not belong to this organization")
       }
 
       return rejectJoinRequest(input.requestId, ctx.user.id)

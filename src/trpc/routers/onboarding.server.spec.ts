@@ -141,11 +141,10 @@ describe("onboarding router", () => {
     categoryIds.length = 0
   })
 
-  it("updates intent/city/timezone and marks onboarding as completed", async () => {
+  it("updates city/timezone and marks onboarding as completed", async () => {
     const caller = buildCaller(standaloneUser)
 
     const result = await caller.onboarding.complete({
-      intent: "join",
       country: "JO",
       city: "Amman",
       timezone: "Asia/Amman",
@@ -155,7 +154,6 @@ describe("onboarding router", () => {
 
     const [updatedUser] = await db
       .select({
-        intent: user.intent,
         country: user.country,
         city: user.city,
         timezone: user.timezone,
@@ -166,7 +164,6 @@ describe("onboarding router", () => {
       .limit(1)
 
     expect(updatedUser).toMatchObject({
-      intent: "join",
       country: "JO",
       city: "Amman",
       timezone: "Asia/Amman",

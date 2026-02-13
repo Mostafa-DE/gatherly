@@ -8,7 +8,8 @@ export async function createMemberNote(
   organizationId: string,
   targetUserId: string,
   authorUserId: string,
-  content: string
+  content: string,
+  activityId?: string
 ): Promise<MemberNote> {
   const [created] = await db
     .insert(memberNote)
@@ -17,6 +18,7 @@ export async function createMemberNote(
       targetUserId,
       authorUserId,
       content,
+      activityId: activityId ?? null,
     })
     .returning()
   return created
@@ -24,8 +26,18 @@ export async function createMemberNote(
 
 export async function listMemberNotes(
   organizationId: string,
-  targetUserId: string
+  targetUserId: string,
+  activityId?: string
 ) {
+  const conditions = [
+    eq(memberNote.organizationId, organizationId),
+    eq(memberNote.targetUserId, targetUserId),
+  ]
+
+  if (activityId) {
+    conditions.push(eq(memberNote.activityId, activityId))
+  }
+
   return db
     .select({
       note: memberNote,
@@ -37,12 +49,7 @@ export async function listMemberNotes(
     })
     .from(memberNote)
     .innerJoin(user, eq(memberNote.authorUserId, user.id))
-    .where(
-      and(
-        eq(memberNote.organizationId, organizationId),
-        eq(memberNote.targetUserId, targetUserId)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(memberNote.createdAt))
 }
 

@@ -82,6 +82,7 @@ export async function getMemberById(memberId: string) {
 export async function updateOrganizationById(
   organizationId: string,
   updates: Partial<{
+    name: string
     timezone: string | null
     defaultJoinMode: "open" | "invite" | "approval"
   }>

@@ -3,6 +3,7 @@ import { z } from "zod"
 export const createMemberNoteSchema = z.object({
   targetUserId: z.string(),
   content: z.string().min(1).max(2000),
+  activityId: z.string().optional(),
 })
 
 export const updateMemberNoteSchema = z.object({
@@ -16,6 +17,7 @@ export const deleteMemberNoteSchema = z.object({
 
 export const listMemberNotesSchema = z.object({
   targetUserId: z.string(),
+  activityId: z.string().optional(),
 })
 
 export type CreateMemberNoteInput = z.infer<typeof createMemberNoteSchema>

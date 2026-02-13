@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
+  createTestActivity,
   createTestMembership,
   createTestOrganization,
   createTestUser,
@@ -126,10 +127,16 @@ describe("plugin router", () => {
       .returning({ id: joinRequest.id })
     externalJoinRequestId = createdJoinRequest.id
 
+    const testActivity = await createTestActivity({
+      organizationId: otherOrganizationId,
+      createdBy: externalMember.id,
+    })
+
     const [createdSession] = await db
       .insert(eventSession)
       .values({
         organizationId: otherOrganizationId,
+        activityId: testActivity.id,
         title: "External Session",
         dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
         maxCapacity: 10,

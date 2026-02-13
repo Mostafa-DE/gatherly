@@ -4,11 +4,13 @@ import {
   cleanupTestData,
   createTestOrganization,
   createTestUser,
+  createTestActivity,
 } from "@/tests/server/db-fixtures"
 
 describe("sessions data-access", () => {
   let organizationId = ""
   let userId = ""
+  let activityId = ""
 
   beforeEach(async () => {
     const organization = await createTestOrganization()
@@ -16,6 +18,12 @@ describe("sessions data-access", () => {
 
     organizationId = organization.id
     userId = user.id
+
+    const testActivity = await createTestActivity({
+      organizationId,
+      createdBy: userId,
+    })
+    activityId = testActivity.id
   })
 
   afterEach(async () => {
@@ -34,6 +42,7 @@ describe("sessions data-access", () => {
     const sessionTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
 
     await createSession(organizationId, userId, {
+      activityId,
       title: "Session A",
       dateTime: sessionTime,
       maxCapacity: 10,
@@ -43,6 +52,7 @@ describe("sessions data-access", () => {
 
     await expect(
       createSession(organizationId, userId, {
+        activityId,
         title: "Session B",
         dateTime: sessionTime,
         maxCapacity: 10,
@@ -57,6 +67,7 @@ describe("sessions data-access", () => {
     const otherTime = new Date(Date.now() + 4 * 60 * 60 * 1000)
 
     const sessionA = await createSession(organizationId, userId, {
+      activityId,
       title: "Session A",
       dateTime: sessionTime,
       maxCapacity: 10,
@@ -65,6 +76,7 @@ describe("sessions data-access", () => {
     })
 
     const sessionB = await createSession(organizationId, userId, {
+      activityId,
       title: "Session B",
       dateTime: otherTime,
       maxCapacity: 10,
@@ -83,6 +95,7 @@ describe("sessions data-access", () => {
 
   it("enforces valid session status transitions", async () => {
     const session = await createSession(organizationId, userId, {
+      activityId,
       title: "Status Flow",
       dateTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
       maxCapacity: 10,
@@ -103,6 +116,7 @@ describe("sessions data-access", () => {
 
   it("soft deletes session and excludes it from active lookup", async () => {
     const session = await createSession(organizationId, userId, {
+      activityId,
       title: "Soft Delete",
       dateTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
       maxCapacity: 10,

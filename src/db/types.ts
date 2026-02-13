@@ -7,6 +7,9 @@ import type {
   joinRequest,
   inviteLink,
   memberNote,
+  activity,
+  activityMember,
+  activityJoinRequest,
   interestCategory,
   interest,
   userInterest,
@@ -40,6 +43,12 @@ export type InviteLink = typeof inviteLink.$inferSelect
 export type NewInviteLink = typeof inviteLink.$inferInsert
 export type MemberNote = typeof memberNote.$inferSelect
 export type NewMemberNote = typeof memberNote.$inferInsert
+export type Activity = typeof activity.$inferSelect
+export type NewActivity = typeof activity.$inferInsert
+export type ActivityMember = typeof activityMember.$inferSelect
+export type NewActivityMember = typeof activityMember.$inferInsert
+export type ActivityJoinRequest = typeof activityJoinRequest.$inferSelect
+export type NewActivityJoinRequest = typeof activityJoinRequest.$inferInsert
 export type InterestCategory = typeof interestCategory.$inferSelect
 export type NewInterestCategory = typeof interestCategory.$inferInsert
 export type Interest = typeof interest.$inferSelect

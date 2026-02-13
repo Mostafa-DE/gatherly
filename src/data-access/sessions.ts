@@ -1,6 +1,6 @@
-import { and, count, eq, gt, isNull, lt, or, sql, desc, asc } from "drizzle-orm"
+import { and, count, eq, gt, inArray, isNull, lt, or, sql, desc, asc, type SQL } from "drizzle-orm"
 import { db } from "@/db"
-import { eventSession, participation, user } from "@/db/schema"
+import { eventSession, participation, activity } from "@/db/schema"
 import type { EventSession } from "@/db/types"
 import { NotFoundError, BadRequestError } from "@/exceptions"
 import {
@@ -64,6 +64,7 @@ export async function listSessions(
     offset: number
     status?: SessionStatus
     includeDeleted?: boolean
+    activityId?: string
   }
 ) {
   const conditions = [eq(eventSession.organizationId, organizationId)]
@@ -74,6 +75,10 @@ export async function listSessions(
 
   if (options.status) {
     conditions.push(eq(eventSession.status, options.status))
+  }
+
+  if (options.activityId) {
+    conditions.push(eq(eventSession.activityId, options.activityId))
   }
 
   return db
@@ -87,20 +92,24 @@ export async function listSessions(
 
 export async function listUpcomingSessions(
   organizationId: string,
-  options: { limit: number; offset: number }
+  options: { limit: number; offset: number; activityId?: string }
 ) {
   const now = new Date()
+  const conditions = [
+    eq(eventSession.organizationId, organizationId),
+    isNull(eventSession.deletedAt),
+    eq(eventSession.status, "published"),
+    gt(eventSession.dateTime, now),
+  ]
+
+  if (options.activityId) {
+    conditions.push(eq(eventSession.activityId, options.activityId))
+  }
+
   return db
     .select()
     .from(eventSession)
-    .where(
-      and(
-        eq(eventSession.organizationId, organizationId),
-        isNull(eventSession.deletedAt),
-        eq(eventSession.status, "published"),
-        gt(eventSession.dateTime, now)
-      )
-    )
+    .where(and(...conditions))
     .orderBy(asc(eventSession.dateTime))
     .limit(options.limit)
     .offset(options.offset)
@@ -108,92 +117,71 @@ export async function listUpcomingSessions(
 
 export async function listUpcomingSessionsWithCounts(
   organizationId: string,
-  options: { limit: number; offset: number }
+  options: { limit: number; offset: number; activityId?: string; activityIds?: string[] }
 ) {
+  if (options.activityIds?.length === 0) return []
+
   const now = new Date()
-  const sessions = await db
-    .select()
-    .from(eventSession)
-    .where(
-      and(
-        eq(eventSession.organizationId, organizationId),
-        isNull(eventSession.deletedAt),
-        eq(eventSession.status, "published"),
-        gt(eventSession.dateTime, now)
-      )
-    )
-    .orderBy(asc(eventSession.dateTime))
-    .limit(options.limit)
-    .offset(options.offset)
+  const conditions = [
+    eq(eventSession.organizationId, organizationId),
+    isNull(eventSession.deletedAt),
+    eq(eventSession.status, "published"),
+    gt(eventSession.dateTime, now),
+  ]
 
-  // Get counts and participant preview for each session
-  const sessionsWithCounts = await Promise.all(
-    sessions.map(async (session) => {
-      const counts = await getSessionCounts(session.id)
-      const participants = await getSessionParticipantPreview(session.id)
-      return {
-        ...session,
-        ...counts,
-        participants,
-      }
-    })
-  )
+  if (options.activityId) {
+    conditions.push(eq(eventSession.activityId, options.activityId))
+  } else if (options.activityIds) {
+    conditions.push(inArray(eventSession.activityId, options.activityIds))
+  }
 
-  return sessionsWithCounts
+  return selectSessionsWithCounts(conditions, asc(eventSession.dateTime), options.limit, options.offset)
 }
 
 export async function listDraftSessionsWithCounts(
   organizationId: string,
-  options: { limit: number; offset: number }
+  options: { limit: number; offset: number; activityId?: string; activityIds?: string[] }
 ) {
-  const sessions = await db
-    .select()
-    .from(eventSession)
-    .where(
-      and(
-        eq(eventSession.organizationId, organizationId),
-        isNull(eventSession.deletedAt),
-        eq(eventSession.status, "draft")
-      )
-    )
-    .orderBy(desc(eventSession.dateTime))
-    .limit(options.limit)
-    .offset(options.offset)
+  if (options.activityIds?.length === 0) return []
 
-  const sessionsWithCounts = await Promise.all(
-    sessions.map(async (session) => {
-      const counts = await getSessionCounts(session.id)
-      const participants = await getSessionParticipantPreview(session.id)
-      return {
-        ...session,
-        ...counts,
-        participants,
-      }
-    })
-  )
+  const conditions = [
+    eq(eventSession.organizationId, organizationId),
+    isNull(eventSession.deletedAt),
+    eq(eventSession.status, "draft"),
+  ]
 
-  return sessionsWithCounts
+  if (options.activityId) {
+    conditions.push(eq(eventSession.activityId, options.activityId))
+  } else if (options.activityIds) {
+    conditions.push(inArray(eventSession.activityId, options.activityIds))
+  }
+
+  return selectSessionsWithCounts(conditions, desc(eventSession.dateTime), options.limit, options.offset)
 }
 
 export async function listPastSessions(
   organizationId: string,
-  options: { limit: number; offset: number }
+  options: { limit: number; offset: number; activityId?: string }
 ) {
   const now = new Date()
+  const conditions = [
+    eq(eventSession.organizationId, organizationId),
+    isNull(eventSession.deletedAt),
+    or(
+      lt(eventSession.dateTime, now),
+      eq(eventSession.status, "completed"),
+      eq(eventSession.status, "cancelled")
+    )!,
+  ]
+
+  if (options.activityId) {
+    conditions.push(eq(eventSession.activityId, options.activityId))
+  }
+
   return db
     .select()
     .from(eventSession)
-    .where(
-      and(
-        eq(eventSession.organizationId, organizationId),
-        isNull(eventSession.deletedAt),
-        or(
-          lt(eventSession.dateTime, now),
-          eq(eventSession.status, "completed"),
-          eq(eventSession.status, "cancelled")
-        )
-      )
-    )
+    .where(and(...conditions))
     .orderBy(desc(eventSession.dateTime))
     .limit(options.limit)
     .offset(options.offset)
@@ -201,83 +189,86 @@ export async function listPastSessions(
 
 export async function listPastSessionsWithCounts(
   organizationId: string,
-  options: { limit: number; offset: number }
+  options: { limit: number; offset: number; activityId?: string; activityIds?: string[] }
 ) {
+  if (options.activityIds?.length === 0) return []
+
   const now = new Date()
-  const sessions = await db
-    .select()
-    .from(eventSession)
-    .where(
-      and(
-        eq(eventSession.organizationId, organizationId),
-        isNull(eventSession.deletedAt),
-        or(
-          lt(eventSession.dateTime, now),
-          eq(eventSession.status, "completed"),
-          eq(eventSession.status, "cancelled")
-        )
-      )
-    )
-    .orderBy(desc(eventSession.dateTime))
-    .limit(options.limit)
-    .offset(options.offset)
+  const conditions = [
+    eq(eventSession.organizationId, organizationId),
+    isNull(eventSession.deletedAt),
+    or(
+      lt(eventSession.dateTime, now),
+      eq(eventSession.status, "completed"),
+      eq(eventSession.status, "cancelled")
+    )!,
+  ]
 
-  // Get counts and participant preview for each session
-  const sessionsWithCounts = await Promise.all(
-    sessions.map(async (session) => {
-      const counts = await getSessionCounts(session.id)
-      const participants = await getSessionParticipantPreview(session.id)
-      return {
-        ...session,
-        ...counts,
-        participants,
-      }
-    })
-  )
-
-  return sessionsWithCounts
-}
-
-// Helper: Get joined/waitlisted counts for a session
-async function getSessionCounts(sessionId: string) {
-  const [counts] = await db
-    .select({
-      joinedCount: count(
-        sql`CASE WHEN ${participation.status} = 'joined' THEN 1 END`
-      ),
-      waitlistCount: count(
-        sql`CASE WHEN ${participation.status} = 'waitlisted' THEN 1 END`
-      ),
-    })
-    .from(participation)
-    .where(eq(participation.sessionId, sessionId))
-
-  return {
-    joinedCount: counts?.joinedCount ?? 0,
-    waitlistCount: counts?.waitlistCount ?? 0,
+  if (options.activityId) {
+    conditions.push(eq(eventSession.activityId, options.activityId))
+  } else if (options.activityIds) {
+    conditions.push(inArray(eventSession.activityId, options.activityIds))
   }
+
+  return selectSessionsWithCounts(conditions, desc(eventSession.dateTime), options.limit, options.offset)
 }
 
-// Helper: Get first 4 joined participants for preview avatars
-async function getSessionParticipantPreview(sessionId: string) {
-  const participants = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      image: user.image,
-    })
-    .from(participation)
-    .innerJoin(user, eq(participation.userId, user.id))
-    .where(
-      and(
-        eq(participation.sessionId, sessionId),
-        eq(participation.status, "joined")
-      )
-    )
-    .orderBy(asc(participation.joinedAt))
-    .limit(4)
+type ParticipantPreview = { id: string; name: string; image: string | null }
 
-  return participants
+/**
+ * Shared helper: selects sessions with counts and participant preview in a single query.
+ * Uses db.$count() for counts and a correlated subquery for participant preview to avoid N+1.
+ */
+async function selectSessionsWithCounts(
+  conditions: SQL[],
+  orderBy: SQL,
+  limit: number,
+  offset: number
+) {
+  const rows = await db
+    .select({
+      session: eventSession,
+      activityName: activity.name,
+      joinedCount: db.$count(
+        participation,
+        and(
+          eq(participation.sessionId, eventSession.id),
+          eq(participation.status, "joined")
+        )
+      ),
+      waitlistCount: db.$count(
+        participation,
+        and(
+          eq(participation.sessionId, eventSession.id),
+          eq(participation.status, "waitlisted")
+        )
+      ),
+      participants: sql<ParticipantPreview[]>`(
+        SELECT coalesce(json_agg(sub), '[]'::json) FROM (
+          SELECT u.id, u.name, u.image
+          FROM "participation" p
+          INNER JOIN "user" u ON p.user_id = u.id
+          WHERE p.session_id = "event_session"."id"
+            AND p.status = 'joined'
+          ORDER BY p.joined_at ASC
+          LIMIT 4
+        ) sub
+      )`.as("participants"),
+    })
+    .from(eventSession)
+    .leftJoin(activity, eq(eventSession.activityId, activity.id))
+    .where(and(...conditions))
+    .orderBy(orderBy)
+    .limit(limit)
+    .offset(offset)
+
+  return rows.map((row) => ({
+    ...row.session,
+    activityName: row.activityName,
+    joinedCount: row.joinedCount,
+    waitlistCount: row.waitlistCount,
+    participants: row.participants ?? [],
+  }))
 }
 
 // =============================================================================
@@ -293,6 +284,7 @@ export async function createSession(
     .insert(eventSession)
     .values({
       organizationId,
+      activityId: data.activityId,
       createdBy,
       title: data.title,
       description: data.description,

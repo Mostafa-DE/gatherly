@@ -11,6 +11,7 @@ import {
 
 const timeRangeInput = z.object({
   days: z.enum(["7", "30", "90"]).default("30"),
+  activityId: z.string().optional(),
 })
 
 function assertAdmin(role: string) {
@@ -27,34 +28,34 @@ export const analyticsRouter = router({
     .input(timeRangeInput)
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      return getAnalyticsSummary(ctx.activeOrganization.id, Number(input.days))
+      return getAnalyticsSummary(ctx.activeOrganization.id, Number(input.days), input.activityId)
     }),
 
   groupHealth: orgProcedure
     .input(timeRangeInput)
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      return getGroupHealthStats(ctx.activeOrganization.id, Number(input.days))
+      return getGroupHealthStats(ctx.activeOrganization.id, Number(input.days), input.activityId)
     }),
 
   sessionPerformance: orgProcedure
     .input(timeRangeInput)
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      return getSessionPerformanceStats(ctx.activeOrganization.id, Number(input.days))
+      return getSessionPerformanceStats(ctx.activeOrganization.id, Number(input.days), input.activityId)
     }),
 
   attendancePatterns: orgProcedure
     .input(timeRangeInput)
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      return getAttendancePatternStats(ctx.activeOrganization.id, Number(input.days))
+      return getAttendancePatternStats(ctx.activeOrganization.id, Number(input.days), input.activityId)
     }),
 
   revenue: orgProcedure
     .input(timeRangeInput)
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      return getRevenueStats(ctx.activeOrganization.id, Number(input.days))
+      return getRevenueStats(ctx.activeOrganization.id, Number(input.days), input.activityId)
     }),
 })

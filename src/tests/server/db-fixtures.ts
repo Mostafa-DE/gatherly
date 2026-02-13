@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { inArray } from "drizzle-orm"
 import { db } from "@/db"
-import { member, organization, user } from "@/db/schema"
+import { member, organization, user, activity, activityMember } from "@/db/schema"
 
 function createToken(prefix: string): string {
   return `${prefix}_${randomUUID().replaceAll("-", "")}`
@@ -65,6 +65,48 @@ export async function createTestMembership(input: {
     .returning()
 
   return createdMembership
+}
+
+export async function createTestActivity(input: {
+  organizationId: string
+  createdBy: string
+  name?: string
+  slug?: string
+  joinMode?: "open" | "require_approval" | "invite"
+}) {
+  const [createdActivity] = await db
+    .insert(activity)
+    .values({
+      id: createToken("act"),
+      organizationId: input.organizationId,
+      name: input.name ?? "Test Activity",
+      slug: input.slug ?? createToken("slug").toLowerCase(),
+      joinMode: input.joinMode ?? "open",
+      createdBy: input.createdBy,
+      createdAt: new Date(),
+    })
+    .returning()
+
+  return createdActivity
+}
+
+export async function createTestActivityMember(input: {
+  activityId: string
+  userId: string
+  status?: "pending" | "active" | "rejected"
+}) {
+  const [createdMember] = await db
+    .insert(activityMember)
+    .values({
+      id: createToken("amem"),
+      activityId: input.activityId,
+      userId: input.userId,
+      status: input.status ?? "active",
+      createdAt: new Date(),
+    })
+    .returning()
+
+  return createdMember
 }
 
 export async function cleanupTestData(input: {

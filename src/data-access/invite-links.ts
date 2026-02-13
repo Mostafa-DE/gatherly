@@ -56,6 +56,35 @@ export async function incrementUsedCount(id: string) {
     .where(eq(inviteLink.id, id))
 }
 
+/**
+ * Atomically claim an invite link: validates token, expiration, active status,
+ * and max uses in a single UPDATE ... WHERE ... RETURNING query.
+ * Returns null if the link is invalid, expired, or fully used.
+ */
+export async function claimInviteLinkByToken(token: string) {
+  const now = new Date()
+
+  const [link] = await db
+    .update(inviteLink)
+    .set({
+      usedCount: sql`${inviteLink.usedCount} + 1`,
+    })
+    .where(
+      and(
+        eq(inviteLink.token, token),
+        eq(inviteLink.isActive, true),
+        or(isNull(inviteLink.expiresAt), gt(inviteLink.expiresAt, now)),
+        or(
+          isNull(inviteLink.maxUses),
+          sql`${inviteLink.usedCount} < ${inviteLink.maxUses}`
+        )
+      )
+    )
+    .returning()
+
+  return link ?? null
+}
+
 export async function listInviteLinks(organizationId: string) {
   return db
     .select()

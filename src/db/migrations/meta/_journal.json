@@ -57,6 +57,27 @@
       "when": 1770914167228,
       "tag": "0007_aromatic_thena",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1770998021508,
+      "tag": "0008_puzzling_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771005667609,
+      "tag": "0009_uneven_sunfire",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771006128221,
+      "tag": "0010_tearful_sandman",
+      "breakpoints": true
     }
   ]
 }

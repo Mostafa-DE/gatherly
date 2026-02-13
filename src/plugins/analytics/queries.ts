@@ -47,14 +47,18 @@ function getPreviousPeriod(days: number): { from: Date; to: Date } {
 }
 
 /** Base filter: org-scoped, non-deleted, published/completed sessions in date range */
-function sessionInRange(orgId: string, from: Date, to: Date) {
-  return and(
+function sessionInRange(orgId: string, from: Date, to: Date, activityId?: string) {
+  const conditions = [
     eq(eventSession.organizationId, orgId),
     isNull(eventSession.deletedAt),
     inArray(eventSession.status, ["published", "completed"]),
     gte(eventSession.dateTime, from),
-    lte(eventSession.dateTime, to)
-  )
+    lte(eventSession.dateTime, to),
+  ]
+  if (activityId) {
+    conditions.push(eq(eventSession.activityId, activityId))
+  }
+  return and(...conditions)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -63,7 +67,8 @@ function sessionInRange(orgId: string, from: Date, to: Date) {
 
 export async function getGroupHealthStats(
   orgId: string,
-  days: number
+  days: number,
+  activityId?: string
 ): Promise<GroupHealthStats> {
   const { from, to } = getDateRange(days)
   const prev = getPreviousPeriod(days)
@@ -75,7 +80,7 @@ export async function getGroupHealthStats(
     .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
     .where(
       and(
-        sessionInRange(orgId, prev.from, prev.to),
+        sessionInRange(orgId, prev.from, prev.to, activityId),
         eq(participation.attendance, "show")
       )
     )
@@ -102,7 +107,7 @@ export async function getGroupHealthStats(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             eq(participation.attendance, "show")
           )
         )
@@ -123,7 +128,7 @@ export async function getGroupHealthStats(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             eq(participation.attendance, "show"),
             inArray(participation.userId, prevActiveSq)
           )
@@ -178,7 +183,8 @@ export async function getGroupHealthStats(
 
 export async function getSessionPerformanceStats(
   orgId: string,
-  days: number
+  days: number,
+  activityId?: string
 ): Promise<SessionPerformanceStats> {
   const { from, to } = getDateRange(days)
 
@@ -195,7 +201,7 @@ export async function getSessionPerformanceStats(
     })
     .from(eventSession)
     .leftJoin(participation, eq(participation.sessionId, eventSession.id))
-    .where(sessionInRange(orgId, from, to))
+    .where(sessionInRange(orgId, from, to, activityId))
     .groupBy(eventSession.id)
     .orderBy(eventSession.dateTime)
 
@@ -261,7 +267,8 @@ export async function getSessionPerformanceStats(
 
 export async function getAttendancePatternStats(
   orgId: string,
-  days: number
+  days: number,
+  activityId?: string
 ): Promise<AttendancePatternStats> {
   const { from, to } = getDateRange(days)
 
@@ -277,7 +284,7 @@ export async function getAttendancePatternStats(
     .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
     .where(
       and(
-        sessionInRange(orgId, from, to),
+        sessionInRange(orgId, from, to, activityId),
         eq(participation.attendance, "show")
       )
     )
@@ -297,7 +304,7 @@ export async function getAttendancePatternStats(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             inArray(participation.attendance, ["show", "no_show"])
           )
         )
@@ -325,7 +332,7 @@ export async function getAttendancePatternStats(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             inArray(participation.attendance, ["show", "no_show"])
           )
         )
@@ -342,7 +349,7 @@ export async function getAttendancePatternStats(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             eq(participation.attendance, "show")
           )
         )
@@ -362,7 +369,7 @@ export async function getAttendancePatternStats(
         .innerJoin(user, eq(participation.userId, user.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             eq(participation.attendance, "show")
           )
         )
@@ -416,7 +423,8 @@ export async function getAttendancePatternStats(
 
 export async function getRevenueStats(
   orgId: string,
-  days: number
+  days: number,
+  activityId?: string
 ): Promise<RevenueStats> {
   const { from, to } = getDateRange(days)
 
@@ -441,7 +449,7 @@ export async function getRevenueStats(
       })
       .from(participation)
       .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
-      .where(sessionInRange(orgId, from, to))
+      .where(sessionInRange(orgId, from, to, activityId))
       .then((rows) => rows[0]),
 
     // Revenue trend by week
@@ -456,7 +464,7 @@ export async function getRevenueStats(
       .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
       .where(
         and(
-          sessionInRange(orgId, from, to),
+          sessionInRange(orgId, from, to, activityId),
           isNotNull(eventSession.price),
           sql`${eventSession.price}::numeric > 0`
         )
@@ -503,7 +511,8 @@ export async function getRevenueStats(
 
 export async function getAnalyticsSummary(
   orgId: string,
-  days: number
+  days: number,
+  activityId?: string
 ): Promise<AnalyticsSummary> {
   const { from, to } = getDateRange(days)
 
@@ -525,7 +534,7 @@ export async function getAnalyticsSummary(
         })
         .from(eventSession)
         .leftJoin(participation, eq(participation.sessionId, eventSession.id))
-        .where(sessionInRange(orgId, from, to))
+        .where(sessionInRange(orgId, from, to, activityId))
         .groupBy(eventSession.id),
 
       // Show rate: total shows and marked
@@ -538,7 +547,7 @@ export async function getAnalyticsSummary(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             inArray(participation.attendance, ["show", "no_show"])
           )
         )
@@ -553,7 +562,7 @@ export async function getAnalyticsSummary(
         .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
         .where(
           and(
-            sessionInRange(orgId, from, to),
+            sessionInRange(orgId, from, to, activityId),
             eq(participation.payment, "paid"),
             eq(participation.status, "joined"),
             isNotNull(eventSession.price),

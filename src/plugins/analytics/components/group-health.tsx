@@ -23,9 +23,10 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-export function GroupHealth({ days }: { days: TimeRange }) {
+export function GroupHealth({ days, activityId }: { days: TimeRange; activityId?: string }) {
   const { data, isLoading } = trpc.plugin.analytics.groupHealth.useQuery({
     days,
+    activityId,
   })
 
   if (isLoading) {

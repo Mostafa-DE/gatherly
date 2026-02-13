@@ -38,6 +38,7 @@ export const eventSessionInsertSchema = createInsertSchema(eventSession, {
 
 /** Create a new session */
 export const createSessionSchema = z.object({
+  activityId: z.string(),
   title: z.string().min(1).max(200),
   description: z.string().max(5000).optional(),
   dateTime: z.coerce.date(),
@@ -79,18 +80,21 @@ export const listSessionsSchema = z.object({
   offset: z.number().int().nonnegative().default(0),
   status: sessionStatusSchema.optional(),
   includeDeleted: z.boolean().default(false),
+  activityId: z.string().optional(),
 })
 
 /** List upcoming sessions */
 export const listUpcomingSessionsSchema = z.object({
   limit: z.number().int().positive().max(100).default(20),
   offset: z.number().int().nonnegative().default(0),
+  activityId: z.string().optional(),
 })
 
 /** List past sessions */
 export const listPastSessionsSchema = z.object({
   limit: z.number().int().positive().max(100).default(20),
   offset: z.number().int().nonnegative().default(0),
+  activityId: z.string().optional(),
 })
 
 // =============================================================================

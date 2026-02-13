@@ -23,6 +23,7 @@ import {
 import { Sparkles, Plus, ChevronDown, ChevronUp } from "lucide-react"
 import { useAISuggestion } from "@/plugins/ai/hooks/use-ai-suggestion"
 import { FormFieldEditor, useFormFields } from "@/components/form-field-editor"
+import { useActivityContext } from "@/hooks/use-activity-context"
 import type { JoinFormSchema } from "@/types/form"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/create")({
@@ -76,6 +77,14 @@ function CreateSessionPage() {
 
   const { data: orgSettings } = trpc.organizationSettings.get.useQuery({}, { enabled: isAdmin })
   const orgCurrency = orgSettings?.currency
+
+  const { activities, isMultiActivity, selectedActivityId, defaultActivityId } =
+    useActivityContext(orgId)
+
+  const [selectedActivity, setSelectedActivity] = useState<string>("")
+
+  // Set initial activity from sidebar selection or default
+  const effectiveActivityId = selectedActivity || selectedActivityId || defaultActivityId || ""
 
   const {
     suggest: suggestDesc,
@@ -185,7 +194,13 @@ function CreateSessionPage() {
     const joinFormSchema: JoinFormSchema | null =
       joinForm.fields.length > 0 ? { fields: joinForm.fields } : null
 
+    if (!effectiveActivityId) {
+      setError("No activity found. Please create an activity first.")
+      return
+    }
+
     createSession.mutate({
+      activityId: effectiveActivityId,
       title: title.trim(),
       description: description.trim() || undefined,
       dateTime,
@@ -220,6 +235,27 @@ function CreateSessionPage() {
               {error && (
                 <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
                   {error}
+                </div>
+              )}
+
+              {isMultiActivity && (
+                <div className="space-y-2">
+                  <Label htmlFor="activity">Activity *</Label>
+                  <Select
+                    value={effectiveActivityId}
+                    onValueChange={setSelectedActivity}
+                  >
+                    <SelectTrigger id="activity">
+                      <SelectValue placeholder="Select activity" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activities.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 

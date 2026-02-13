@@ -204,7 +204,32 @@ describe("join-request router", () => {
     })
   })
 
-  it("rejects cross-organization approval attempts", async () => {
+  it("keeps request pending when member creation fails during approval", async () => {
+    const requesterCaller = buildCaller(requester)
+    const adminCaller = buildCaller(admin, orgId)
+
+    const request = await requesterCaller.joinRequest.request({
+      organizationId: orgId,
+    })
+
+    vi.spyOn(auth.api, "addMember").mockRejectedValueOnce(new Error("add member failed"))
+
+    await expect(
+      adminCaller.joinRequest.approve({
+        requestId: request.id,
+      })
+    ).rejects.toThrow("add member failed")
+
+    const [storedRequest] = await db
+      .select({ status: joinRequest.status })
+      .from(joinRequest)
+      .where(eq(joinRequest.id, request.id))
+      .limit(1)
+
+    expect(storedRequest?.status).toBe("pending")
+  })
+
+  it("returns not found for cross-organization approval attempts", async () => {
     const requesterCaller = buildCaller(requester)
     const adminCaller = buildCaller(admin, orgId)
 
@@ -217,7 +242,23 @@ describe("join-request router", () => {
       adminCaller.joinRequest.approve({
         requestId: request.id,
       })
-    ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" })
+  })
+
+  it("returns not found for cross-organization rejection attempts", async () => {
+    const requesterCaller = buildCaller(requester)
+    const adminCaller = buildCaller(admin, orgId)
+
+    const request = await requesterCaller.joinRequest.request({
+      organizationId: otherOrgId,
+      message: "Try other org",
+    })
+
+    await expect(
+      adminCaller.joinRequest.reject({
+        requestId: request.id,
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" })
   })
 
   it("rejects requests by users who are already members", async () => {

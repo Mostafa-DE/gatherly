@@ -308,59 +308,99 @@ describe("organization-membership use-case", () => {
   })
 
   describe("updateOrganizationSettings", () => {
+    const baseDeps = {
+      updateOrganizationById: vi.fn(async () => undefined),
+      lockOrganizationNameChange: vi.fn(async () => true),
+    }
+
     it("returns success with no-op when input has no updates", async () => {
-      const updateOrganizationById = vi.fn(async () => undefined)
+      const deps = { ...baseDeps, updateOrganizationById: vi.fn(async () => undefined) }
 
-      const result = await updateOrganizationSettings(
-        {
-          updateOrganizationById,
-        },
-        {
-          organizationId: "org_1",
-        }
-      )
+      const result = await updateOrganizationSettings(deps, {
+        organizationId: "org_1",
+        callerRole: "owner",
+      })
 
-      expect(updateOrganizationById).not.toHaveBeenCalled()
+      expect(deps.updateOrganizationById).not.toHaveBeenCalled()
       expect(result).toEqual({ success: true })
     })
 
     it("maps empty timezone to null", async () => {
-      const updateOrganizationById = vi.fn(async () => undefined)
+      const deps = { ...baseDeps, updateOrganizationById: vi.fn(async () => undefined) }
 
-      await updateOrganizationSettings(
-        {
-          updateOrganizationById,
-        },
-        {
-          organizationId: "org_1",
-          timezone: "",
-        }
-      )
+      await updateOrganizationSettings(deps, {
+        organizationId: "org_1",
+        timezone: "",
+        callerRole: "admin",
+      })
 
-      expect(updateOrganizationById).toHaveBeenCalledWith("org_1", {
+      expect(deps.updateOrganizationById).toHaveBeenCalledWith("org_1", {
         timezone: null,
       })
     })
 
     it("updates timezone and join mode", async () => {
-      const updateOrganizationById = vi.fn(async () => undefined)
+      const deps = { ...baseDeps, updateOrganizationById: vi.fn(async () => undefined) }
 
-      const result = await updateOrganizationSettings(
-        {
-          updateOrganizationById,
-        },
-        {
-          organizationId: "org_1",
-          timezone: "America/New_York",
-          defaultJoinMode: "approval",
-        }
-      )
+      const result = await updateOrganizationSettings(deps, {
+        organizationId: "org_1",
+        timezone: "America/New_York",
+        defaultJoinMode: "approval",
+        callerRole: "admin",
+      })
 
-      expect(updateOrganizationById).toHaveBeenCalledWith("org_1", {
+      expect(deps.updateOrganizationById).toHaveBeenCalledWith("org_1", {
         timezone: "America/New_York",
         defaultJoinMode: "approval",
       })
       expect(result).toEqual({ success: true })
+    })
+
+    it("allows owner to change name when not previously changed", async () => {
+      const deps = {
+        ...baseDeps,
+        updateOrganizationById: vi.fn(async () => undefined),
+        lockOrganizationNameChange: vi.fn(async () => true),
+      }
+
+      const result = await updateOrganizationSettings(deps, {
+        organizationId: "org_1",
+        name: "New Name",
+        callerRole: "owner",
+      })
+
+      expect(deps.updateOrganizationById).toHaveBeenCalledWith("org_1", {
+        name: "New Name",
+      })
+      expect(deps.lockOrganizationNameChange).toHaveBeenCalledWith("org_1")
+      expect(result).toEqual({ success: true })
+    })
+
+    it("throws ForbiddenError when non-owner tries to change name", async () => {
+      const deps = { ...baseDeps }
+
+      await expect(
+        updateOrganizationSettings(deps, {
+          organizationId: "org_1",
+          name: "New Name",
+          callerRole: "admin",
+        })
+      ).rejects.toThrow("Only the group owner can change the group name")
+    })
+
+    it("throws BadRequestError when name was already changed", async () => {
+      const deps = {
+        ...baseDeps,
+        lockOrganizationNameChange: vi.fn(async () => false),
+      }
+
+      await expect(
+        updateOrganizationSettings(deps, {
+          organizationId: "org_1",
+          name: "New Name",
+          callerRole: "owner",
+        })
+      ).rejects.toThrow("The group name has already been changed and cannot be modified again")
     })
   })
 })

@@ -1,7 +1,7 @@
 import { z } from "zod"
-import { eq, and } from "drizzle-orm"
+import { eq, and, sql } from "drizzle-orm"
 import { router, publicProcedure, protectedProcedure, orgProcedure } from "@/trpc"
-import { ForbiddenError, NotFoundError } from "@/exceptions"
+import { BadRequestError, ForbiddenError, NotFoundError } from "@/exceptions"
 import { organization, member, invitation, user } from "@/db/auth-schema"
 import { auth } from "@/auth"
 import {
@@ -24,7 +24,7 @@ import {
   updateOrganizationMemberRole,
   updateOrganizationSettings,
 } from "@/use-cases/organization-membership"
-import { getOrgSettings } from "@/data-access/organization-settings"
+import { getOrgSettings, lockOrganizationNameChange } from "@/data-access/organization-settings"
 import { upsertProfile } from "@/data-access/group-member-profiles"
 
 // =============================================================================
@@ -71,15 +71,14 @@ export const organizationRouter = router({
         throw new NotFoundError("Organization not found")
       }
 
-      // Get member count
-      const members = await ctx.db
-        .select()
+      const [memberCount] = await ctx.db
+        .select({ count: sql<number>`count(*)::int` })
         .from(member)
         .where(eq(member.organizationId, org.id))
 
       return {
         ...org,
-        memberCount: members.length,
+        memberCount: memberCount?.count ?? 0,
       }
     }),
 
@@ -365,26 +364,41 @@ export const organizationRouter = router({
     }),
 
   /**
-   * Update organization settings (Admin only)
-   * Simple CRUD - direct DB access
+   * Update organization settings (Admin only, name change is owner-only + one-time)
    */
   updateSettings: orgProcedure
     .input(
       z.object({
+        name: z.string().min(1).max(100).optional(),
+        confirmText: z.string().optional(),
         timezone: z.string().max(100).nullable().optional(),
         defaultJoinMode: z.enum(["open", "invite", "approval"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      assertOwnerOrAdmin(ctx.membership.role)
+      // Name change requires owner + confirmation text
+      if (input.name !== undefined) {
+        if (ctx.membership.role !== "owner") {
+          throw new ForbiddenError("Only the group owner can change the group name")
+        }
+        if (input.confirmText !== "confirm") {
+          throw new BadRequestError("You must type 'confirm' to change the group name")
+        }
+      } else {
+        assertOwnerOrAdmin(ctx.membership.role)
+      }
+
       return updateOrganizationSettings(
         {
           updateOrganizationById,
+          lockOrganizationNameChange,
         },
         {
           organizationId: ctx.activeOrganization.id,
+          name: input.name,
           timezone: input.timezone ?? undefined,
           defaultJoinMode: input.defaultJoinMode,
+          callerRole: ctx.membership.role,
         }
       )
     }),

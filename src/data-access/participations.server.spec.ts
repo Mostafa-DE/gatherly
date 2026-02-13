@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { eq } from "drizzle-orm"
+import { createId } from "@paralleldrive/cuid2"
 import { db } from "@/db"
-import { eventSession, participation } from "@/db/schema"
+import { activity, eventSession, participation } from "@/db/schema"
 import {
   adminAddParticipant,
   approvePendingParticipation,
@@ -22,6 +23,7 @@ import {
 
 describe("participations data-access", () => {
   let organizationId = ""
+  let activityId = ""
   const userIds: string[] = []
   let ownerId = ""
   let attendeeAId = ""
@@ -38,6 +40,16 @@ describe("participations data-access", () => {
     attendeeAId = attendeeA.id
     attendeeBId = attendeeB.id
     userIds.push(owner.id, attendeeA.id, attendeeB.id)
+
+    activityId = createId()
+    await db.insert(activity).values({
+      id: activityId,
+      organizationId,
+      name: "Test Activity",
+      slug: "test-activity",
+      joinMode: "open",
+      createdBy: ownerId,
+    })
 
     await createTestMembership({
       organizationId: organization.id,
@@ -67,6 +79,7 @@ describe("participations data-access", () => {
     }
 
     organizationId = ""
+    activityId = ""
     userIds.length = 0
   })
 
@@ -75,6 +88,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Session A",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 1,
@@ -108,6 +122,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Approval Required Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 2,
@@ -127,6 +142,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Invite Only Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 2,
@@ -147,6 +163,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Approval Queue Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 1,
@@ -174,6 +191,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Reject Pending Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 1,
@@ -197,6 +215,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Session A",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 3,
@@ -211,6 +230,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Session B",
         dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
         maxCapacity: 3,
@@ -255,6 +275,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Admin Add Capacity",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 1,
@@ -277,6 +298,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Source Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 1,
@@ -291,6 +313,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Target Session",
         dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
         maxCapacity: 2,
@@ -323,6 +346,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Source Session Rollback",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 2,
@@ -337,6 +361,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Target Session Full",
         dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
         maxCapacity: 1,
@@ -363,6 +388,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Source Approval Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 10,
@@ -377,6 +403,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Target Open Session",
         dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
         maxCapacity: 2,
@@ -413,6 +440,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Source Approval Session Waitlist",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 10,
@@ -427,6 +455,7 @@ describe("participations data-access", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId,
         title: "Target Full Session with Waitlist",
         dateTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
         maxCapacity: 1,

@@ -37,6 +37,7 @@ describe("invite-link router", () => {
   let admin!: User
   let memberUser!: User
   let invitee!: User
+  let secondInvitee!: User
   let existingMemberUser!: User
   const organizationIds: string[] = []
   const userIds: string[] = []
@@ -48,6 +49,7 @@ describe("invite-link router", () => {
     const adminUser = await createTestUser("Admin")
     const memberOnlyUser = await createTestUser("Member")
     const inviteeUser = await createTestUser("Invitee")
+    const secondInviteeUser = await createTestUser("Invitee 2")
     const existingMember = await createTestUser("Existing Member")
 
     organizationId = organization.id
@@ -56,10 +58,18 @@ describe("invite-link router", () => {
     admin = adminUser
     memberUser = memberOnlyUser
     invitee = inviteeUser
+    secondInvitee = secondInviteeUser
     existingMemberUser = existingMember
 
     organizationIds.push(organizationId, otherOrganizationId)
-    userIds.push(owner.id, admin.id, memberUser.id, invitee.id, existingMemberUser.id)
+    userIds.push(
+      owner.id,
+      admin.id,
+      memberUser.id,
+      invitee.id,
+      secondInvitee.id,
+      existingMemberUser.id
+    )
 
     await createTestMembership({
       organizationId,
@@ -267,6 +277,84 @@ describe("invite-link router", () => {
     expect(usedLink?.usedCount).toBe(1)
   })
 
+  it("rejects using a deactivated link token", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+    const inviteeCaller = buildCaller(invitee)
+
+    const link = await ownerCaller.inviteLink.create({
+      role: "member",
+      maxUses: 1,
+    })
+
+    await ownerCaller.inviteLink.deactivate({
+      inviteLinkId: link.id,
+    })
+
+    const addMemberSpy = vi.spyOn(auth.api, "addMember")
+
+    await expect(
+      inviteeCaller.inviteLink.useToken({
+        token: link.token,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+
+    const [linkAfterAttempt] = await db
+      .select({ usedCount: inviteLink.usedCount })
+      .from(inviteLink)
+      .where(eq(inviteLink.id, link.id))
+      .limit(1)
+
+    expect(linkAfterAttempt?.usedCount).toBe(0)
+    expect(addMemberSpy).not.toHaveBeenCalled()
+  })
+
+  it("enforces maxUses and rejects a second redemption", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+    const firstInviteeCaller = buildCaller(invitee)
+    const secondInviteeCaller = buildCaller(secondInvitee)
+
+    const link = await ownerCaller.inviteLink.create({
+      role: "member",
+      maxUses: 1,
+    })
+
+    const addMemberImpl = async (ctx: unknown) => {
+      const { body } = ctx as { body: { organizationId: string; userId: string; role: string } }
+      await db.insert(member).values({
+        id: `mem_${randomUUID().replaceAll("-", "")}`,
+        organizationId: body.organizationId,
+        userId: body.userId,
+        role: body.role as "member" | "admin" | "owner",
+        createdAt: new Date(),
+      })
+
+      return undefined as never
+    }
+
+    const addMemberSpy = vi
+      .spyOn(auth.api, "addMember")
+      .mockImplementation(addMemberImpl as unknown as typeof auth.api.addMember)
+
+    await firstInviteeCaller.inviteLink.useToken({
+      token: link.token,
+    })
+
+    await expect(
+      secondInviteeCaller.inviteLink.useToken({
+        token: link.token,
+      })
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+
+    const [linkAfterSecondAttempt] = await db
+      .select({ usedCount: inviteLink.usedCount })
+      .from(inviteLink)
+      .where(eq(inviteLink.id, link.id))
+      .limit(1)
+
+    expect(linkAfterSecondAttempt?.usedCount).toBe(1)
+    expect(addMemberSpy).toHaveBeenCalledTimes(1)
+  })
+
   it("rejects token usage for invalid token, exhausted token, and existing members", async () => {
     const ownerCaller = buildCaller(owner, organizationId)
     const inviteeCaller = buildCaller(invitee)
@@ -304,6 +392,14 @@ describe("invite-link router", () => {
         token: regularLink.token,
       })
     ).rejects.toMatchObject({ code: "CONFLICT" })
+
+    const [regularLinkAfterConflict] = await db
+      .select({ usedCount: inviteLink.usedCount })
+      .from(inviteLink)
+      .where(eq(inviteLink.id, regularLink.id))
+      .limit(1)
+
+    expect(regularLinkAfterConflict?.usedCount).toBe(0)
 
     expect(addMemberSpy).not.toHaveBeenCalled()
   })

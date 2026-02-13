@@ -10,6 +10,7 @@ import {
 import type { User } from "@/db/types"
 import {
   cleanupTestData,
+  createTestActivity,
   createTestMembership,
   createTestOrganization,
   createTestUser,
@@ -138,12 +139,22 @@ describe("analytics queries", () => {
       },
     ])
 
+    const testActivity = await createTestActivity({
+      organizationId: orgId,
+      createdBy: owner.id,
+    })
+    const otherOrgActivity = await createTestActivity({
+      organizationId: otherOrgId,
+      createdBy: otherOrgUser.id,
+    })
+
     const [previousPeriodSession, sessionA, sessionB, sessionC, cancelledSession] =
       await db
         .insert(eventSession)
         .values([
           {
             organizationId: orgId,
+            activityId: testActivity.id,
             title: "Previous Period Session",
             dateTime: daysAgo(35),
             maxCapacity: 6,
@@ -155,6 +166,7 @@ describe("analytics queries", () => {
           },
           {
             organizationId: orgId,
+            activityId: testActivity.id,
             title: "Session A",
             dateTime: daysAgo(7),
             maxCapacity: 10,
@@ -166,6 +178,7 @@ describe("analytics queries", () => {
           },
           {
             organizationId: orgId,
+            activityId: testActivity.id,
             title: "Session B",
             dateTime: daysAgo(5),
             maxCapacity: 8,
@@ -177,6 +190,7 @@ describe("analytics queries", () => {
           },
           {
             organizationId: orgId,
+            activityId: testActivity.id,
             title: "Session C",
             dateTime: daysAgo(3),
             maxCapacity: 4,
@@ -188,6 +202,7 @@ describe("analytics queries", () => {
           },
           {
             organizationId: orgId,
+            activityId: testActivity.id,
             title: "Cancelled Session",
             dateTime: daysAgo(2),
             maxCapacity: 4,
@@ -204,6 +219,7 @@ describe("analytics queries", () => {
       .insert(eventSession)
       .values({
         organizationId: otherOrgId,
+        activityId: otherOrgActivity.id,
         title: "Other Org Session",
         dateTime: daysAgo(4),
         maxCapacity: 1,
@@ -393,6 +409,123 @@ describe("analytics queries", () => {
     expect(summary.overallShowRate).toBe(71)
     expect(summary.totalRevenue).toBe(55)
     expect(summary.currency).toBe("USD")
+  })
+
+  it("filters session performance by activityId when provided", async () => {
+    // Create a second activity with its own session
+    const secondActivity = await createTestActivity({
+      organizationId: orgId,
+      createdBy: owner.id,
+      name: "Second Activity",
+      slug: "second-activity",
+    })
+
+    const [secondActivitySession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId: orgId,
+        activityId: secondActivity.id,
+        title: "Second Activity Session",
+        dateTime: daysAgo(4),
+        maxCapacity: 5,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: owner.id,
+        price: "50.00",
+      })
+      .returning()
+
+    await db.insert(participation).values({
+      sessionId: secondActivitySession.id,
+      userId: memberA.id,
+      status: "joined",
+      attendance: "show",
+      payment: "paid",
+    })
+
+    // Unfiltered: should include all sessions (3 original + 1 new = 4)
+    const unfilteredStats = await getSessionPerformanceStats(orgId, 30)
+    expect(unfilteredStats.totalSessions).toBe(4)
+
+    // Filtered by second activity: only 1 session
+    const filteredStats = await getSessionPerformanceStats(orgId, 30, secondActivity.id)
+    expect(filteredStats.totalSessions).toBe(1)
+    expect(filteredStats.topSessions[0]?.title).toBe("Second Activity Session")
+  })
+
+  it("filters revenue by activityId when provided", async () => {
+    const secondActivity = await createTestActivity({
+      organizationId: orgId,
+      createdBy: owner.id,
+      name: "Revenue Activity",
+      slug: "revenue-activity",
+    })
+
+    const [revenueSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId: orgId,
+        activityId: secondActivity.id,
+        title: "Revenue Session",
+        dateTime: daysAgo(2),
+        maxCapacity: 10,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: owner.id,
+        price: "100.00",
+      })
+      .returning()
+
+    await db.insert(participation).values({
+      sessionId: revenueSession.id,
+      userId: memberB.id,
+      status: "joined",
+      attendance: "show",
+      payment: "paid",
+    })
+
+    // Filtered by second activity
+    const filtered = await getRevenueStats(orgId, 30, secondActivity.id)
+    expect(filtered.totalRevenue).toBe(100)
+    expect(filtered.currency).toBe("USD")
+  })
+
+  it("filters analytics summary by activityId", async () => {
+    const secondActivity = await createTestActivity({
+      organizationId: orgId,
+      createdBy: owner.id,
+      name: "Summary Activity",
+      slug: "summary-activity",
+    })
+
+    const [summarySession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId: orgId,
+        activityId: secondActivity.id,
+        title: "Summary Session",
+        dateTime: daysAgo(1),
+        maxCapacity: 2,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: owner.id,
+      })
+      .returning()
+
+    await db.insert(participation).values({
+      sessionId: summarySession.id,
+      userId: memberA.id,
+      status: "joined",
+      attendance: "show",
+      payment: "unpaid",
+    })
+
+    // Filtered: only the summary session's data
+    const filtered = await getAnalyticsSummary(orgId, 30, secondActivity.id)
+    expect(filtered.avgCapacityUtilization).toBe(50) // 1/2 = 50%
   })
 
   it("returns zeroed metrics for empty organizations", async () => {

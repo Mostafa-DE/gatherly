@@ -23,6 +23,7 @@ import { Route as DashboardOrgOrgIdRouteImport } from './routes/dashboard/org.$o
 import { Route as DashboardGroupsCreateRouteImport } from './routes/dashboard/groups/create'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as UsernameGroupSlugActivitiesRouteImport } from './routes/$username.$groupSlug/activities'
 import { Route as DashboardOrgOrgIdIndexRouteImport } from './routes/dashboard/org.$orgId/index'
 import { Route as DashboardOrgOrgIdSettingsRouteImport } from './routes/dashboard/org.$orgId/settings'
 import { Route as DashboardOrgOrgIdProfileRouteImport } from './routes/dashboard/org.$orgId/profile'
@@ -30,7 +31,10 @@ import { Route as DashboardOrgOrgIdJoinRequestsRouteImport } from './routes/dash
 import { Route as DashboardOrgOrgIdInviteLinksRouteImport } from './routes/dashboard/org.$orgId/invite-links'
 import { Route as DashboardOrgOrgIdInvitationsRouteImport } from './routes/dashboard/org.$orgId/invitations'
 import { Route as DashboardOrgOrgIdAnalyticsRouteImport } from './routes/dashboard/org.$orgId/analytics'
+import { Route as DashboardOrgOrgIdActivityRequestsRouteImport } from './routes/dashboard/org.$orgId/activity-requests'
+import { Route as DashboardOrgOrgIdActivitiesRouteImport } from './routes/dashboard/org.$orgId/activities'
 import { Route as UsernameGroupSlugSessionsSessionIdRouteImport } from './routes/$username.$groupSlug/sessions.$sessionId'
+import { Route as UsernameGroupSlugActivitiesActivitySlugRouteImport } from './routes/$username.$groupSlug/activities.$activitySlug'
 import { Route as DashboardOrgOrgIdSessionsIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/index'
 import { Route as DashboardOrgOrgIdMembersIndexRouteImport } from './routes/dashboard/org.$orgId/members/index'
 import { Route as DashboardOrgOrgIdSessionsCreateRouteImport } from './routes/dashboard/org.$orgId/sessions/create'
@@ -110,6 +114,12 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UsernameGroupSlugActivitiesRoute =
+  UsernameGroupSlugActivitiesRouteImport.update({
+    id: '/$username/$groupSlug/activities',
+    path: '/$username/$groupSlug/activities',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DashboardOrgOrgIdIndexRoute = DashboardOrgOrgIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -151,11 +161,29 @@ const DashboardOrgOrgIdAnalyticsRoute =
     path: '/analytics',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
+const DashboardOrgOrgIdActivityRequestsRoute =
+  DashboardOrgOrgIdActivityRequestsRouteImport.update({
+    id: '/activity-requests',
+    path: '/activity-requests',
+    getParentRoute: () => DashboardOrgOrgIdRoute,
+  } as any)
+const DashboardOrgOrgIdActivitiesRoute =
+  DashboardOrgOrgIdActivitiesRouteImport.update({
+    id: '/activities',
+    path: '/activities',
+    getParentRoute: () => DashboardOrgOrgIdRoute,
+  } as any)
 const UsernameGroupSlugSessionsSessionIdRoute =
   UsernameGroupSlugSessionsSessionIdRouteImport.update({
     id: '/$username/$groupSlug/sessions/$sessionId',
     path: '/$username/$groupSlug/sessions/$sessionId',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const UsernameGroupSlugActivitiesActivitySlugRoute =
+  UsernameGroupSlugActivitiesActivitySlugRouteImport.update({
+    id: '/$activitySlug',
+    path: '/$activitySlug',
+    getParentRoute: () => UsernameGroupSlugActivitiesRoute,
   } as any)
 const DashboardOrgOrgIdSessionsIndexRoute =
   DashboardOrgOrgIdSessionsIndexRouteImport.update({
@@ -216,12 +244,16 @@ export interface FileRoutesByFullPath {
   '/dashboard/invitations': typeof DashboardInvitationsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/$username/$groupSlug/activities': typeof UsernameGroupSlugActivitiesRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
+  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
+  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesRoute
+  '/dashboard/org/$orgId/activity-requests': typeof DashboardOrgOrgIdActivityRequestsRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/invite-links': typeof DashboardOrgOrgIdInviteLinksRoute
@@ -247,11 +279,15 @@ export interface FileRoutesByTo {
   '/dashboard/invitations': typeof DashboardInvitationsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/$username/$groupSlug/activities': typeof UsernameGroupSlugActivitiesRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/$username/$groupSlug': typeof UsernameGroupSlugIndexRoute
+  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
+  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesRoute
+  '/dashboard/org/$orgId/activity-requests': typeof DashboardOrgOrgIdActivityRequestsRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/invite-links': typeof DashboardOrgOrgIdInviteLinksRoute
@@ -278,12 +314,16 @@ export interface FileRoutesById {
   '/dashboard/invitations': typeof DashboardInvitationsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/$username/$groupSlug/activities': typeof UsernameGroupSlugActivitiesRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
+  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
+  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesRoute
+  '/dashboard/org/$orgId/activity-requests': typeof DashboardOrgOrgIdActivityRequestsRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
   '/dashboard/org/$orgId/invite-links': typeof DashboardOrgOrgIdInviteLinksRoute
@@ -312,12 +352,16 @@ export interface FileRouteTypes {
     | '/dashboard/invitations'
     | '/dashboard/profile'
     | '/dashboard/'
+    | '/$username/$groupSlug/activities'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
     | '/$username/$groupSlug/'
+    | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
+    | '/dashboard/org/$orgId/activities'
+    | '/dashboard/org/$orgId/activity-requests'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/invite-links'
@@ -343,11 +387,15 @@ export interface FileRouteTypes {
     | '/dashboard/invitations'
     | '/dashboard/profile'
     | '/dashboard'
+    | '/$username/$groupSlug/activities'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/$username/$groupSlug'
+    | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
+    | '/dashboard/org/$orgId/activities'
+    | '/dashboard/org/$orgId/activity-requests'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/invite-links'
@@ -373,12 +421,16 @@ export interface FileRouteTypes {
     | '/dashboard/invitations'
     | '/dashboard/profile'
     | '/dashboard/'
+    | '/$username/$groupSlug/activities'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/dashboard/org/$orgId'
     | '/$username/$groupSlug/'
+    | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
+    | '/dashboard/org/$orgId/activities'
+    | '/dashboard/org/$orgId/activity-requests'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
     | '/dashboard/org/$orgId/invite-links'
@@ -403,6 +455,7 @@ export interface RootRouteChildren {
   authLoginRoute: typeof authLoginRoute
   authRegisterRoute: typeof authRegisterRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  UsernameGroupSlugActivitiesRoute: typeof UsernameGroupSlugActivitiesRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   UsernameGroupSlugIndexRoute: typeof UsernameGroupSlugIndexRoute
@@ -509,6 +562,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$username/$groupSlug/activities': {
+      id: '/$username/$groupSlug/activities'
+      path: '/$username/$groupSlug/activities'
+      fullPath: '/$username/$groupSlug/activities'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard/org/$orgId/': {
       id: '/dashboard/org/$orgId/'
       path: '/'
@@ -558,12 +618,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdAnalyticsRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
+    '/dashboard/org/$orgId/activity-requests': {
+      id: '/dashboard/org/$orgId/activity-requests'
+      path: '/activity-requests'
+      fullPath: '/dashboard/org/$orgId/activity-requests'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivityRequestsRouteImport
+      parentRoute: typeof DashboardOrgOrgIdRoute
+    }
+    '/dashboard/org/$orgId/activities': {
+      id: '/dashboard/org/$orgId/activities'
+      path: '/activities'
+      fullPath: '/dashboard/org/$orgId/activities'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesRouteImport
+      parentRoute: typeof DashboardOrgOrgIdRoute
+    }
     '/$username/$groupSlug/sessions/$sessionId': {
       id: '/$username/$groupSlug/sessions/$sessionId'
       path: '/$username/$groupSlug/sessions/$sessionId'
       fullPath: '/$username/$groupSlug/sessions/$sessionId'
       preLoaderRoute: typeof UsernameGroupSlugSessionsSessionIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/$username/$groupSlug/activities/$activitySlug': {
+      id: '/$username/$groupSlug/activities/$activitySlug'
+      path: '/$activitySlug'
+      fullPath: '/$username/$groupSlug/activities/$activitySlug'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesActivitySlugRouteImport
+      parentRoute: typeof UsernameGroupSlugActivitiesRoute
     }
     '/dashboard/org/$orgId/sessions/': {
       id: '/dashboard/org/$orgId/sessions/'
@@ -646,6 +727,8 @@ const DashboardOrgOrgIdSessionsSessionIdRouteWithChildren =
   )
 
 interface DashboardOrgOrgIdRouteChildren {
+  DashboardOrgOrgIdActivitiesRoute: typeof DashboardOrgOrgIdActivitiesRoute
+  DashboardOrgOrgIdActivityRequestsRoute: typeof DashboardOrgOrgIdActivityRequestsRoute
   DashboardOrgOrgIdAnalyticsRoute: typeof DashboardOrgOrgIdAnalyticsRoute
   DashboardOrgOrgIdInvitationsRoute: typeof DashboardOrgOrgIdInvitationsRoute
   DashboardOrgOrgIdInviteLinksRoute: typeof DashboardOrgOrgIdInviteLinksRoute
@@ -661,6 +744,9 @@ interface DashboardOrgOrgIdRouteChildren {
 }
 
 const DashboardOrgOrgIdRouteChildren: DashboardOrgOrgIdRouteChildren = {
+  DashboardOrgOrgIdActivitiesRoute: DashboardOrgOrgIdActivitiesRoute,
+  DashboardOrgOrgIdActivityRequestsRoute:
+    DashboardOrgOrgIdActivityRequestsRoute,
   DashboardOrgOrgIdAnalyticsRoute: DashboardOrgOrgIdAnalyticsRoute,
   DashboardOrgOrgIdInvitationsRoute: DashboardOrgOrgIdInvitationsRoute,
   DashboardOrgOrgIdInviteLinksRoute: DashboardOrgOrgIdInviteLinksRoute,
@@ -699,6 +785,21 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
   DashboardRouteChildren,
 )
 
+interface UsernameGroupSlugActivitiesRouteChildren {
+  UsernameGroupSlugActivitiesActivitySlugRoute: typeof UsernameGroupSlugActivitiesActivitySlugRoute
+}
+
+const UsernameGroupSlugActivitiesRouteChildren: UsernameGroupSlugActivitiesRouteChildren =
+  {
+    UsernameGroupSlugActivitiesActivitySlugRoute:
+      UsernameGroupSlugActivitiesActivitySlugRoute,
+  }
+
+const UsernameGroupSlugActivitiesRouteWithChildren =
+  UsernameGroupSlugActivitiesRoute._addFileChildren(
+    UsernameGroupSlugActivitiesRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRouteWithChildren,
@@ -706,6 +807,8 @@ const rootRouteChildren: RootRouteChildren = {
   authLoginRoute: authLoginRoute,
   authRegisterRoute: authRegisterRoute,
   ApiHealthRoute: ApiHealthRoute,
+  UsernameGroupSlugActivitiesRoute:
+    UsernameGroupSlugActivitiesRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   UsernameGroupSlugIndexRoute: UsernameGroupSlugIndexRoute,

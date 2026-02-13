@@ -7,6 +7,7 @@ import { organization } from "@/db/auth-schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
+  createTestActivity,
   createTestMembership,
   createTestOrganization,
   createTestUser,
@@ -32,6 +33,7 @@ function buildCaller(user: User, organizationId: string) {
 
 describe("admin router authorization", () => {
   let organizationId = ""
+  let testActivityId = ""
   let owner!: User
   let admin!: User
   const userIds: string[] = []
@@ -57,6 +59,12 @@ describe("admin router authorization", () => {
       userId: admin.id,
       role: "admin",
     })
+
+    const testActivity = await createTestActivity({
+      organizationId,
+      createdBy: owner.id,
+    })
+    testActivityId = testActivity.id
   })
 
   afterEach(async () => {
@@ -68,6 +76,7 @@ describe("admin router authorization", () => {
     }
 
     organizationId = ""
+    testActivityId = ""
     userIds.length = 0
   })
 
@@ -75,6 +84,7 @@ describe("admin router authorization", () => {
     const adminCaller = buildCaller(admin, organizationId)
 
     const createdSession = await adminCaller.session.create({
+      activityId: testActivityId,
       title: "Admin Session",
       dateTime: new Date(Date.now() + 60 * 60 * 1000),
       maxCapacity: 10,
@@ -90,6 +100,7 @@ describe("admin router authorization", () => {
     const ownerCaller = buildCaller(owner, organizationId)
 
     const createdSession = await ownerCaller.session.create({
+      activityId: testActivityId,
       title: "Owner Session",
       dateTime: new Date(Date.now() + 60 * 60 * 1000),
       maxCapacity: 10,
@@ -106,6 +117,7 @@ describe("admin router authorization", () => {
       .insert(eventSession)
       .values({
         organizationId,
+        activityId: testActivityId,
         title: "Participants Session",
         dateTime: new Date(Date.now() + 60 * 60 * 1000),
         maxCapacity: 5,
@@ -148,6 +160,27 @@ describe("admin router authorization", () => {
 
     expect(updatedOrganization?.timezone).toBe("America/New_York")
     expect(updatedOrganization?.defaultJoinMode).toBe("approval")
+  })
+
+  it("allows a single owner name change and blocks subsequent changes", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await expect(
+      ownerCaller.organization.updateSettings({
+        name: "First Rename",
+        confirmText: "confirm",
+      })
+    ).resolves.toEqual({ success: true })
+
+    await expect(
+      ownerCaller.organization.updateSettings({
+        name: "Second Rename",
+        confirmText: "confirm",
+      })
+    ).rejects.toMatchObject({
+      code: "BAD_REQUEST",
+      message: "The group name has already been changed and cannot be modified again",
+    })
   })
 
   it("allows admin to update organization currency", async () => {

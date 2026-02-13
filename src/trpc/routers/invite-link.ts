@@ -4,7 +4,7 @@ import { ForbiddenError, NotFoundError, BadRequestError, ConflictError } from "@
 import {
   createInviteLink,
   getValidInviteLinkByToken,
-  incrementUsedCount,
+  claimInviteLinkByToken,
   listInviteLinks,
   deactivateInviteLink,
 } from "@/data-access/invite-links"
@@ -72,18 +72,26 @@ export const inviteLinkRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const link = await getValidInviteLinkByToken(input.token)
-      if (!link) {
+      // Validate token first so known no-op failures do not consume invite capacity.
+      const validLink = await getValidInviteLinkByToken(input.token)
+      if (!validLink) {
         throw new BadRequestError("Invalid or expired invite link")
       }
 
-      // Check if already a member
+      // Check if already a member before claiming usage.
       const existingMember = await getOrganizationMemberByUserId(
-        link.organizationId,
+        validLink.organizationId,
         ctx.user.id
       )
+
       if (existingMember) {
         throw new ConflictError("You are already a member of this organization")
+      }
+
+      // Atomically claim the invite link (increments usedCount, enforces maxUses).
+      const link = await claimInviteLinkByToken(input.token)
+      if (!link) {
+        throw new BadRequestError("Invalid or expired invite link")
       }
 
       // Add member via Better Auth
@@ -99,9 +107,6 @@ export const inviteLinkRouter = router({
       if (input.formAnswers && Object.keys(input.formAnswers).length > 0) {
         await upsertProfile(link.organizationId, ctx.user.id, input.formAnswers)
       }
-
-      // Increment usage count
-      await incrementUsedCount(link.id)
 
       return { organizationId: link.organizationId }
     }),

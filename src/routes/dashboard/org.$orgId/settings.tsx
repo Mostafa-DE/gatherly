@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState, useMemo } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -13,6 +14,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog"
+import {
   Settings,
   Globe,
   Users,
@@ -22,6 +33,7 @@ import {
   XCircle,
   DollarSign,
   Puzzle,
+  Lock,
 } from "lucide-react"
 import { type FormField } from "@/types/form"
 import { FormFieldEditor as SharedFormFieldEditor } from "@/components/form-field-editor"
@@ -32,7 +44,7 @@ import { buildOrgUrl } from "@/lib/share-urls"
 import { TimezoneSelect } from "@/components/ui/timezone-select"
 import { pluginCatalog } from "@/plugins/catalog"
 import { InterestPicker } from "@/components/onboarding/interest-picker"
-import { Tags } from "lucide-react"
+import { Tags, Layers, ArrowRight } from "lucide-react"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/settings")({
   component: SettingsPage,
@@ -46,7 +58,8 @@ function SettingsPage() {
   const utils = trpc.useUtils()
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
-  const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+  const isOwner = whoami?.membership?.role === "owner"
+  const isAdmin = isOwner || whoami?.membership?.role === "admin"
 
   const { data: settings, isLoading: settingsLoading } = trpc.organizationSettings.get.useQuery(
     {},
@@ -55,37 +68,47 @@ function SettingsPage() {
 
   const [fieldsDraft, setFieldsDraft] = useState<FormField[] | null>(null)
   const [formError, setFormError] = useState("")
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [timezoneDraft, setTimezoneDraft] = useState<string | null>(null)
   const [joinModeDraft, setJoinModeDraft] = useState<"open" | "invite" | "approval" | null>(null)
   const [currencyDraft, setCurrencyDraft] = useState<SupportedCurrency | "" | null>(null)
   const [interestsDraft, setInterestsDraft] = useState<string[] | null>(null)
+  const [showNameConfirm, setShowNameConfirm] = useState(false)
+  const [confirmText, setConfirmText] = useState("")
 
   const org = whoami?.activeOrganization
   const [generalError, setGeneralError] = useState("")
   const timezones = useMemo(() => getTimezones(), [])
 
+  const persistedName = org?.name ?? ""
   const persistedTimezone = org?.timezone || ""
   const persistedJoinMode = (org?.defaultJoinMode as "open" | "invite" | "approval") || "invite"
   const persistedCurrency = (settings?.currency as SupportedCurrency | null) ?? ""
   const persistedFields =
     ((settings?.joinFormSchema as { fields?: FormField[] } | null)?.fields || [])
 
+  const nameAlreadyChanged = settings?.nameChangedAt != null
+  const canEditName = isOwner && !nameAlreadyChanged
+
+  const groupName = nameDraft ?? persistedName
   const timezone = timezoneDraft ?? persistedTimezone
   const joinMode = joinModeDraft ?? persistedJoinMode
   const currency = currencyDraft ?? persistedCurrency
   const fields = fieldsDraft ?? persistedFields
 
-  const generalDirty =
-    timezone !== persistedTimezone ||
-    joinMode !== persistedJoinMode
-
   const currencyDirty = currency !== persistedCurrency
+  const generalDirty =
+    groupName !== persistedName ||
+    timezone !== persistedTimezone ||
+    joinMode !== persistedJoinMode ||
+    currencyDirty
   const formDirty = fieldsDraft !== null
 
   const updateOrgSettings = trpc.organization.updateSettings.useMutation({
     onSuccess: () => {
       utils.user.whoami.invalidate()
       setGeneralError("")
+      setNameDraft(null)
       setTimezoneDraft(null)
       setJoinModeDraft(null)
     },
@@ -94,18 +117,9 @@ function SettingsPage() {
     },
   })
 
-  const handleSaveGeneralSettings = () => {
-    setGeneralError("")
-    updateOrgSettings.mutate({
-      timezone: timezone || null,
-      defaultJoinMode: joinMode,
-    })
-  }
-
   const updateCurrency = trpc.organizationSettings.updateCurrency.useMutation({
     onSuccess: () => {
       utils.organizationSettings.get.invalidate()
-      setGeneralError("")
       setCurrencyDraft(null)
     },
     onError: (err) => {
@@ -113,11 +127,40 @@ function SettingsPage() {
     },
   })
 
-  const handleSaveCurrency = () => {
+  const saveCurrencyIfDirty = () => {
+    if (currencyDirty) {
+      updateCurrency.mutate({ currency: currency === "" ? null : currency })
+    }
+  }
+
+  const handleSaveGeneralSettings = () => {
     setGeneralError("")
-    updateCurrency.mutate({
-      currency: currency === "" ? null : currency,
+    const nameChanged = groupName !== persistedName
+
+    // If name is being changed, show confirmation dialog
+    if (nameChanged) {
+      setShowNameConfirm(true)
+      setConfirmText("")
+      return
+    }
+
+    updateOrgSettings.mutate({
+      timezone: timezone || null,
+      defaultJoinMode: joinMode,
     })
+    saveCurrencyIfDirty()
+  }
+
+  const handleConfirmNameChange = () => {
+    setShowNameConfirm(false)
+    setConfirmText("")
+    updateOrgSettings.mutate({
+      name: groupName,
+      confirmText: "confirm",
+      timezone: timezone || null,
+      defaultJoinMode: joinMode,
+    })
+    saveCurrencyIfDirty()
   }
 
   const updateJoinForm = trpc.organizationSettings.updateJoinForm.useMutation({
@@ -260,9 +303,28 @@ function SettingsPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 mb-6">
-          <div className="rounded-lg border border-border/50 bg-background/50 p-4">
-            <p className="text-sm font-medium text-muted-foreground">Group Name</p>
-            <p className="mt-1 font-medium">{org?.name}</p>
+          <div className="space-y-2">
+            <Label htmlFor="groupName">Group Name</Label>
+            <Input
+              id="groupName"
+              value={groupName}
+              onChange={(e) => setNameDraft(e.target.value)}
+              placeholder="Group name"
+              className="bg-popover"
+              disabled={!canEditName}
+            />
+            {nameAlreadyChanged && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" />
+                Group name can only be changed once and has already been updated
+              </p>
+            )}
+            {!isOwner && !nameAlreadyChanged && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="h-3 w-3" />
+                Only the group owner can change the name
+              </p>
+            )}
           </div>
           <div className="rounded-lg border border-border/50 bg-background/50 p-4">
             <p className="text-sm font-medium text-muted-foreground">URL</p>
@@ -324,33 +386,6 @@ function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="mt-6 border-t border-border/50 pt-6">
-          <Button
-            onClick={handleSaveGeneralSettings}
-            disabled={!generalDirty || updateOrgSettings.isPending}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {updateOrgSettings.isPending ? "Saving..." : "Save Settings"}
-          </Button>
-        </div>
-      </div>
-
-      {/* Currency Settings */}
-      {isAdmin && (
-        <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-              <DollarSign className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h2 className="font-semibold">Currency Settings</h2>
-              <p className="text-sm text-muted-foreground">
-                Set the default currency for session pricing
-              </p>
-            </div>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="currency" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
@@ -364,7 +399,7 @@ function SettingsPage() {
                 )
               }
             >
-              <SelectTrigger id="currency" className="bg-popover max-w-xs">
+              <SelectTrigger id="currency" className="bg-popover">
                 <SelectValue placeholder="Select a currency" />
               </SelectTrigger>
               <SelectContent>
@@ -380,18 +415,17 @@ function SettingsPage() {
               Required for setting session prices
             </p>
           </div>
-
-          <div className="mt-6 border-t border-border/50 pt-6">
-            <Button
-              onClick={handleSaveCurrency}
-              disabled={!currencyDirty || updateCurrency.isPending}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {updateCurrency.isPending ? "Saving..." : "Save Currency"}
-            </Button>
-          </div>
         </div>
-      )}
+        <div className="mt-6 border-t border-border/50 pt-6">
+          <Button
+            onClick={handleSaveGeneralSettings}
+            disabled={!generalDirty || updateOrgSettings.isPending || updateCurrency.isPending}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {updateOrgSettings.isPending || updateCurrency.isPending ? "Saving..." : "Save Settings"}
+          </Button>
+        </div>
+      </div>
 
       {/* Plugins */}
       {isAdmin && (
@@ -429,6 +463,28 @@ function SettingsPage() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Activities */}
+      {isAdmin && (
+        <Link
+          to="/dashboard/org/$orgId/activities"
+          params={{ orgId }}
+          className="group flex items-center justify-between rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm transition-colors hover:border-primary/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+              <Layers className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Activities</h2>
+              <p className="text-sm text-muted-foreground">
+                Manage sub-group activities within your organization
+              </p>
+            </div>
+          </div>
+          <ArrowRight className="h-5 w-5 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        </Link>
       )}
 
       {/* Interest Tags */}
@@ -533,6 +589,43 @@ function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Name Change Confirmation Dialog */}
+      <AlertDialog open={showNameConfirm} onOpenChange={setShowNameConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Change Group Name</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action is permanent. The group name can only be changed once.
+              After this change, the name will be locked and cannot be modified again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="confirmInput">
+              Type <span className="font-semibold">confirm</span> to proceed
+            </Label>
+            <Input
+              id="confirmInput"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="confirm"
+              className="bg-popover"
+              autoComplete="off"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmText("")}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={confirmText !== "confirm"}
+              onClick={handleConfirmNameChange}
+            >
+              Change Name
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

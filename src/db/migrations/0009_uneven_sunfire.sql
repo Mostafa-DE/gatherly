@@ -1,0 +1,1 @@
+ALTER TABLE "organization_settings" ADD COLUMN "name_changed_at" timestamp with time zone;

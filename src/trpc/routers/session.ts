@@ -13,6 +13,7 @@ import {
   listUpcomingSessionsWithCounts,
   listPastSessionsWithCounts,
 } from "@/data-access/sessions"
+import { listUserActivityMemberships } from "@/data-access/activity-members"
 import { withOrgScope } from "@/data-access/org-scope"
 import {
   createSessionSchema,
@@ -34,6 +35,16 @@ function assertAdmin(role: string): void {
   }
 }
 
+function isAdmin(role: string): boolean {
+  return role === "owner" || role === "admin"
+}
+
+/** Get activity IDs the user belongs to (for non-admin session filtering) */
+async function getUserActivityIds(userId: string, organizationId: string): Promise<string[]> {
+  const memberships = await listUserActivityMemberships(userId, organizationId)
+  return memberships.map((m) => m.activity.id)
+}
+
 // =============================================================================
 // Session Router
 // =============================================================================
@@ -47,6 +58,15 @@ export const sessionRouter = router({
     .input(createSessionSchema)
     .mutation(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
+
+      // Validate activity belongs to this org and is active
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        const act = await scope.requireActivityForMutation(input.activityId)
+        if (!act.isActive) {
+          throw new ForbiddenError("Cannot create sessions for a deactivated activity")
+        }
+      })
+
       return createSession(
         ctx.activeOrganization.id,
         ctx.user.id,
@@ -129,11 +149,15 @@ export const sessionRouter = router({
 
   /**
    * List upcoming sessions with participant counts and preview (Member)
+   * Non-admins only see sessions for activities they belong to
    */
   listUpcomingWithCounts: orgProcedure
     .input(listUpcomingSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listUpcomingSessionsWithCounts(ctx.activeOrganization.id, input)
+      const activityIds = isAdmin(ctx.membership.role)
+        ? undefined
+        : await getUserActivityIds(ctx.user.id, ctx.activeOrganization.id)
+      return listUpcomingSessionsWithCounts(ctx.activeOrganization.id, { ...input, activityIds })
     }),
 
   /**
@@ -148,11 +172,15 @@ export const sessionRouter = router({
 
   /**
    * List past sessions with participant counts and preview (Member)
+   * Non-admins only see sessions for activities they belong to
    */
   listPastWithCounts: orgProcedure
     .input(listPastSessionsSchema)
     .query(async ({ ctx, input }) => {
-      return listPastSessionsWithCounts(ctx.activeOrganization.id, input)
+      const activityIds = isAdmin(ctx.membership.role)
+        ? undefined
+        : await getUserActivityIds(ctx.user.id, ctx.activeOrganization.id)
+      return listPastSessionsWithCounts(ctx.activeOrganization.id, { ...input, activityIds })
     }),
 
   /**

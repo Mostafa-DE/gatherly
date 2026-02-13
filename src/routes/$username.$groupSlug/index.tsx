@@ -98,7 +98,9 @@ function PublicOrgPage() {
     { token: inviteToken ?? "" },
     { enabled: !!inviteToken }
   )
-  const isInviteValid = !!inviteToken && !!inviteValidation?.valid
+  const hasInviteToken = !!inviteToken
+  const isInviteValid = hasInviteToken && inviteValidation?.valid === true
+  const isInviteInvalid = hasInviteToken && inviteValidation?.valid === false
 
   // Use invite token mutation
   const useTokenMutation = trpc.inviteLink.useToken.useMutation({
@@ -125,7 +127,7 @@ function PublicOrgPage() {
   const formFields = (formSchemaData?.joinFormSchema as { fields?: FormField[] } | null)?.fields || []
 
   // Check if user can join (show form)
-  const canJoinNormally = session?.user && !isMember && !pendingRequest &&
+  const canJoinNormally = !hasInviteToken && session?.user && !isMember && !pendingRequest &&
     (org?.defaultJoinMode === "open" || org?.defaultJoinMode === "approval")
   const canJoinViaInvite = session?.user && !isMember && isInviteValid
   const canJoin = canJoinNormally || canJoinViaInvite
@@ -299,6 +301,14 @@ function PublicOrgPage() {
               </span>
             </div>
           )}
+          {isInviteInvalid && !isMember && (
+            <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/10 text-sm">
+              <Lock className="h-4 w-4 text-destructive flex-shrink-0" />
+              <span className="text-destructive font-medium">
+                This invite link is invalid, expired, deactivated, or already used.
+              </span>
+            </div>
+          )}
 
           {/* Not authenticated */}
           {!session?.user && (
@@ -315,7 +325,7 @@ function PublicOrgPage() {
               className="w-full"
             >
               <UserPlus className="mr-2 h-4 w-4" />
-              {isInviteValid ? "Sign in to Accept Invite" : "Sign in to Join"}
+              {hasInviteToken ? "Sign in to Accept Invite" : "Sign in to Join"}
             </Button>
           )}
 
@@ -408,4 +418,3 @@ function PublicOrgPage() {
     </>
   )
 }
-

@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { InterestPicker } from "@/components/onboarding/interest-picker"
-import { Calendar, Users, CalendarDays, Sparkles, Loader2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Calendar, Loader2 } from "lucide-react"
 import { COUNTRIES } from "@/lib/countries"
 import { getCitiesByCountry } from "@/lib/cities"
 import { detectLocationFromTimezone } from "@/lib/timezone-location"
@@ -15,29 +14,6 @@ import { detectLocationFromTimezone } from "@/lib/timezone-location"
 export const Route = createFileRoute("/onboarding")({
   component: OnboardingPage,
 })
-
-type Intent = "join" | "organize" | "both"
-
-const INTENT_OPTIONS = [
-  {
-    value: "join" as Intent,
-    icon: Users,
-    title: "Join groups",
-    description: "Find and participate in existing groups",
-  },
-  {
-    value: "organize" as Intent,
-    icon: CalendarDays,
-    title: "Organize groups",
-    description: "Create and manage your own groups",
-  },
-  {
-    value: "both" as Intent,
-    icon: Sparkles,
-    title: "Both",
-    description: "Join groups and organize your own",
-  },
-]
 
 const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({
   value: c.code,
@@ -50,7 +26,6 @@ function OnboardingPage() {
   const utils = trpc.useUtils()
 
   const [screen, setScreen] = useState<1 | 2>(1)
-  const [intent, setIntent] = useState<Intent | null>(null)
   const [country, setCountry] = useState("")
   const [city, setCity] = useState("")
   const [detectedTimezone, setDetectedTimezone] = useState("")
@@ -81,22 +56,22 @@ function OnboardingPage() {
 
   const saveInterestsMutation = trpc.onboarding.saveInterests.useMutation({
     onSuccess: () => {
-      redirectByIntent()
+      redirectToDashboard()
     },
     onError: (err) => {
       setError(err.message)
     },
   })
 
-  const redirectByIntent = async () => {
+  const redirectToDashboard = async () => {
     // Refresh session atom without cookie cache so downstream guards read fresh onboarding state.
     await refetchSession({ query: { disableCookieCache: true } })
-    utils.user.me.invalidate()
-    if (intent === "organize") {
-      navigate({ to: "/dashboard/groups/create" })
-    } else {
-      navigate({ to: "/dashboard" })
-    }
+    await Promise.all([
+      utils.user.me.invalidate(),
+      utils.user.myOrgs.invalidate(),
+      utils.user.whoami.invalidate(),
+    ])
+    navigate({ to: "/dashboard" })
   }
 
   // Auth guard
@@ -124,10 +99,6 @@ function OnboardingPage() {
 
   const handleScreen1Submit = () => {
     setError("")
-    if (!intent) {
-      setError("Please select what you'd like to do")
-      return
-    }
     if (!country) {
       setError("Please select your country")
       return
@@ -138,7 +109,6 @@ function OnboardingPage() {
     }
 
     completeMutation.mutate({
-      intent,
       country,
       city,
       timezone: detectedTimezone || "UTC",
@@ -151,7 +121,7 @@ function OnboardingPage() {
   }
 
   const handleSkip = () => {
-    redirectByIntent()
+    redirectToDashboard()
   }
 
   return (
@@ -177,8 +147,6 @@ function OnboardingPage() {
 
         {screen === 1 ? (
           <Screen1
-            intent={intent}
-            setIntent={setIntent}
             country={country}
             setCountry={setCountry}
             city={city}
@@ -203,8 +171,6 @@ function OnboardingPage() {
 }
 
 type Screen1Props = {
-  intent: Intent | null
-  setIntent: (intent: Intent) => void
   country: string
   setCountry: (code: string) => void
   city: string
@@ -215,8 +181,6 @@ type Screen1Props = {
 }
 
 function Screen1({
-  intent,
-  setIntent,
   country,
   setCountry,
   city,
@@ -257,36 +221,6 @@ function Screen1({
           </div>
         )}
 
-        {/* Intent cards */}
-        <div className="space-y-3">
-          <p className="text-sm font-medium">What brings you to Gatherly?</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {INTENT_OPTIONS.map((option) => {
-              const Icon = option.icon
-              const isSelected = intent === option.value
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setIntent(option.value)}
-                  className={cn(
-                    "flex flex-col items-center gap-2 rounded-lg border p-4 text-center transition-colors duration-150",
-                    isSelected
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-transparent hover:bg-primary/5"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span className="text-sm font-semibold">{option.title}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {option.description}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
         {/* Country dropdown */}
         <div className="space-y-2">
           <Label>Country</Label>
@@ -319,7 +253,7 @@ function Screen1({
         <Button
           className="w-full"
           size="lg"
-          disabled={!intent || !country || !city || isPending}
+          disabled={!country || !city || isPending}
           onClick={onSubmit}
         >
           {isPending ? "Saving..." : "Continue"}

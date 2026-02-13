@@ -15,7 +15,7 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts"
-import { Eye, Repeat, CalendarDays, Medal, Info } from "lucide-react"
+import { Eye, Repeat, CalendarDays, Info } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   Popover,
@@ -38,9 +38,9 @@ const peakDaysConfig = {
   },
 } satisfies ChartConfig
 
-export function AttendancePatterns({ days }: { days: TimeRange }) {
+export function AttendancePatterns({ days, activityId }: { days: TimeRange; activityId?: string }) {
   const { data, isLoading } =
-    trpc.plugin.analytics.attendancePatterns.useQuery({ days })
+    trpc.plugin.analytics.attendancePatterns.useQuery({ days, activityId })
 
   if (isLoading) {
     return (
@@ -214,55 +214,6 @@ export function AttendancePatterns({ days }: { days: TimeRange }) {
         </div>
       )}
 
-      {/* Top attendees */}
-      {data.topAttendees.length > 0 && (
-        <div className="rounded-xl border border-border/50 bg-card/50 p-4 backdrop-blur-sm">
-          <div className="mb-3 flex items-center gap-2">
-            <Medal className="h-4 w-4 text-[var(--color-status-warning)]" />
-            <h3 className="text-sm font-medium text-muted-foreground">
-              Top Attendees
-            </h3>
-          </div>
-          <div className="space-y-2">
-            {data.topAttendees.map((a, i) => (
-              <div
-                key={a.userId}
-                className="flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                    {i + 1}
-                  </span>
-                  <div className="flex items-center gap-2 min-w-0">
-                    {a.image ? (
-                      <img
-                        src={a.image}
-                        alt={a.name}
-                        className="h-6 w-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
-                        {a.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2)}
-                      </div>
-                    )}
-                    <span className="truncate text-sm font-medium">
-                      {a.name}
-                    </span>
-                  </div>
-                </div>
-                <span className="shrink-0 ml-2 text-sm font-bold font-mono tabular-nums text-primary">
-                  {a.count} sessions
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

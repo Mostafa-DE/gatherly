@@ -37,6 +37,8 @@ import {
 } from "@/schemas/participation"
 import { getUserByEmailOrPhone } from "@/data-access/users"
 import { getOrganizationMemberByUserId } from "@/data-access/organizations"
+import { getActiveActivityMember, createActivityMember } from "@/data-access/activity-members"
+import { getActivityByIdForOrg } from "@/data-access/activities"
 
 // =============================================================================
 // Helper: Check if user is owner or admin
@@ -62,6 +64,30 @@ export const participationRouter = router({
     .mutation(async ({ ctx, input }) => {
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         const session = await scope.requireSession(input.sessionId)
+
+        // Check activity membership
+        const activeMember = await getActiveActivityMember(
+          session.activityId,
+          ctx.user.id
+        )
+        if (!activeMember) {
+          const act = await getActivityByIdForOrg(
+            session.activityId,
+            ctx.activeOrganization.id
+          )
+          if (!act) {
+            throw new NotFoundError("Activity not found")
+          }
+
+          if (act.joinMode === "open") {
+            await createActivityMember(session.activityId, ctx.user.id, "active")
+          } else if (act.joinMode === "require_approval") {
+            throw new BadRequestError("Join the activity first before joining this session")
+          } else {
+            throw new ForbiddenError("Activity is invite-only")
+          }
+        }
+
         const formSchema = parseJoinFormSchema(session.joinFormSchema)
 
         if (formSchema && formSchema.fields.length > 0) {

@@ -5,6 +5,7 @@ import { eventSession, memberNote, participation } from "@/db/schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
+  createTestActivity,
   createTestMembership,
   createTestOrganization,
   createTestUser,
@@ -84,10 +85,16 @@ describe("security isolation regressions", () => {
       role: "admin",
     })
 
+    const testActivity = await createTestActivity({
+      organizationId,
+      createdBy: owner.id,
+    })
+
     const [createdSession] = await db
       .insert(eventSession)
       .values({
         organizationId,
+        activityId: testActivity.id,
         title: "Security Session",
         dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
         maxCapacity: 10,
@@ -214,5 +221,59 @@ describe("security isolation regressions", () => {
         noteId: crossOrgNoteId,
       })
     ).resolves.toEqual({ success: true })
+  })
+
+  it("enforces org scope on activity CRUD operations", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    // Create an activity in org1
+    const act = await ownerCaller.activity.create({
+      name: "Org1 Activity",
+      slug: "org1-activity",
+      joinMode: "open",
+    })
+
+    // Admin of org2 cannot update/delete org1's activity
+    const otherOrgCaller = buildCaller(admin, otherOrganizationId)
+
+    await expect(
+      otherOrgCaller.activity.update({
+        activityId: act.id,
+        name: "Hacked Name",
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" })
+
+    await expect(
+      otherOrgCaller.activity.getById({
+        activityId: act.id,
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" })
+  })
+
+  it("enforces org scope on activity membership operations", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    // Create an open activity in org1
+    const act = await ownerCaller.activity.create({
+      name: "Isolated Activity",
+      slug: "isolated-activity",
+      joinMode: "open",
+    })
+
+    // Member of org1 can join
+    const memberCaller = buildCaller(memberUser, organizationId)
+    const membership = await memberCaller.activityMembership.join({
+      activityId: act.id,
+    })
+    expect(membership.status).toBe("active")
+
+    // Admin of org2 cannot add members to org1's activity
+    const otherOrgCaller = buildCaller(admin, otherOrganizationId)
+    await expect(
+      otherOrgCaller.activityMembership.adminAdd({
+        activityId: act.id,
+        userId: admin.id,
+      })
+    ).rejects.toMatchObject({ code: "NOT_FOUND" })
   })
 })

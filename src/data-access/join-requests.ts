@@ -25,6 +25,23 @@ export async function getJoinRequestById(requestId: string) {
   return result[0] ?? null
 }
 
+export async function getJoinRequestByIdForOrg(
+  requestId: string,
+  organizationId: string
+) {
+  const result = await db
+    .select()
+    .from(joinRequest)
+    .where(
+      and(
+        eq(joinRequest.id, requestId),
+        eq(joinRequest.organizationId, organizationId)
+      )
+    )
+    .limit(1)
+  return result[0] ?? null
+}
+
 export async function getJoinRequestWithDetails(requestId: string) {
   const result = await db
     .select({
@@ -49,6 +66,42 @@ export async function getJoinRequestWithDetails(requestId: string) {
     .innerJoin(user, eq(joinRequest.userId, user.id))
     .where(eq(joinRequest.id, requestId))
     .limit(1)
+  return result[0] ?? null
+}
+
+export async function getJoinRequestWithDetailsForOrg(
+  requestId: string,
+  organizationId: string
+) {
+  const result = await db
+    .select({
+      request: joinRequest,
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        userSlug: organization.userSlug,
+        ownerUsername: organization.ownerUsername,
+        logo: organization.logo,
+      },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+      },
+    })
+    .from(joinRequest)
+    .innerJoin(organization, eq(joinRequest.organizationId, organization.id))
+    .innerJoin(user, eq(joinRequest.userId, user.id))
+    .where(
+      and(
+        eq(joinRequest.id, requestId),
+        eq(joinRequest.organizationId, organizationId)
+      )
+    )
+    .limit(1)
+
   return result[0] ?? null
 }
 

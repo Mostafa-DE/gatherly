@@ -75,6 +75,7 @@ export const organizationSettings = pgTable("organization_settings", {
   joinFormVersion: integer("join_form_version").default(1).notNull(),
   currency: text("currency"), // ISO 4217 code (USD, EUR, JOD, etc.) - null = not set
   enabledPlugins: jsonb("enabled_plugins").default({}).notNull(),
+  nameChangedAt: timestamp("name_changed_at", { withTimezone: true }), // null = never changed, set = locked
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
@@ -95,6 +96,9 @@ export const eventSession = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
     dateTime: timestamp("date_time", { withTimezone: true }).notNull(),
@@ -120,6 +124,7 @@ export const eventSession = pgTable(
     index("event_session_date_idx").on(table.dateTime),
     index("event_session_status_idx").on(table.status),
     index("event_session_org_status_idx").on(table.organizationId, table.status),
+    index("event_session_activity_date_idx").on(table.activityId, table.dateTime),
   ]
 )
 
@@ -220,6 +225,9 @@ export const memberNote = pgTable(
     authorUserId: text("author_user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    activityId: text("activity_id").references(() => activity.id, {
+      onDelete: "cascade",
+    }),
     content: text("content").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -229,6 +237,113 @@ export const memberNote = pgTable(
   },
   (table) => [
     index("member_note_org_target_idx").on(table.organizationId, table.targetUserId),
+    index("member_note_activity_target_idx").on(table.activityId, table.targetUserId),
+  ]
+)
+
+// =============================================================================
+// Activity (scoped sub-groups within an organization)
+// =============================================================================
+
+export const activity = pgTable(
+  "activity",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    joinMode: text("join_mode").default("open").notNull(), // 'open' | 'require_approval' | 'invite'
+    joinFormSchema: jsonb("join_form_schema"),
+    joinFormVersion: integer("join_form_version").default(1).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdBy: text("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("activity_org_slug_idx").on(table.organizationId, table.slug),
+    index("activity_org_idx").on(table.organizationId),
+  ]
+)
+
+// =============================================================================
+// Activity Member (membership within an activity)
+// =============================================================================
+
+export const activityMember = pgTable(
+  "activity_member",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").default("active").notNull(), // 'pending' | 'active' | 'rejected'
+    role: text("role").default("member").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("activity_member_activity_user_idx").on(table.activityId, table.userId),
+    index("activity_member_activity_user_status_idx").on(
+      table.activityId,
+      table.userId,
+      table.status
+    ),
+  ]
+)
+
+// =============================================================================
+// Activity Join Request (for approval-based activity joining)
+// =============================================================================
+
+export const activityJoinRequest = pgTable(
+  "activity_join_request",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: text("status").default("pending").notNull(), // 'pending' | 'approved' | 'rejected'
+    message: text("message"),
+    formAnswers: jsonb("form_answers"),
+    reviewedBy: text("reviewed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("activity_join_request_activity_idx").on(table.activityId),
+    index("activity_join_request_user_idx").on(table.userId),
+    uniqueIndex("activity_join_request_activity_user_pending_idx")
+      .on(table.activityId, table.userId)
+      .where(sql`status = 'pending'`),
   ]
 )
 
@@ -249,6 +364,9 @@ export const inviteLink = pgTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organization.id, { onDelete: "cascade" }),
+    activityId: text("activity_id").references(() => activity.id, {
+      onDelete: "cascade",
+    }),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -262,6 +380,7 @@ export const inviteLink = pgTable(
   (table) => [
     index("invite_link_org_idx").on(table.organizationId),
     index("invite_link_token_idx").on(table.token),
+    index("invite_link_activity_idx").on(table.activityId),
   ]
 )
 
@@ -361,6 +480,10 @@ export const eventSessionRelations = relations(eventSession, ({ one, many }) => 
     fields: [eventSession.organizationId],
     references: [organization.id],
   }),
+  activity: one(activity, {
+    fields: [eventSession.activityId],
+    references: [activity.id],
+  }),
   createdByUser: one(user, {
     fields: [eventSession.createdBy],
     references: [user.id],
@@ -398,6 +521,10 @@ export const memberNoteRelations = relations(memberNote, ({ one }) => ({
     fields: [memberNote.organizationId],
     references: [organization.id],
   }),
+  activity: one(activity, {
+    fields: [memberNote.activityId],
+    references: [activity.id],
+  }),
   targetUser: one(user, {
     fields: [memberNote.targetUserId],
     references: [user.id],
@@ -414,6 +541,10 @@ export const inviteLinkRelations = relations(inviteLink, ({ one }) => ({
   organization: one(organization, {
     fields: [inviteLink.organizationId],
     references: [organization.id],
+  }),
+  activity: one(activity, {
+    fields: [inviteLink.activityId],
+    references: [activity.id],
   }),
   createdByUser: one(user, {
     fields: [inviteLink.createdBy],
@@ -432,6 +563,48 @@ export const joinRequestRelations = relations(joinRequest, ({ one }) => ({
   }),
   reviewer: one(user, {
     fields: [joinRequest.reviewedBy],
+    references: [user.id],
+  }),
+}))
+
+export const activityRelations = relations(activity, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [activity.organizationId],
+    references: [organization.id],
+  }),
+  createdByUser: one(user, {
+    fields: [activity.createdBy],
+    references: [user.id],
+  }),
+  members: many(activityMember),
+  joinRequests: many(activityJoinRequest),
+  sessions: many(eventSession),
+  inviteLinks: many(inviteLink),
+  memberNotes: many(memberNote),
+}))
+
+export const activityMemberRelations = relations(activityMember, ({ one }) => ({
+  activity: one(activity, {
+    fields: [activityMember.activityId],
+    references: [activity.id],
+  }),
+  user: one(user, {
+    fields: [activityMember.userId],
+    references: [user.id],
+  }),
+}))
+
+export const activityJoinRequestRelations = relations(activityJoinRequest, ({ one }) => ({
+  activity: one(activity, {
+    fields: [activityJoinRequest.activityId],
+    references: [activity.id],
+  }),
+  user: one(user, {
+    fields: [activityJoinRequest.userId],
+    references: [user.id],
+  }),
+  reviewer: one(user, {
+    fields: [activityJoinRequest.reviewedBy],
     references: [user.id],
   }),
 }))
@@ -500,6 +673,12 @@ export type {
   NewInviteLink,
   MemberNote,
   NewMemberNote,
+  Activity,
+  NewActivity,
+  ActivityMember,
+  NewActivityMember,
+  ActivityJoinRequest,
+  NewActivityJoinRequest,
   InterestCategory,
   NewInterestCategory,
   Interest,

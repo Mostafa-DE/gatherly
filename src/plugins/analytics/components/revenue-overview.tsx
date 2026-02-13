@@ -39,8 +39,8 @@ function formatMoney(
   }
 }
 
-export function RevenueOverview({ days }: { days: TimeRange }) {
-  const { data, isLoading } = trpc.plugin.analytics.revenue.useQuery({ days })
+export function RevenueOverview({ days, activityId }: { days: TimeRange; activityId?: string }) {
+  const { data, isLoading } = trpc.plugin.analytics.revenue.useQuery({ days, activityId })
 
   if (isLoading) {
     return (

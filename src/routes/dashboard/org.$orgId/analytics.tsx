@@ -10,6 +10,8 @@ import {
   DollarSign,
   XCircle,
   BarChart3,
+  Trophy,
+  Medal,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GroupHealth } from "@/plugins/analytics/components/group-health"
@@ -18,6 +20,14 @@ import { AttendancePatterns } from "@/plugins/analytics/components/attendance-pa
 import { RevenueOverview } from "@/plugins/analytics/components/revenue-overview"
 import { AnalyticsInsights } from "@/plugins/analytics/components/analytics-insights"
 import { useAIAnalyzeAnalytics } from "@/plugins/ai/hooks/use-ai-suggestion"
+import { useActivityContext } from "@/hooks/use-activity-context"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type { TimeRange } from "@/plugins/analytics/types"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/analytics")({
@@ -52,6 +62,8 @@ function AnalyticsPage() {
   const [cachedInsights, setCachedInsights] = useState<Record<TimeRange, string>>(
     () => readCachedInsights(orgId)
   )
+  const { activities, isMultiActivity, selectedActivityId, setSelectedActivity } =
+    useActivityContext(orgId)
   const { data: whoami, isLoading: whoamiLoading } =
     trpc.user.whoami.useQuery()
 
@@ -90,6 +102,23 @@ function AnalyticsPage() {
   const isAdmin =
     whoami?.membership?.role === "owner" ||
     whoami?.membership?.role === "admin"
+
+  const activityId = selectedActivityId ?? undefined
+
+  const {
+    data: sessionPerformanceData,
+    isLoading: sessionPerformanceLoading,
+  } = trpc.plugin.analytics.sessionPerformance.useQuery(
+    { days, activityId },
+    { enabled: isAdmin }
+  )
+  const {
+    data: attendancePatternsData,
+    isLoading: attendancePatternsLoading,
+  } = trpc.plugin.analytics.attendancePatterns.useQuery(
+    { days, activityId },
+    { enabled: isAdmin }
+  )
 
   if (whoamiLoading) {
     return (
@@ -135,30 +164,38 @@ function AnalyticsPage() {
       title: "Group Health",
       description: "Member growth, activity, and retention",
       icon: Users,
-      component: <GroupHealth days={days} />,
-    },
-    {
-      id: "session-performance",
-      title: "Session Performance",
-      description: "Capacity utilization and no-show rates",
-      icon: Calendar,
-      component: <SessionPerformance days={days} />,
-    },
-    {
-      id: "attendance-patterns",
-      title: "Attendance Patterns",
-      description: "Show rates, peak days, and top attendees",
-      icon: Eye,
-      component: <AttendancePatterns days={days} />,
+      component: <GroupHealth days={days} activityId={activityId} />,
     },
     {
       id: "revenue",
       title: "Revenue",
       description: "Earnings, collection rates, and trends",
       icon: DollarSign,
-      component: <RevenueOverview days={days} />,
+      component: <RevenueOverview days={days} activityId={activityId} />,
+    },
+    {
+      id: "session-performance",
+      title: "Session Performance",
+      description: "Capacity utilization and no-show rates",
+      icon: Calendar,
+      component: <SessionPerformance days={days} activityId={activityId} />,
+    },
+    {
+      id: "attendance-patterns",
+      title: "Attendance Patterns",
+      description: "Show rates, peak days, and top attendees",
+      icon: Eye,
+      component: <AttendancePatterns days={days} activityId={activityId} />,
     },
   ]
+
+  const topSessions = sessionPerformanceData?.topSessions ?? []
+  const topAttendees = attendancePatternsData?.topAttendees ?? []
+  const shouldShowTopListsRow =
+    sessionPerformanceLoading ||
+    attendancePatternsLoading ||
+    topSessions.length > 0 ||
+    topAttendees.length > 0
 
   return (
     <div className="space-y-8 py-6">
@@ -176,25 +213,45 @@ function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="flex gap-1 rounded-lg border bg-muted/50 p-1">
-          {TIME_RANGES.map((range) => (
-            <button
-              key={range.value}
-              onClick={() => {
-                if (isGeneratingInsights) return
-                setDays(range.value)
-              }}
-              disabled={isGeneratingInsights}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                days === range.value
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+        <div className="flex items-center gap-3">
+          {isMultiActivity && (
+            <Select
+              value={selectedActivityId ?? "all"}
+              onValueChange={(v) => setSelectedActivity(v === "all" ? null : v)}
             >
-              {range.label}
-            </button>
-          ))}
+              <SelectTrigger className="w-[180px] bg-popover">
+                <SelectValue placeholder="All Activities" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Activities</SelectItem>
+                {activities.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="flex gap-1 rounded-lg border bg-muted/50 p-1">
+            {TIME_RANGES.map((range) => (
+              <button
+                key={range.value}
+                onClick={() => {
+                  if (isGeneratingInsights) return
+                  setDays(range.value)
+                }}
+                disabled={isGeneratingInsights}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                  days === range.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {range.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -230,6 +287,127 @@ function AnalyticsPage() {
           </div>
         )
       })}
+
+      {/* Top lists */}
+      {shouldShowTopListsRow && (
+        <div>
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Trophy className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Top Contributors</h2>
+              <p className="text-sm text-muted-foreground">
+                Top attendees and highest-fill sessions
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {sessionPerformanceLoading ? (
+              <Skeleton className="h-[220px] rounded-xl" />
+            ) : (
+              <div className="rounded-xl border border-border/50 bg-card/50 p-4 backdrop-blur-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-[var(--color-status-warning)]" />
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    Top Sessions by Fill Rate
+                  </h3>
+                </div>
+                {topSessions.length > 0 ? (
+                  <div className="space-y-2">
+                    {topSessions.map((s, i) => (
+                      <div
+                        key={s.id}
+                        className="flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                            {i + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{s.title}</p>
+                            <p className="text-xs text-muted-foreground">{s.date}</p>
+                          </div>
+                        </div>
+                        <div className="ml-2 shrink-0 text-right">
+                          <p className="text-sm font-bold font-mono tabular-nums">
+                            {s.fillRate}%
+                          </p>
+                          <p className="text-xs tabular-nums text-muted-foreground">
+                            {s.joinedCount}/{s.maxCapacity}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+                    No session data in this period
+                  </div>
+                )}
+              </div>
+            )}
+
+            {attendancePatternsLoading ? (
+              <Skeleton className="h-[220px] rounded-xl" />
+            ) : (
+              <div className="rounded-xl border border-border/50 bg-card/50 p-4 backdrop-blur-sm">
+                <div className="mb-3 flex items-center gap-2">
+                  <Medal className="h-4 w-4 text-[var(--color-status-warning)]" />
+                  <h3 className="text-sm font-medium text-muted-foreground">
+                    Top Attendees
+                  </h3>
+                </div>
+                {topAttendees.length > 0 ? (
+                  <div className="space-y-2">
+                    {topAttendees.map((a, i) => (
+                      <div
+                        key={a.userId}
+                        className="flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                            {i + 1}
+                          </span>
+                          <div className="flex min-w-0 items-center gap-2">
+                            {a.image ? (
+                              <img
+                                src={a.image}
+                                alt={a.name}
+                                className="h-6 w-6 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium">
+                                {a.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                  .slice(0, 2)}
+                              </div>
+                            )}
+                            <span className="truncate text-sm font-medium">
+                              {a.name}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="ml-2 shrink-0 text-sm font-bold font-mono tabular-nums text-primary">
+                          {a.count} sessions
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+                    No attendee data in this period
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

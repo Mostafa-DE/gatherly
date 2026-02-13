@@ -9,6 +9,8 @@
  *   - 1 admin user (the "owner") + 24 member users
  *   - 1 organization with settings (analytics + ai plugins enabled)
  *   - All members added to the org
+ *   - 3 activities: General (open, active), Competitive League (approval, active),
+ *     Summer Camp 2025 (open, deactivated)
  *   - 20 sessions spanning the past 90 days (mix of completed/published)
  *   - ~300 participations with realistic attendance & payment distributions
  *   - Member notes, profiles, join requests, and invite links
@@ -25,6 +27,8 @@ import {
   organization,
   member,
   organizationSettings,
+  activity,
+  activityMember,
   eventSession,
   participation,
   joinRequest,
@@ -260,24 +264,115 @@ async function addMembers(
   console.log(`  Added ${memberUserIds.length} members with profiles`)
 }
 
+async function createActivities(
+  orgId: string,
+  ownerId: string,
+  memberUserIds: string[]
+): Promise<string[]> {
+  console.log("Creating activities...")
+
+  const allUserIds = [ownerId, ...memberUserIds]
+
+  // Activity 1: General — open, active, all members
+  const generalId = seedId("activity_general")
+  await db.insert(activity).values({
+    id: generalId,
+    organizationId: orgId,
+    name: "General",
+    slug: "general",
+    joinMode: "open",
+    isActive: true,
+    createdBy: ownerId,
+    createdAt: daysAgo(120),
+  })
+
+  const generalMembers = allUserIds.map((userId, i) => ({
+    id: seedId(`actmember_gen_${i}`),
+    activityId: generalId,
+    userId,
+    status: "active",
+    role: i === 0 ? "owner" : "member",
+  }))
+  await db.insert(activityMember).values(generalMembers)
+  console.log(`  Activity: General (open, active) — ${allUserIds.length} members`)
+
+  // Activity 2: Competitive League — require_approval, active, ~60% of members
+  const compId = seedId("activity_competitive")
+  await db.insert(activity).values({
+    id: compId,
+    organizationId: orgId,
+    name: "Competitive League",
+    slug: "competitive-league",
+    joinMode: "require_approval",
+    isActive: true,
+    createdBy: ownerId,
+    createdAt: daysAgo(90),
+  })
+
+  const compCount = Math.floor(memberUserIds.length * 0.6)
+  const compUserIds = [ownerId, ...memberUserIds.slice(0, compCount)]
+  const compMembers = compUserIds.map((userId, i) => ({
+    id: seedId(`actmember_comp_${i}`),
+    activityId: compId,
+    userId,
+    status: "active",
+    role: i === 0 ? "owner" : "member",
+  }))
+  await db.insert(activityMember).values(compMembers)
+  console.log(`  Activity: Competitive League (approval, active) — ${compUserIds.length} members`)
+
+  // Activity 3: Summer Camp — open, deactivated, ~40% of members
+  const campId = seedId("activity_summer_camp")
+  await db.insert(activity).values({
+    id: campId,
+    organizationId: orgId,
+    name: "Summer Camp 2025",
+    slug: "summer-camp-2025",
+    joinMode: "open",
+    isActive: false,
+    createdBy: ownerId,
+    createdAt: daysAgo(60),
+  })
+
+  const campCount = Math.floor(memberUserIds.length * 0.4)
+  const campUserIds = [ownerId, ...memberUserIds.slice(0, campCount)]
+  const campMembers = campUserIds.map((userId, i) => ({
+    id: seedId(`actmember_camp_${i}`),
+    activityId: campId,
+    userId,
+    status: "active",
+    role: i === 0 ? "owner" : "member",
+  }))
+  await db.insert(activityMember).values(campMembers)
+  console.log(`  Activity: Summer Camp 2025 (open, deactivated) — ${campUserIds.length} members`)
+
+  return [generalId, compId, campId]
+}
+
 async function createSessions(
   orgId: string,
-  ownerId: string
+  ownerId: string,
+  activityIds: string[]
 ): Promise<string[]> {
   console.log("Creating sessions...")
 
   const sessionIds: string[] = []
+  // Only create sessions for active activities (first two)
+  const activeActivityIds = activityIds.filter((_, i) => i < 2)
 
-  // 20 sessions spread over the past 90 days
+  // 20 sessions spread over the past 90 days, distributed across active activities
   for (let i = 0; i < 20; i++) {
     const template = SESSION_TEMPLATES[i % SESSION_TEMPLATES.length]
     const sessionDaysAgo = Math.max(1, 90 - i * 4 + randomInt(-2, 2))
     const isCompleted = sessionDaysAgo > 3
     const id = seedId(`session_${i}`)
+    // Alternate sessions between active activities (~70% general, ~30% competitive)
+    const activityId = i % 3 === 0 ? activeActivityIds[1] : activeActivityIds[0]
 
     await db.insert(eventSession).values({
       id,
       organizationId: orgId,
+      activityId,
       title: i < SESSION_TEMPLATES.length
         ? template.title
         : `${template.title} #${Math.floor(i / SESSION_TEMPLATES.length) + 1}`,
@@ -295,7 +390,7 @@ async function createSessions(
     sessionIds.push(id)
   }
 
-  console.log(`  Created ${sessionIds.length} sessions`)
+  console.log(`  Created ${sessionIds.length} sessions across ${activeActivityIds.length} activities`)
   return sessionIds
 }
 
@@ -514,7 +609,8 @@ async function seed() {
   const [ownerId, ...memberUserIds] = await createUsers()
   const orgId = await createOrganization(ownerId)
   await addMembers(orgId, memberUserIds)
-  const sessionIds = await createSessions(orgId, ownerId)
+  const activityIds = await createActivities(orgId, ownerId, memberUserIds)
+  const sessionIds = await createSessions(orgId, ownerId, activityIds)
   await createParticipations(sessionIds, memberUserIds, ownerId)
   await createMemberNotes(orgId, ownerId, memberUserIds)
   await createJoinRequests(orgId, memberUserIds)
@@ -572,6 +668,24 @@ async function clean() {
   await db
     .delete(eventSession)
     .where(eq(eventSession.organizationId, orgId))
+
+  console.log("Deleting activity members...")
+  const orgActivities = await db
+    .select({ id: activity.id })
+    .from(activity)
+    .where(eq(activity.organizationId, orgId))
+  const orgActivityIds = orgActivities.map((a) => a.id)
+
+  if (orgActivityIds.length > 0) {
+    await db
+      .delete(activityMember)
+      .where(inArray(activityMember.activityId, orgActivityIds))
+  }
+
+  console.log("Deleting activities...")
+  await db
+    .delete(activity)
+    .where(eq(activity.organizationId, orgId))
 
   console.log("Deleting member notes...")
   await db

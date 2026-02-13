@@ -5,9 +5,10 @@ import { Users, BarChart3, Eye, DollarSign, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice } from "@/lib/format-price"
 
-export function AnalyticsSummaryWidget({ orgId }: { orgId: string }) {
+export function AnalyticsSummaryWidget({ orgId, activityId }: { orgId: string; activityId?: string }) {
   const { data, isLoading } = trpc.plugin.analytics.summary.useQuery({
     days: "30",
+    activityId,
   })
 
   if (isLoading) {
@@ -48,10 +49,9 @@ export function AnalyticsSummaryWidget({ orgId }: { orgId: string }) {
     },
     {
       label: "Revenue (30d)",
-      value: formatPrice(
-        data.totalRevenue > 0 ? String(data.totalRevenue) : null,
-        data.currency
-      ),
+      value: data.totalRevenue > 0
+        ? formatPrice(String(data.totalRevenue), data.currency)
+        : "—",
       icon: DollarSign,
       className: "text-[var(--color-chart-3)]",
     },

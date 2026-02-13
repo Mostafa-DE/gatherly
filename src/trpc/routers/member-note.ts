@@ -1,5 +1,6 @@
 import { router, orgProcedure } from "@/trpc"
 import { ForbiddenError, NotFoundError } from "@/exceptions"
+import { withOrgScope } from "@/data-access/org-scope"
 import {
   createMemberNote,
   listMemberNotes,
@@ -24,11 +25,20 @@ export const memberNoteRouter = router({
     .input(createMemberNoteSchema)
     .mutation(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
+
+      // Validate activity belongs to this org if provided
+      if (input.activityId) {
+        await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+          await scope.requireActivity(input.activityId!)
+        })
+      }
+
       return createMemberNote(
         ctx.activeOrganization.id,
         input.targetUserId,
         ctx.user.id,
-        input.content
+        input.content,
+        input.activityId
       )
     }),
 
@@ -36,7 +46,11 @@ export const memberNoteRouter = router({
     .input(listMemberNotesSchema)
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
-      return listMemberNotes(ctx.activeOrganization.id, input.targetUserId)
+      return listMemberNotes(
+        ctx.activeOrganization.id,
+        input.targetUserId,
+        input.activityId
+      )
     }),
 
   update: orgProcedure
