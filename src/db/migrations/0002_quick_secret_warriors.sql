@@ -1,2 +1,0 @@
-DROP INDEX "uniq_active_participation";--> statement-breakpoint
-CREATE UNIQUE INDEX "uniq_active_participation" ON "participation" USING btree ("session_id","user_id") WHERE status IN ('pending', 'joined', 'waitlisted');

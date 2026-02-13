@@ -5,78 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1770498075444,
-      "tag": "0000_freezing_the_anarchist",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1770500748561,
-      "tag": "0001_young_firebird",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1770555693886,
-      "tag": "0002_quick_secret_warriors",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1770563398924,
-      "tag": "0003_icy_pretty_boy",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1770641864926,
-      "tag": "0004_flowery_doctor_spectrum",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1770737010911,
-      "tag": "0005_overjoyed_sauron",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1770739296740,
-      "tag": "0006_moaning_thor",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1770914167228,
-      "tag": "0007_aromatic_thena",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1770998021508,
-      "tag": "0008_puzzling_korvac",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1771005667609,
-      "tag": "0009_uneven_sunfire",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1771006128221,
-      "tag": "0010_tearful_sandman",
+      "when": 1771012162301,
+      "tag": "0000_melted_doorman",
       "breakpoints": true
     }
   ]

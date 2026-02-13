@@ -1,1 +1,0 @@
-ALTER TABLE "organization_settings" ADD COLUMN "enabled_plugins" jsonb DEFAULT '{}'::jsonb NOT NULL;
