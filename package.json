@@ -12,7 +12,7 @@
     "test": "vitest run",
     "db:up": "docker compose up -d db",
     "db:stop": "docker compose stop db",
-    "db:reset": "docker compose down && docker volume rm gatherly_postgres_data 2>/dev/null; docker compose up -d db --wait && pnpm db:migrate && pnpm db:seed:demo-user && pnpm db:seed:interests",
+    "db:reset": "docker compose down && docker volume rm gatherly_postgres_data 2>/dev/null; docker compose up -d db --wait && pnpm db:migrate && pnpm db:seed:interests",
     "db:generate": "drizzle-kit generate",
     "db:studio": "drizzle-kit studio",
     "db:migrate": "drizzle-kit migrate",

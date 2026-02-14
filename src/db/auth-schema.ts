@@ -19,8 +19,8 @@ export const user = pgTable("user", {
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  phoneNumber: text("phone_number").notNull().unique(),
-  username: text("username").notNull().unique(),
+  phoneNumber: text("phone_number").unique(),
+  username: text("username").unique(),
   intent: text("intent"),
   country: text("country"),
   city: text("city"),

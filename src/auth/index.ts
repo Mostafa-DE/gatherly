@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-import { organization } from "better-auth/plugins"
+import { organization, oneTap } from "better-auth/plugins"
 import { db } from "@/db"
 import * as authSchema from "@/db/auth-schema"
 
@@ -60,13 +60,13 @@ export const auth = betterAuth({
     additionalFields: {
       phoneNumber: {
         type: "string",
-        required: true,
+        required: false,
         unique: true,
         input: true,
       },
       username: {
         type: "string",
-        required: true,
+        required: false,
         unique: true,
         input: true,
       },
@@ -98,7 +98,20 @@ export const auth = betterAuth({
       },
     },
   },
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+    },
+  },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
+  },
   plugins: [
+    oneTap(),
     organization({
       schema: {
         organization: {

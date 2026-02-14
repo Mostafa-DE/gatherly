@@ -95,6 +95,10 @@ export const userRouter = router({
     .mutation(async ({ ctx, input }) => {
       const username = ctx.user.username
 
+      if (!username) {
+        throw new BadRequestError("Please complete onboarding before creating an organization")
+      }
+
       // Generate internal slug as {username}-{userSlug}
       const internalSlug = `${username}-${input.slug}`
 

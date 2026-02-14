@@ -4,7 +4,10 @@ import { signIn, signUp, useSession } from "@/auth/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { PhoneInput } from "@/components/ui/phone-input"
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
+import { useGoogleOneTap } from "@/hooks/use-google-one-tap"
 import { Calendar, UserPlus, Check, X, Loader2 } from "lucide-react"
 import { useUsernameAvailable } from "@/hooks/use-username-available"
 import { navigateToRedirect } from "@/lib/redirect-utils"
@@ -27,6 +30,7 @@ function RegisterPage() {
   const navigate = useNavigate()
   const { redirect: redirectTo } = Route.useSearch()
   const { refetch } = useSession()
+  useGoogleOneTap(redirectTo)
   const [name, setName] = useState("")
   const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
@@ -268,6 +272,17 @@ function RegisterPage() {
               {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <Separator className="w-full" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card/50 px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
+          <GoogleSignInButton redirectTo={redirectTo} label="Sign up with Google" />
         </div>
 
         {/* Footer */}

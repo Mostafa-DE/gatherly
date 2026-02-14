@@ -12,6 +12,7 @@ import {
   getOrganizationInterests,
   setOrganizationInterests,
 } from "@/data-access/interests"
+import { getUserByUsername, getUserByPhone } from "@/data-access/users"
 import { z } from "zod"
 
 function slugify(text: string): string {
@@ -29,22 +30,73 @@ export const onboardingRouter = router({
   complete: protectedProcedure
     .input(completeOnboardingSchema)
     .mutation(async ({ ctx, input }) => {
+      // Determine final username and phone — use existing or require from input
+      const existingUsername = ctx.user.username
+      const existingPhone = ctx.user.phoneNumber
+
+      const finalUsername = existingUsername ?? input.username
+      const finalPhone = existingPhone ?? input.phoneNumber
+
+      if (!finalUsername) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Username is required to complete onboarding",
+        })
+      }
+
+      if (!finalPhone) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Phone number is required to complete onboarding",
+        })
+      }
+
+      // Validate uniqueness of username/phone if they're being set for the first time
+      if (!existingUsername && input.username) {
+        const taken = await getUserByUsername(input.username)
+        if (taken) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This username is already taken",
+          })
+        }
+      }
+
+      if (!existingPhone && input.phoneNumber) {
+        const taken = await getUserByPhone(input.phoneNumber)
+        if (taken) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This phone number is already in use",
+          })
+        }
+      }
+
       try {
         const organizationId = await ctx.db.transaction(async (tx) => {
-          // 1. Update user profile
+          // 1. Update user profile (including missing fields if provided)
+          const userUpdate: Record<string, unknown> = {
+            country: input.country,
+            city: input.city,
+            timezone: input.timezone,
+            onboardingCompleted: true,
+            updatedAt: new Date(),
+          }
+
+          if (!existingUsername && input.username) {
+            userUpdate.username = input.username
+          }
+          if (!existingPhone && input.phoneNumber) {
+            userUpdate.phoneNumber = input.phoneNumber
+          }
+
           await tx
             .update(user)
-            .set({
-              country: input.country,
-              city: input.city,
-              timezone: input.timezone,
-              onboardingCompleted: true,
-              updatedAt: new Date(),
-            })
+            .set(userUpdate)
             .where(eq(user.id, ctx.user.id))
 
           // 2. Auto-create default group + activity
-          const username = ctx.user.username
+          const username = finalUsername
           const groupName = `${ctx.user.name}'s Group`
           const userSlug = slugify(groupName.replace(/'s\b/g, ""))
           const internalSlug = `${username}-${userSlug}`

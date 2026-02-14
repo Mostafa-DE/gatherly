@@ -72,7 +72,7 @@ function parseRedirectPath(
   }
 
   // /{username}/{groupSlug}
-  const staticPrefixes = ["dashboard", "api", "login", "register"]
+  const staticPrefixes = ["dashboard", "api", "login", "register", "onboarding"]
   if (segments.length === 2 && !staticPrefixes.includes(segments[0])) {
     return {
       to: "/$username/$groupSlug",

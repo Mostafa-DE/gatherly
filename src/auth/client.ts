@@ -3,6 +3,7 @@ import {
   organizationClient,
   inferAdditionalFields,
   inferOrgAdditionalFields,
+  oneTapClient,
 } from "better-auth/client/plugins"
 import type { auth } from "@/auth"
 
@@ -13,6 +14,9 @@ export const authClient = createAuthClient({
     organizationClient({
       schema: inferOrgAdditionalFields<typeof auth>(),
     }),
+    oneTapClient({
+      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+    }),
   ],
 })
 
@@ -22,4 +26,5 @@ export const {
   signUp,
   useSession,
   organization,
+  oneTap,
 } = authClient

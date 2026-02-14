@@ -8,6 +8,13 @@
       "when": 1771012162301,
       "tag": "0000_melted_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771102147881,
+      "tag": "0001_flawless_killmonger",
+      "breakpoints": true
     }
   ]
 }

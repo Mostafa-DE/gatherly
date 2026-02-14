@@ -61,6 +61,7 @@ const RESERVED_USERNAMES = [
   "sitemap",
   "robots",
   "favicon",
+  "onboarding",
 ] as const
 
 export const usernameSchema = z

@@ -3,10 +3,13 @@ import { useState, useEffect, useMemo } from "react"
 import { useSession } from "@/auth/client"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SearchableSelect } from "@/components/ui/searchable-select"
+import { PhoneInput } from "@/components/ui/phone-input"
 import { InterestPicker } from "@/components/onboarding/interest-picker"
-import { Calendar, Loader2 } from "lucide-react"
+import { useUsernameAvailable } from "@/hooks/use-username-available"
+import { Calendar, Loader2, Check, X } from "lucide-react"
 import { COUNTRIES } from "@/lib/countries"
 import { getCitiesByCountry } from "@/lib/cities"
 import { detectLocationFromTimezone } from "@/lib/timezone-location"
@@ -29,8 +32,13 @@ function OnboardingPage() {
   const [country, setCountry] = useState("")
   const [city, setCity] = useState("")
   const [detectedTimezone, setDetectedTimezone] = useState("")
+  const [username, setUsername] = useState("")
+  const [phoneNumber, setPhoneNumber] = useState("")
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
   const [error, setError] = useState("")
+
+  const needsUsername = !session?.user?.username
+  const needsPhone = !session?.user?.phoneNumber
 
   // Auto-detect country + city from timezone on mount
   useEffect(() => {
@@ -107,11 +115,25 @@ function OnboardingPage() {
       setError("Please select your city")
       return
     }
+    if (needsUsername && !username) {
+      setError("Please choose a username")
+      return
+    }
+    if (needsPhone && !phoneNumber) {
+      setError("Please enter your phone number")
+      return
+    }
+    if (needsPhone && phoneNumber && !/^\+[1-9]\d{7,14}$/.test(phoneNumber)) {
+      setError("Please enter a valid phone number")
+      return
+    }
 
     completeMutation.mutate({
       country,
       city,
       timezone: detectedTimezone || "UTC",
+      ...(needsUsername && username ? { username } : {}),
+      ...(needsPhone && phoneNumber ? { phoneNumber } : {}),
     })
   }
 
@@ -151,6 +173,12 @@ function OnboardingPage() {
             setCountry={setCountry}
             city={city}
             setCity={setCity}
+            username={username}
+            setUsername={setUsername}
+            phoneNumber={phoneNumber}
+            setPhoneNumber={setPhoneNumber}
+            needsUsername={needsUsername}
+            needsPhone={needsPhone}
             error={error}
             isPending={completeMutation.isPending}
             onSubmit={handleScreen1Submit}
@@ -175,6 +203,12 @@ type Screen1Props = {
   setCountry: (code: string) => void
   city: string
   setCity: (city: string) => void
+  username: string
+  setUsername: (val: string) => void
+  phoneNumber: string
+  setPhoneNumber: (val: string) => void
+  needsUsername: boolean
+  needsPhone: boolean
   error: string
   isPending: boolean
   onSubmit: () => void
@@ -185,10 +219,18 @@ function Screen1({
   setCountry,
   city,
   setCity,
+  username,
+  setUsername,
+  phoneNumber,
+  setPhoneNumber,
+  needsUsername,
+  needsPhone,
   error,
   isPending,
   onSubmit,
 }: Screen1Props) {
+  const { isAvailable, isChecking, isValidFormat } = useUsernameAvailable(username)
+
   const cityOptions = useMemo(() => {
     if (!country) return []
     return getCitiesByCountry(country).map((c) => ({
@@ -206,6 +248,13 @@ function Screen1({
     }
   }
 
+  const isSubmitDisabled =
+    !country ||
+    !city ||
+    isPending ||
+    (needsUsername && (isAvailable === false || !username)) ||
+    (needsPhone && !phoneNumber)
+
   return (
     <>
       <div className="text-center">
@@ -218,6 +267,66 @@ function Screen1({
         {error && (
           <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
             {error}
+          </div>
+        )}
+
+        {/* Username field — shown only for Google sign-up users */}
+        {needsUsername && (
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-username">Username</Label>
+            <Input
+              id="onboarding-username"
+              type="text"
+              placeholder="johndoe"
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              required
+              minLength={3}
+              maxLength={30}
+              className="bg-popover"
+            />
+            <div className="flex items-center gap-1.5">
+              {username.length >= 3 && isChecking && (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">Checking...</span>
+                </>
+              )}
+              {username.length >= 3 && !isChecking && isAvailable === true && (
+                <>
+                  <Check className="h-3 w-3 text-green-600" />
+                  <span className="text-xs text-green-600">Username available</span>
+                </>
+              )}
+              {username.length >= 3 && !isChecking && isAvailable === false && (
+                <>
+                  <X className="h-3 w-3 text-destructive" />
+                  <span className="text-xs text-destructive">Username already taken</span>
+                </>
+              )}
+              {username.length >= 3 && !isChecking && isAvailable === null && !isValidFormat && (
+                <span className="text-xs text-muted-foreground">
+                  Must start with a letter, only lowercase letters, numbers, and hyphens
+                </span>
+              )}
+              {username.length < 3 && (
+                <span className="text-xs text-muted-foreground">
+                  /{username || "username"}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Phone field — shown only for Google sign-up users */}
+        {needsPhone && (
+          <div className="space-y-2">
+            <Label htmlFor="onboarding-phone">Phone Number</Label>
+            <PhoneInput
+              id="onboarding-phone"
+              value={phoneNumber}
+              onChange={setPhoneNumber}
+            />
           </div>
         )}
 
@@ -253,7 +362,7 @@ function Screen1({
         <Button
           className="w-full"
           size="lg"
-          disabled={!country || !city || isPending}
+          disabled={isSubmitDisabled}
           onClick={onSubmit}
         >
           {isPending ? "Saving..." : "Continue"}
