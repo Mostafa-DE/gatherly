@@ -5,7 +5,20 @@ import type { ActivityJoinRequest } from "@/db/types"
 import { NotFoundError, ConflictError, BadRequestError } from "@/exceptions"
 
 function isUniqueConstraintError(error: unknown): boolean {
-  return (error as { code?: string })?.code === "23505"
+  if (!error || typeof error !== "object") {
+    return false
+  }
+
+  const candidate = error as { code?: string; cause?: unknown }
+  if (candidate.code === "23505") {
+    return true
+  }
+
+  if (candidate.cause && typeof candidate.cause === "object") {
+    return ((candidate.cause as { code?: string }).code === "23505")
+  }
+
+  return false
 }
 
 // =============================================================================
