@@ -1,4 +1,4 @@
-import { and, count, eq, ne, sql, desc, asc, isNull, ilike, or } from "drizzle-orm"
+import { and, count, eq, ne, sql, desc, asc, isNull, ilike, or, inArray } from "drizzle-orm"
 import { db } from "@/db"
 import { eventSession, participation, user } from "@/db/schema"
 import type { Participation } from "@/db/types"
@@ -19,15 +19,15 @@ function isUniqueConstraintError(error: unknown): boolean {
 }
 
 /**
- * Check if user has an active participation in another session at the same date/time
- * Used to prevent double-booking a person
+ * Check if user has an active participation in another session at the same date/time.
+ * Returns the conflicting session info, or null if no conflict.
  */
-async function assertNoConflictingParticipation(
+async function findConflictingParticipation(
   tx: DbTransaction,
   userId: string,
   sessionDateTime: Date | string,
   excludeSessionId: string
-): Promise<void> {
+): Promise<{ sessionId: string; sessionTitle: string } | null> {
   // Ensure we have a proper Date object (raw SQL returns string)
   const dateTime = sessionDateTime instanceof Date
     ? sessionDateTime
@@ -51,11 +51,91 @@ async function assertNoConflictingParticipation(
     )
     .limit(1)
 
+  return conflict ?? null
+}
+
+/**
+ * Check if user has an active participation in another session at the same date/time.
+ * Throws ConflictError if a conflict exists.
+ */
+async function assertNoConflictingParticipation(
+  tx: DbTransaction,
+  userId: string,
+  sessionDateTime: Date | string,
+  excludeSessionId: string
+): Promise<void> {
+  const conflict = await findConflictingParticipation(tx, userId, sessionDateTime, excludeSessionId)
   if (conflict) {
     throw new ConflictError(
       `User is already registered for another session "${conflict.sessionTitle}" at this time`
     )
   }
+}
+
+/**
+ * Check if changing a session's dateTime would create time conflicts
+ * for any of its active participants (joined, waitlisted, or pending).
+ * Returns the list of conflicting users, or empty array if no conflicts.
+ */
+export async function findParticipantConflictsForNewTime(
+  sessionId: string,
+  newDateTime: Date
+): Promise<{ userId: string; userName: string; conflictingSessionTitle: string }[]> {
+  // Find all active participants in this session
+  const activeParticipants = await db
+    .select({
+      userId: participation.userId,
+      userName: user.name,
+    })
+    .from(participation)
+    .innerJoin(user, eq(participation.userId, user.id))
+    .where(
+      and(
+        eq(participation.sessionId, sessionId),
+        ne(participation.status, "cancelled")
+      )
+    )
+
+  if (activeParticipants.length === 0) return []
+
+  const userIds = activeParticipants.map((p) => p.userId)
+  const userNameMap = new Map(
+    activeParticipants.map((p) => [p.userId, p.userName])
+  )
+
+  // Single query: find all conflicting participations at the new time
+  const conflictRows = await db
+    .select({
+      userId: participation.userId,
+      sessionTitle: eventSession.title,
+    })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        inArray(participation.userId, userIds),
+        ne(participation.status, "cancelled"),
+        eq(eventSession.dateTime, newDateTime),
+        ne(eventSession.id, sessionId),
+        isNull(eventSession.deletedAt)
+      )
+    )
+
+  // Deduplicate by userId (take first conflicting session per user)
+  const seen = new Set<string>()
+  const conflicts: { userId: string; userName: string; conflictingSessionTitle: string }[] = []
+
+  for (const row of conflictRows) {
+    if (seen.has(row.userId)) continue
+    seen.add(row.userId)
+    conflicts.push({
+      userId: row.userId,
+      userName: userNameMap.get(row.userId) ?? "Unknown",
+      conflictingSessionTitle: row.sessionTitle,
+    })
+  }
+
+  return conflicts
 }
 
 // =============================================================================
@@ -553,21 +633,46 @@ export async function cancelParticipation(
       .where(eq(participation.id, participationId))
       .returning()
 
-    // 5. If was joined, promote first waitlisted (FIFO)
+    // 5. If was joined, promote first waitlisted (FIFO) that has no time conflict
     if (wasJoined) {
-      // SKIP LOCKED: if another transaction already locked someone, skip to next
-      await tx.execute(sql`
-        UPDATE participation
-        SET status = 'joined', updated_at = NOW()
-        WHERE id = (
-          SELECT id FROM participation
+      // Get session dateTime for conflict checking
+      const sessionForConflict = await tx
+        .select({ dateTime: eventSession.dateTime })
+        .from(eventSession)
+        .where(eq(eventSession.id, current.sessionId))
+        .limit(1)
+      const sessionDateTime = sessionForConflict[0]?.dateTime
+
+      if (sessionDateTime) {
+        // Find waitlisted candidates in FIFO order
+        const candidates = await tx.execute<{
+          id: string
+          user_id: string
+        }>(sql`
+          SELECT id, user_id FROM participation
           WHERE session_id = ${current.sessionId}
             AND status = 'waitlisted'
           ORDER BY joined_at ASC, id ASC
-          LIMIT 1
           FOR UPDATE SKIP LOCKED
-        )
-      `)
+        `)
+
+        // Promote the first candidate without a time conflict
+        for (const candidate of candidates.rows) {
+          const conflict = await findConflictingParticipation(
+            tx,
+            candidate.user_id,
+            sessionDateTime,
+            current.sessionId
+          )
+          if (!conflict) {
+            await tx
+              .update(participation)
+              .set({ status: "joined", updatedAt: new Date() })
+              .where(eq(participation.id, candidate.id))
+            break
+          }
+        }
+      }
     }
 
     return cancelled

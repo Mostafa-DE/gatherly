@@ -51,14 +51,15 @@ export async function createActivity(
 export async function updateActivity(
   activityId: string,
   organizationId: string,
-  data: { name: string }
+  data: { name?: string; joinMode?: string }
 ): Promise<Activity | null> {
+  const setData: Record<string, unknown> = { updatedAt: new Date() }
+  if (data.name !== undefined) setData.name = data.name
+  if (data.joinMode !== undefined) setData.joinMode = data.joinMode
+
   const [updated] = await db
     .update(activity)
-    .set({
-      name: data.name,
-      updatedAt: new Date(),
-    })
+    .set(setData)
     .where(
       and(eq(activity.id, activityId), eq(activity.organizationId, organizationId))
     )
@@ -249,6 +250,29 @@ export async function reactivateActivity(
   const [updated] = await db
     .update(activity)
     .set({ isActive: true, updatedAt: new Date() })
+    .where(
+      and(eq(activity.id, activityId), eq(activity.organizationId, organizationId))
+    )
+    .returning()
+  return updated ?? null
+}
+
+/**
+ * Toggle a plugin on/off for an activity.
+ * Uses atomic jsonb_set to avoid lost-update races from concurrent toggles.
+ */
+export async function updateActivityEnabledPlugins(
+  activityId: string,
+  organizationId: string,
+  pluginId: string,
+  enabled: boolean
+): Promise<Activity | null> {
+  const [updated] = await db
+    .update(activity)
+    .set({
+      enabledPlugins: sql`jsonb_set(coalesce(${activity.enabledPlugins}, '{}'::jsonb), ${`{${pluginId}}`}, ${JSON.stringify(enabled)}::jsonb)`,
+      updatedAt: new Date(),
+    })
     .where(
       and(eq(activity.id, activityId), eq(activity.organizationId, organizationId))
     )

@@ -23,6 +23,12 @@ export const pluginCatalog: PluginMeta[] = [
     alwaysEnabledReason:
       "Analytics is a core capability and is always enabled for every group.",
   },
+  {
+    id: "ranking",
+    name: "Rankings",
+    description: "Member ranking system with levels and stats tracking per activity",
+    scope: "activity",
+  },
 ]
 
 export const pluginMetaMap = Object.fromEntries(

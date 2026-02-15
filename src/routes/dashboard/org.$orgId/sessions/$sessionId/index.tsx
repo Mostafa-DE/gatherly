@@ -35,6 +35,7 @@ import { ShareDialog } from "@/components/share-dialog"
 import { buildSessionUrl } from "@/lib/share-urls"
 import { SessionJoinFormDialog } from "@/components/session-join-form-dialog"
 import type { JoinFormSchema } from "@/types/form"
+import { SessionMatchesSection } from "@/plugins/ranking/components/session-matches-section"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/"
@@ -134,6 +135,38 @@ function SessionDetailPage() {
     },
     { enabled: canLoadParticipants }
   )
+
+  // Ranking level data for participants
+  const { data: rankingDefinition } =
+    trpc.plugin.ranking.getByActivity.useQuery(
+      { activityId: sessionData?.activityId ?? "" },
+      { enabled: !!sessionData?.activityId }
+    )
+
+  const { data: leaderboard } =
+    trpc.plugin.ranking.getLeaderboard.useQuery(
+      {
+        rankingDefinitionId: rankingDefinition?.id ?? "",
+        includeFormerMembers: false,
+      },
+      { enabled: !!rankingDefinition?.id }
+    )
+
+  // Build a lookup map: userId -> { levelName, levelColor }
+  const memberLevelMap = new Map<
+    string,
+    { levelName: string | null; levelColor: string | null }
+  >()
+  if (leaderboard) {
+    for (const entry of leaderboard) {
+      if (entry.levelName) {
+        memberLevelMap.set(entry.userId, {
+          levelName: entry.levelName,
+          levelColor: entry.levelColor,
+        })
+      }
+    }
+  }
 
   const joinMutation = trpc.participation.join.useMutation({
     onSuccess: () => {
@@ -676,34 +709,50 @@ function SessionDetailPage() {
 
           {participants && participants.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {participants.slice(0, 8).map((p, i) => (
-                <div
-                  key={p.participation.id}
-                  className="group relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 transition-colors hover:bg-muted/50"
-                >
+              {participants.slice(0, 8).map((p, i) => {
+                const level = memberLevelMap.get(p.user.id)
+                return (
                   <div
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium shrink-0",
-                      p.user.image
-                        ? ""
-                        : `${avatarColors[i % avatarColors.length]} text-white`
-                    )}
+                    key={p.participation.id}
+                    className="group relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 transition-colors hover:bg-muted/50"
                   >
-                    {p.user.image ? (
-                      <img
-                        src={p.user.image}
-                        alt={p.user.name ?? ""}
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    ) : (
-                      getInitials(p.user.name)
+                    <div
+                      className={cn(
+                        "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium shrink-0",
+                        p.user.image
+                          ? ""
+                          : `${avatarColors[i % avatarColors.length]} text-white`
+                      )}
+                    >
+                      {p.user.image ? (
+                        <img
+                          src={p.user.image}
+                          alt={p.user.name ?? ""}
+                          className="h-full w-full rounded-full object-cover"
+                        />
+                      ) : (
+                        getInitials(p.user.name)
+                      )}
+                    </div>
+                    <span className="text-sm font-medium truncate max-w-[120px]">
+                      {p.user.name}
+                    </span>
+                    {level?.levelName && (
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: level.levelColor
+                            ? `${level.levelColor}20`
+                            : undefined,
+                          color: level.levelColor ?? undefined,
+                        }}
+                      >
+                        {level.levelName}
+                      </span>
                     )}
                   </div>
-                  <span className="text-sm font-medium truncate max-w-[120px]">
-                    {p.user.name}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
               {sessionData.joinedCount > 8 && (
                 <div className="flex items-center rounded-lg border bg-muted/30 px-3 py-2">
                   <span className="text-sm text-muted-foreground font-medium tabular-nums">
@@ -719,6 +768,22 @@ function SessionDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Matches ── */}
+      {showParticipants && sessionData.activityId && (
+        <SessionMatchesSection
+          activityId={sessionData.activityId}
+          sessionId={sessionId}
+          isAdmin={isAdmin}
+          participants={
+            participants?.map((p) => ({
+              userId: p.user.id,
+              name: p.user.name,
+              image: p.user.image,
+            })) ?? []
+          }
+        />
       )}
 
       {/* Join Form Dialog */}

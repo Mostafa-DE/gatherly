@@ -8,6 +8,7 @@ import {
   approvePendingParticipation,
   bulkUpdateAttendance,
   cancelParticipation,
+  findParticipantConflictsForNewTime,
   getActiveParticipation,
   getParticipationById,
   joinSession,
@@ -28,18 +29,21 @@ describe("participations data-access", () => {
   let ownerId = ""
   let attendeeAId = ""
   let attendeeBId = ""
+  let attendeeCId = ""
 
   beforeEach(async () => {
     const organization = await createTestOrganization()
     const owner = await createTestUser("Owner")
     const attendeeA = await createTestUser("Attendee A")
     const attendeeB = await createTestUser("Attendee B")
+    const attendeeC = await createTestUser("Attendee C")
 
     organizationId = organization.id
     ownerId = owner.id
     attendeeAId = attendeeA.id
     attendeeBId = attendeeB.id
-    userIds.push(owner.id, attendeeA.id, attendeeB.id)
+    attendeeCId = attendeeC.id
+    userIds.push(owner.id, attendeeA.id, attendeeB.id, attendeeC.id)
 
     activityId = createId()
     await db.insert(activity).values({
@@ -66,6 +70,12 @@ describe("participations data-access", () => {
     await createTestMembership({
       organizationId: organization.id,
       userId: attendeeB.id,
+      role: "member",
+    })
+
+    await createTestMembership({
+      organizationId: organization.id,
+      userId: attendeeC.id,
       role: "member",
     })
   })
@@ -481,5 +491,189 @@ describe("participations data-access", () => {
       attendeeAId
     )
     expect(targetActiveAfterMove?.status).toBe("waitlisted")
+  })
+
+  it("skips waitlisted user with time conflict and promotes next eligible user", async () => {
+    const sessionTime = new Date(Date.now() + 60 * 60 * 1000)
+
+    // Session A: capacity 1, waitlist 2 — at sessionTime
+    const [sessionA] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Session A",
+        dateTime: sessionTime,
+        maxCapacity: 1,
+        maxWaitlist: 2,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    // Session B: different session at the SAME time
+    const [sessionB] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Session B",
+        dateTime: sessionTime,
+        maxCapacity: 2,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    // Attendee A joins Session A → joined (fills capacity)
+    const joinedA = await joinSession(sessionA.id, attendeeAId)
+    expect(joinedA.status).toBe("joined")
+
+    // Attendee B joins Session A → waitlisted (first in queue, no conflict yet)
+    const waitlistedB = await joinSession(sessionA.id, attendeeBId)
+    expect(waitlistedB.status).toBe("waitlisted")
+
+    // Attendee C joins Session A → waitlisted (second in queue)
+    const waitlistedC = await joinSession(sessionA.id, attendeeCId)
+    expect(waitlistedC.status).toBe("waitlisted")
+
+    // Simulate: Attendee B ends up confirmed in Session B at the same time
+    // (e.g. session time was changed after joining, or admin override)
+    await db.insert(participation).values({
+      sessionId: sessionB.id,
+      userId: attendeeBId,
+      status: "joined",
+      joinedAt: new Date(),
+    })
+
+    // Attendee A cancels Session A → auto-promote should skip B (conflict) and promote C
+    await cancelParticipation(joinedA.id, attendeeAId)
+
+    // Attendee B should still be waitlisted (skipped due to conflict)
+    const bAfterCancel = await getActiveParticipation(sessionA.id, attendeeBId)
+    expect(bAfterCancel?.status).toBe("waitlisted")
+
+    // Attendee C should be promoted to joined
+    const cAfterCancel = await getActiveParticipation(sessionA.id, attendeeCId)
+    expect(cAfterCancel?.status).toBe("joined")
+  })
+
+  it("detects participant conflicts when changing session time", async () => {
+    const time1 = new Date(Date.now() + 60 * 60 * 1000)
+    const time2 = new Date(Date.now() + 2 * 60 * 60 * 1000)
+
+    // Session A at time1
+    const [sessionA] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Session A",
+        dateTime: time1,
+        maxCapacity: 5,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    // Session B at time2
+    const [sessionB] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Session B",
+        dateTime: time2,
+        maxCapacity: 5,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    // Attendee A joins both (different times, no conflict)
+    await joinSession(sessionA.id, attendeeAId)
+    await joinSession(sessionB.id, attendeeAId)
+
+    // Attendee B joins only Session A
+    await joinSession(sessionA.id, attendeeBId)
+
+    // Check: moving Session A to time2 would conflict for Attendee A (in Session B)
+    const conflicts = await findParticipantConflictsForNewTime(sessionA.id, time2)
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].userId).toBe(attendeeAId)
+    expect(conflicts[0].conflictingSessionTitle).toBe("Session B")
+  })
+
+  it("returns no conflicts when changing time to a non-overlapping slot", async () => {
+    const time1 = new Date(Date.now() + 60 * 60 * 1000)
+    const time2 = new Date(Date.now() + 2 * 60 * 60 * 1000)
+    const time3 = new Date(Date.now() + 3 * 60 * 60 * 1000)
+
+    const [sessionA] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Session A",
+        dateTime: time1,
+        maxCapacity: 5,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const [sessionB] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Session B",
+        dateTime: time2,
+        maxCapacity: 5,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    await joinSession(sessionA.id, attendeeAId)
+    await joinSession(sessionB.id, attendeeAId)
+
+    // Moving Session A to time3 (no one has a session there) → no conflicts
+    const conflicts = await findParticipantConflictsForNewTime(sessionA.id, time3)
+    expect(conflicts).toHaveLength(0)
+  })
+
+  it("returns no conflicts for session with no participants", async () => {
+    const time1 = new Date(Date.now() + 60 * 60 * 1000)
+    const time2 = new Date(Date.now() + 2 * 60 * 60 * 1000)
+
+    const [session] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Empty Session",
+        dateTime: time1,
+        maxCapacity: 5,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: ownerId,
+      })
+      .returning()
+
+    const conflicts = await findParticipantConflictsForNewTime(session.id, time2)
+    expect(conflicts).toHaveLength(0)
   })
 })

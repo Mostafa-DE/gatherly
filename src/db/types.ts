@@ -15,6 +15,13 @@ import type {
   userInterest,
   organizationInterest,
 } from "@/db/schema"
+import type {
+  rankingDefinition,
+  rankingLevel,
+  memberRank,
+  rankStatEntry,
+  matchRecord,
+} from "@/plugins/ranking/schema"
 
 // Auth types (from Better Auth)
 export type User = typeof user.$inferSelect
@@ -57,3 +64,15 @@ export type UserInterest = typeof userInterest.$inferSelect
 export type NewUserInterest = typeof userInterest.$inferInsert
 export type OrganizationInterest = typeof organizationInterest.$inferSelect
 export type NewOrganizationInterest = typeof organizationInterest.$inferInsert
+
+// Ranking plugin types
+export type RankingDefinition = typeof rankingDefinition.$inferSelect
+export type NewRankingDefinition = typeof rankingDefinition.$inferInsert
+export type RankingLevel = typeof rankingLevel.$inferSelect
+export type NewRankingLevel = typeof rankingLevel.$inferInsert
+export type MemberRank = typeof memberRank.$inferSelect
+export type NewMemberRank = typeof memberRank.$inferInsert
+export type RankStatEntry = typeof rankStatEntry.$inferSelect
+export type NewRankStatEntry = typeof rankStatEntry.$inferInsert
+export type MatchRecord = typeof matchRecord.$inferSelect
+export type NewMatchRecord = typeof matchRecord.$inferInsert

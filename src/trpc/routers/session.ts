@@ -1,5 +1,8 @@
+import { TRPCError } from "@trpc/server"
 import { router, orgProcedure } from "@/trpc"
 import { ForbiddenError } from "@/exceptions"
+import { getDomain } from "@/plugins/ranking/domains"
+import { getRankingDefinitionByActivity } from "@/plugins/ranking/data-access/ranking-definitions"
 import {
   createSession,
   updateSession,
@@ -13,6 +16,7 @@ import {
   listUpcomingSessionsWithCounts,
   listPastSessionsWithCounts,
 } from "@/data-access/sessions"
+import { findParticipantConflictsForNewTime } from "@/data-access/participations"
 import { listUserActivityMemberships } from "@/data-access/activity-members"
 import { withOrgScope } from "@/data-access/org-scope"
 import {
@@ -45,6 +49,44 @@ async function getUserActivityIds(userId: string, organizationId: string): Promi
   return memberships.map((m) => m.activity.id)
 }
 
+/** Validate capacity constraints for match-mode ranking domains */
+async function validateMatchModeCapacity(
+  activityId: string,
+  organizationId: string,
+  maxCapacity: number
+): Promise<void> {
+  const definition = await getRankingDefinitionByActivity(activityId, organizationId)
+  if (!definition) return
+
+  const domain = getDomain(definition.domainId)
+  if (!domain?.sessionConfig || domain.sessionConfig.mode !== "match" || !domain.matchConfig) {
+    return
+  }
+
+  // Check capacity matches a valid format
+  const isValid = Object.values(domain.matchConfig.formatRules).some((rule) => {
+    if (rule.playersPerTeam) {
+      return rule.playersPerTeam * 2 === maxCapacity
+    }
+    if (rule.minPlayersPerTeam != null && rule.maxPlayersPerTeam != null) {
+      return maxCapacity >= rule.minPlayersPerTeam * 2 && maxCapacity <= rule.maxPlayersPerTeam * 2
+    }
+    return false
+  })
+  if (!isValid) {
+    const allowed = Object.entries(domain.matchConfig.formatRules)
+      .map(([format, rule]) => {
+        if (rule.playersPerTeam) return `${format} (${rule.playersPerTeam * 2})`
+        return `${format} (${(rule.minPlayersPerTeam ?? 1) * 2}-${(rule.maxPlayersPerTeam ?? 99) * 2})`
+      })
+      .join(", ")
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Invalid capacity for ${domain.name} match session. Valid capacities: ${allowed}`,
+    })
+  }
+}
+
 // =============================================================================
 // Session Router
 // =============================================================================
@@ -67,6 +109,13 @@ export const sessionRouter = router({
         }
       })
 
+      // Validate capacity for match-mode domains
+      await validateMatchModeCapacity(
+        input.activityId,
+        ctx.activeOrganization.id,
+        input.maxCapacity
+      )
+
       return createSession(
         ctx.activeOrganization.id,
         ctx.user.id,
@@ -85,7 +134,35 @@ export const sessionRouter = router({
       const { sessionId, ...data } = input
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
-        await scope.requireSessionForMutation(sessionId)
+        const session = await scope.requireSessionForMutation(sessionId)
+
+        // Validate capacity for match-mode domains
+        if (data.maxCapacity !== undefined) {
+          await validateMatchModeCapacity(
+            session.activityId,
+            ctx.activeOrganization.id,
+            data.maxCapacity
+          )
+        }
+
+        // Validate dateTime change doesn't create conflicts for existing participants
+        if (data.dateTime !== undefined) {
+          const newDateTime = data.dateTime instanceof Date
+            ? data.dateTime
+            : new Date(data.dateTime)
+
+          if (newDateTime.getTime() !== new Date(session.dateTime).getTime()) {
+            const conflicts = await findParticipantConflictsForNewTime(sessionId, newDateTime)
+            if (conflicts.length > 0) {
+              const names = conflicts.map((c) => c.userName).join(", ")
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: `Cannot change session time: ${conflicts.length} participant(s) have conflicting sessions at that time (${names})`,
+              })
+            }
+          }
+        }
+
         return updateSession(sessionId, data)
       })
     }),

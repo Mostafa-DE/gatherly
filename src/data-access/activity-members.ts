@@ -1,4 +1,4 @@
-import { and, eq, count, desc } from "drizzle-orm"
+import { and, eq, count, desc, inArray } from "drizzle-orm"
 import { db } from "@/db"
 import { activityMember, activity, user } from "@/db/schema"
 import type { ActivityMember } from "@/db/types"
@@ -41,6 +41,26 @@ export async function getActiveActivityMember(
     )
     .limit(1)
   return result[0] ?? null
+}
+
+export async function getActiveActivityMemberIds(
+  activityId: string,
+  userIds: string[]
+): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set()
+
+  const rows = await db
+    .select({ userId: activityMember.userId })
+    .from(activityMember)
+    .where(
+      and(
+        eq(activityMember.activityId, activityId),
+        inArray(activityMember.userId, userIds),
+        eq(activityMember.status, "active")
+      )
+    )
+
+  return new Set(rows.map((r) => r.userId))
 }
 
 export async function createActivityMember(

@@ -33,14 +33,15 @@ import { Route as DashboardOrgOrgIdInviteLinksRouteImport } from './routes/dashb
 import { Route as DashboardOrgOrgIdInvitationsRouteImport } from './routes/dashboard/org.$orgId/invitations'
 import { Route as DashboardOrgOrgIdAnalyticsRouteImport } from './routes/dashboard/org.$orgId/analytics'
 import { Route as DashboardOrgOrgIdActivityRequestsRouteImport } from './routes/dashboard/org.$orgId/activity-requests'
-import { Route as DashboardOrgOrgIdActivitiesRouteImport } from './routes/dashboard/org.$orgId/activities'
 import { Route as UsernameGroupSlugSessionsSessionIdRouteImport } from './routes/$username.$groupSlug/sessions.$sessionId'
 import { Route as UsernameGroupSlugActivitiesActivitySlugRouteImport } from './routes/$username.$groupSlug/activities.$activitySlug'
 import { Route as DashboardOrgOrgIdSessionsIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/index'
 import { Route as DashboardOrgOrgIdMembersIndexRouteImport } from './routes/dashboard/org.$orgId/members/index'
+import { Route as DashboardOrgOrgIdActivitiesIndexRouteImport } from './routes/dashboard/org.$orgId/activities/index'
 import { Route as DashboardOrgOrgIdSessionsCreateRouteImport } from './routes/dashboard/org.$orgId/sessions/create'
 import { Route as DashboardOrgOrgIdSessionsSessionIdRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId'
 import { Route as DashboardOrgOrgIdMembersUserIdRouteImport } from './routes/dashboard/org.$orgId/members/$userId'
+import { Route as DashboardOrgOrgIdActivitiesActivityIdRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId'
 import { Route as DashboardOrgOrgIdSessionsSessionIdIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/index'
 import { Route as DashboardOrgOrgIdSessionsSessionIdParticipantsRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/participants'
 import { Route as DashboardOrgOrgIdSessionsSessionIdEditRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/edit'
@@ -173,12 +174,6 @@ const DashboardOrgOrgIdActivityRequestsRoute =
     path: '/activity-requests',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
-const DashboardOrgOrgIdActivitiesRoute =
-  DashboardOrgOrgIdActivitiesRouteImport.update({
-    id: '/activities',
-    path: '/activities',
-    getParentRoute: () => DashboardOrgOrgIdRoute,
-  } as any)
 const UsernameGroupSlugSessionsSessionIdRoute =
   UsernameGroupSlugSessionsSessionIdRouteImport.update({
     id: '/$username/$groupSlug/sessions/$sessionId',
@@ -203,6 +198,12 @@ const DashboardOrgOrgIdMembersIndexRoute =
     path: '/members/',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
+const DashboardOrgOrgIdActivitiesIndexRoute =
+  DashboardOrgOrgIdActivitiesIndexRouteImport.update({
+    id: '/activities/',
+    path: '/activities/',
+    getParentRoute: () => DashboardOrgOrgIdRoute,
+  } as any)
 const DashboardOrgOrgIdSessionsCreateRoute =
   DashboardOrgOrgIdSessionsCreateRouteImport.update({
     id: '/sessions/create',
@@ -219,6 +220,12 @@ const DashboardOrgOrgIdMembersUserIdRoute =
   DashboardOrgOrgIdMembersUserIdRouteImport.update({
     id: '/members/$userId',
     path: '/members/$userId',
+    getParentRoute: () => DashboardOrgOrgIdRoute,
+  } as any)
+const DashboardOrgOrgIdActivitiesActivityIdRoute =
+  DashboardOrgOrgIdActivitiesActivityIdRouteImport.update({
+    id: '/activities/$activityId',
+    path: '/activities/$activityId',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
 const DashboardOrgOrgIdSessionsSessionIdIndexRoute =
@@ -259,7 +266,6 @@ export interface FileRoutesByFullPath {
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
   '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
-  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesRoute
   '/dashboard/org/$orgId/activity-requests': typeof DashboardOrgOrgIdActivityRequestsRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
@@ -268,9 +274,11 @@ export interface FileRoutesByFullPath {
   '/dashboard/org/$orgId/profile': typeof DashboardOrgOrgIdProfileRoute
   '/dashboard/org/$orgId/settings': typeof DashboardOrgOrgIdSettingsRoute
   '/dashboard/org/$orgId/': typeof DashboardOrgOrgIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId': typeof DashboardOrgOrgIdActivitiesActivityIdRoute
   '/dashboard/org/$orgId/members/$userId': typeof DashboardOrgOrgIdMembersUserIdRoute
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
+  '/dashboard/org/$orgId/activities/': typeof DashboardOrgOrgIdActivitiesIndexRoute
   '/dashboard/org/$orgId/members/': typeof DashboardOrgOrgIdMembersIndexRoute
   '/dashboard/org/$orgId/sessions/': typeof DashboardOrgOrgIdSessionsIndexRoute
   '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
@@ -294,7 +302,6 @@ export interface FileRoutesByTo {
   '/$username/$groupSlug': typeof UsernameGroupSlugIndexRoute
   '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
-  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesRoute
   '/dashboard/org/$orgId/activity-requests': typeof DashboardOrgOrgIdActivityRequestsRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
@@ -303,8 +310,10 @@ export interface FileRoutesByTo {
   '/dashboard/org/$orgId/profile': typeof DashboardOrgOrgIdProfileRoute
   '/dashboard/org/$orgId/settings': typeof DashboardOrgOrgIdSettingsRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId': typeof DashboardOrgOrgIdActivitiesActivityIdRoute
   '/dashboard/org/$orgId/members/$userId': typeof DashboardOrgOrgIdMembersUserIdRoute
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
+  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesIndexRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersIndexRoute
   '/dashboard/org/$orgId/sessions': typeof DashboardOrgOrgIdSessionsIndexRoute
   '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
@@ -331,7 +340,6 @@ export interface FileRoutesById {
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
   '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
-  '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesRoute
   '/dashboard/org/$orgId/activity-requests': typeof DashboardOrgOrgIdActivityRequestsRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/invitations': typeof DashboardOrgOrgIdInvitationsRoute
@@ -340,9 +348,11 @@ export interface FileRoutesById {
   '/dashboard/org/$orgId/profile': typeof DashboardOrgOrgIdProfileRoute
   '/dashboard/org/$orgId/settings': typeof DashboardOrgOrgIdSettingsRoute
   '/dashboard/org/$orgId/': typeof DashboardOrgOrgIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId': typeof DashboardOrgOrgIdActivitiesActivityIdRoute
   '/dashboard/org/$orgId/members/$userId': typeof DashboardOrgOrgIdMembersUserIdRoute
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
+  '/dashboard/org/$orgId/activities/': typeof DashboardOrgOrgIdActivitiesIndexRoute
   '/dashboard/org/$orgId/members/': typeof DashboardOrgOrgIdMembersIndexRoute
   '/dashboard/org/$orgId/sessions/': typeof DashboardOrgOrgIdSessionsIndexRoute
   '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
@@ -370,7 +380,6 @@ export interface FileRouteTypes {
     | '/$username/$groupSlug/'
     | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
-    | '/dashboard/org/$orgId/activities'
     | '/dashboard/org/$orgId/activity-requests'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
@@ -379,9 +388,11 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/profile'
     | '/dashboard/org/$orgId/settings'
     | '/dashboard/org/$orgId/'
+    | '/dashboard/org/$orgId/activities/$activityId'
     | '/dashboard/org/$orgId/members/$userId'
     | '/dashboard/org/$orgId/sessions/$sessionId'
     | '/dashboard/org/$orgId/sessions/create'
+    | '/dashboard/org/$orgId/activities/'
     | '/dashboard/org/$orgId/members/'
     | '/dashboard/org/$orgId/sessions/'
     | '/dashboard/org/$orgId/sessions/$sessionId/edit'
@@ -405,7 +416,6 @@ export interface FileRouteTypes {
     | '/$username/$groupSlug'
     | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
-    | '/dashboard/org/$orgId/activities'
     | '/dashboard/org/$orgId/activity-requests'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
@@ -414,8 +424,10 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/profile'
     | '/dashboard/org/$orgId/settings'
     | '/dashboard/org/$orgId'
+    | '/dashboard/org/$orgId/activities/$activityId'
     | '/dashboard/org/$orgId/members/$userId'
     | '/dashboard/org/$orgId/sessions/create'
+    | '/dashboard/org/$orgId/activities'
     | '/dashboard/org/$orgId/members'
     | '/dashboard/org/$orgId/sessions'
     | '/dashboard/org/$orgId/sessions/$sessionId/edit'
@@ -441,7 +453,6 @@ export interface FileRouteTypes {
     | '/$username/$groupSlug/'
     | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
-    | '/dashboard/org/$orgId/activities'
     | '/dashboard/org/$orgId/activity-requests'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/invitations'
@@ -450,9 +461,11 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/profile'
     | '/dashboard/org/$orgId/settings'
     | '/dashboard/org/$orgId/'
+    | '/dashboard/org/$orgId/activities/$activityId'
     | '/dashboard/org/$orgId/members/$userId'
     | '/dashboard/org/$orgId/sessions/$sessionId'
     | '/dashboard/org/$orgId/sessions/create'
+    | '/dashboard/org/$orgId/activities/'
     | '/dashboard/org/$orgId/members/'
     | '/dashboard/org/$orgId/sessions/'
     | '/dashboard/org/$orgId/sessions/$sessionId/edit'
@@ -645,13 +658,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdActivityRequestsRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
-    '/dashboard/org/$orgId/activities': {
-      id: '/dashboard/org/$orgId/activities'
-      path: '/activities'
-      fullPath: '/dashboard/org/$orgId/activities'
-      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesRouteImport
-      parentRoute: typeof DashboardOrgOrgIdRoute
-    }
     '/$username/$groupSlug/sessions/$sessionId': {
       id: '/$username/$groupSlug/sessions/$sessionId'
       path: '/$username/$groupSlug/sessions/$sessionId'
@@ -680,6 +686,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdMembersIndexRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
+    '/dashboard/org/$orgId/activities/': {
+      id: '/dashboard/org/$orgId/activities/'
+      path: '/activities'
+      fullPath: '/dashboard/org/$orgId/activities/'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesIndexRouteImport
+      parentRoute: typeof DashboardOrgOrgIdRoute
+    }
     '/dashboard/org/$orgId/sessions/create': {
       id: '/dashboard/org/$orgId/sessions/create'
       path: '/sessions/create'
@@ -699,6 +712,13 @@ declare module '@tanstack/react-router' {
       path: '/members/$userId'
       fullPath: '/dashboard/org/$orgId/members/$userId'
       preLoaderRoute: typeof DashboardOrgOrgIdMembersUserIdRouteImport
+      parentRoute: typeof DashboardOrgOrgIdRoute
+    }
+    '/dashboard/org/$orgId/activities/$activityId': {
+      id: '/dashboard/org/$orgId/activities/$activityId'
+      path: '/activities/$activityId'
+      fullPath: '/dashboard/org/$orgId/activities/$activityId'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
     '/dashboard/org/$orgId/sessions/$sessionId/': {
@@ -747,7 +767,6 @@ const DashboardOrgOrgIdSessionsSessionIdRouteWithChildren =
   )
 
 interface DashboardOrgOrgIdRouteChildren {
-  DashboardOrgOrgIdActivitiesRoute: typeof DashboardOrgOrgIdActivitiesRoute
   DashboardOrgOrgIdActivityRequestsRoute: typeof DashboardOrgOrgIdActivityRequestsRoute
   DashboardOrgOrgIdAnalyticsRoute: typeof DashboardOrgOrgIdAnalyticsRoute
   DashboardOrgOrgIdInvitationsRoute: typeof DashboardOrgOrgIdInvitationsRoute
@@ -756,15 +775,16 @@ interface DashboardOrgOrgIdRouteChildren {
   DashboardOrgOrgIdProfileRoute: typeof DashboardOrgOrgIdProfileRoute
   DashboardOrgOrgIdSettingsRoute: typeof DashboardOrgOrgIdSettingsRoute
   DashboardOrgOrgIdIndexRoute: typeof DashboardOrgOrgIdIndexRoute
+  DashboardOrgOrgIdActivitiesActivityIdRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRoute
   DashboardOrgOrgIdMembersUserIdRoute: typeof DashboardOrgOrgIdMembersUserIdRoute
   DashboardOrgOrgIdSessionsSessionIdRoute: typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   DashboardOrgOrgIdSessionsCreateRoute: typeof DashboardOrgOrgIdSessionsCreateRoute
+  DashboardOrgOrgIdActivitiesIndexRoute: typeof DashboardOrgOrgIdActivitiesIndexRoute
   DashboardOrgOrgIdMembersIndexRoute: typeof DashboardOrgOrgIdMembersIndexRoute
   DashboardOrgOrgIdSessionsIndexRoute: typeof DashboardOrgOrgIdSessionsIndexRoute
 }
 
 const DashboardOrgOrgIdRouteChildren: DashboardOrgOrgIdRouteChildren = {
-  DashboardOrgOrgIdActivitiesRoute: DashboardOrgOrgIdActivitiesRoute,
   DashboardOrgOrgIdActivityRequestsRoute:
     DashboardOrgOrgIdActivityRequestsRoute,
   DashboardOrgOrgIdAnalyticsRoute: DashboardOrgOrgIdAnalyticsRoute,
@@ -774,10 +794,13 @@ const DashboardOrgOrgIdRouteChildren: DashboardOrgOrgIdRouteChildren = {
   DashboardOrgOrgIdProfileRoute: DashboardOrgOrgIdProfileRoute,
   DashboardOrgOrgIdSettingsRoute: DashboardOrgOrgIdSettingsRoute,
   DashboardOrgOrgIdIndexRoute: DashboardOrgOrgIdIndexRoute,
+  DashboardOrgOrgIdActivitiesActivityIdRoute:
+    DashboardOrgOrgIdActivitiesActivityIdRoute,
   DashboardOrgOrgIdMembersUserIdRoute: DashboardOrgOrgIdMembersUserIdRoute,
   DashboardOrgOrgIdSessionsSessionIdRoute:
     DashboardOrgOrgIdSessionsSessionIdRouteWithChildren,
   DashboardOrgOrgIdSessionsCreateRoute: DashboardOrgOrgIdSessionsCreateRoute,
+  DashboardOrgOrgIdActivitiesIndexRoute: DashboardOrgOrgIdActivitiesIndexRoute,
   DashboardOrgOrgIdMembersIndexRoute: DashboardOrgOrgIdMembersIndexRoute,
   DashboardOrgOrgIdSessionsIndexRoute: DashboardOrgOrgIdSessionsIndexRoute,
 }

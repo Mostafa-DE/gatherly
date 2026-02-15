@@ -28,6 +28,7 @@ import type { FormField } from "@/types/form"
 import { cn } from "@/lib/utils"
 import { RoleBadge } from "@/components/role-badge"
 import { EngagementStatsCard } from "@/components/engagement-stats"
+import { MemberRankCards } from "@/plugins/ranking/components/member-rank-cards"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/profile")({
   component: ProfilePage,
@@ -230,6 +231,9 @@ function ProfilePage() {
       ) : stats ? (
         <EngagementStatsCard stats={stats} />
       ) : null}
+
+      {/* ── Rankings ── */}
+      {user && <MemberRankCards userId={user.id} />}
 
       {/* ── Group profile fields ── */}
       {formFields.length > 0 ? (

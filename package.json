@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite dev --port 3000",
     "build": "vite build",
-    "lint": "tsc --noEmit",
+    "lint": "pnpm lint:types && pnpm lint:eslint",
+    "lint:types": "tsc --noEmit",
+    "lint:eslint": "eslint .",
     "preview": "vite preview",
     "start": "node .output/server/index.mjs",
     "test": "vitest run",
@@ -27,6 +29,9 @@
     "railway:deploy:web": "sh ./scripts/railway-deploy.sh web"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@paralleldrive/cuid2": "^3.3.0",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -81,6 +86,7 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@tanstack/devtools-vite": "^0.3.11",
     "@testcontainers/postgresql": "^11.11.0",
     "@testing-library/dom": "^10.4.0",
@@ -91,9 +97,13 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
     "drizzle-kit": "^0.31.8",
+    "eslint": "^9.39.2",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.3.0",
     "jsdom": "^27.0.0",
     "testcontainers": "^11.11.0",
     "typescript": "^5.7.2",
+    "typescript-eslint": "^8.55.0",
     "vite": "^7.1.7",
     "vitest": "^3.0.5",
     "web-vitals": "^5.1.0"

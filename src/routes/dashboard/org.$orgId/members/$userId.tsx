@@ -30,6 +30,7 @@ import { RoleBadge } from "@/components/role-badge"
 import { EngagementStatsCard } from "@/components/engagement-stats"
 import { MemberNotesSection } from "@/components/member-notes"
 import { useAISummarizeMemberProfile } from "@/plugins/ai/hooks/use-ai-suggestion"
+import { MemberRankCards } from "@/plugins/ranking/components/member-rank-cards"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/members/$userId"
@@ -266,6 +267,9 @@ function MemberDetailPage() {
 
       {/* Profile Fields */}
       <MemberProfileSection userId={userId} />
+
+      {/* Rankings */}
+      <MemberRankCards userId={userId} />
 
       {/* Admin Notes */}
       <MemberNotesSection targetUserId={userId} />

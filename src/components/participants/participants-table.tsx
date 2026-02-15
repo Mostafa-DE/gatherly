@@ -23,6 +23,8 @@ import type { AttendanceStatus } from "@/lib/sessions/state-machine"
 import type { FormField } from "@/types/form"
 import { AINotesSection } from "./ai-notes-section"
 
+type MemberLevel = { levelName: string | null; levelColor: string | null }
+
 type ParticipantsTableProps = {
   participants: ParticipantData[] | undefined
   isLoading: boolean
@@ -38,6 +40,7 @@ type ParticipantsTableProps = {
   availableTargetSessions: TargetSession[]
   onMove: (participationId: string, targetSessionId: string) => void
   isMoving: boolean
+  memberLevelMap?: Map<string, MemberLevel>
 }
 
 // Payment toggles: unpaid ↔ paid
@@ -295,6 +298,7 @@ export function ParticipantsTable({
   availableTargetSessions,
   onMove,
   isMoving,
+  memberLevelMap,
 }: ParticipantsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -335,6 +339,7 @@ export function ParticipantsTable({
         {participants.map((item, index) => {
           const isExpanded = expandedIds.has(item.participation.id)
           const isSelected = selectedIds.has(item.participation.id)
+          const level = memberLevelMap?.get(item.user.id)
 
           return (
             <div key={item.participation.id}>
@@ -364,9 +369,24 @@ export function ParticipantsTable({
                   <div className="w-5" />
                 )}
 
-                {/* Name + Email */}
+                {/* Name + Level + Email */}
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{item.user.name}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium truncate">{item.user.name}</p>
+                    {level?.levelName && (
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: level.levelColor
+                            ? `${level.levelColor}20`
+                            : undefined,
+                          color: level.levelColor ?? undefined,
+                        }}
+                      >
+                        {level.levelName}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground truncate hidden sm:block">
                     {item.user.email}
                   </p>

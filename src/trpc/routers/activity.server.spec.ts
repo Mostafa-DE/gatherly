@@ -136,6 +136,21 @@ describe("activity router", () => {
       expect(updated!.joinMode).toBe("open")
     })
 
+    it("admin can update activity joinMode", async () => {
+      const adminCaller = buildCaller(admin, organizationId)
+
+      const updated = await adminCaller.activity.update({
+        activityId: testActivityId,
+        joinMode: "require_approval",
+      })
+
+      expect(updated).not.toBeNull()
+      expect(updated!.joinMode).toBe("require_approval")
+      // name and slug remain unchanged
+      expect(updated!.name).toBe("Default Activity")
+      expect(updated!.slug).toBe("default-activity")
+    })
+
     it("admin can list activities", async () => {
       const adminCaller = buildCaller(admin, organizationId)
 
@@ -253,6 +268,99 @@ describe("activity router", () => {
           activityId: testActivityId,
         })
       ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // Activity plugins
+  // ---------------------------------------------------------------------------
+
+  describe("togglePlugin", () => {
+    it("admin can enable an activity-scoped plugin", async () => {
+      const adminCaller = buildCaller(admin, organizationId)
+
+      const enabled = await adminCaller.activity.togglePlugin({
+        activityId: testActivityId,
+        pluginId: "ranking",
+        enabled: true,
+      })
+      expect((enabled!.enabledPlugins as Record<string, boolean>).ranking).toBe(true)
+    })
+
+    it("admin cannot disable ranking once enabled", async () => {
+      const adminCaller = buildCaller(admin, organizationId)
+
+      // Ensure ranking is enabled first
+      await adminCaller.activity.togglePlugin({
+        activityId: testActivityId,
+        pluginId: "ranking",
+        enabled: true,
+      })
+
+      await expect(
+        adminCaller.activity.togglePlugin({
+          activityId: testActivityId,
+          pluginId: "ranking",
+          enabled: false,
+        })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" })
+    })
+
+    it("member cannot toggle activity plugin", async () => {
+      const memberCaller = buildCaller(memberUser, organizationId)
+
+      await expect(
+        memberCaller.activity.togglePlugin({
+          activityId: testActivityId,
+          pluginId: "ranking",
+          enabled: true,
+        })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" })
+    })
+
+    it("rejects toggling unknown activity plugin ids", async () => {
+      const adminCaller = buildCaller(admin, organizationId)
+
+      await expect(
+        adminCaller.activity.togglePlugin({
+          activityId: testActivityId,
+          pluginId: "does-not-exist",
+          enabled: true,
+        })
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Unknown plugin: does-not-exist",
+      })
+    })
+
+    it("rejects toggling org-scoped plugins from the activity router", async () => {
+      const adminCaller = buildCaller(admin, organizationId)
+
+      await expect(
+        adminCaller.activity.togglePlugin({
+          activityId: testActivityId,
+          pluginId: "ai",
+          enabled: true,
+        })
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: 'Plugin "AI Assistant" is not an activity-scoped plugin',
+      })
+    })
+
+    it("rejects disabling always-enabled activity plugins", async () => {
+      const ownerCaller = buildCaller(owner, organizationId)
+
+      await expect(
+        ownerCaller.activity.togglePlugin({
+          activityId: testActivityId,
+          pluginId: "analytics",
+          enabled: false,
+        })
+      ).rejects.toMatchObject({
+        code: "BAD_REQUEST",
+        message: "Analytics is a core capability and is always enabled for every group.",
+      })
     })
   })
 

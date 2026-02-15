@@ -259,6 +259,7 @@ export const activity = pgTable(
     joinMode: text("join_mode").default("open").notNull(), // 'open' | 'require_approval' | 'invite'
     joinFormSchema: jsonb("join_form_schema"),
     joinFormVersion: integer("join_form_version").default(1).notNull(),
+    enabledPlugins: jsonb("enabled_plugins").default({}).notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
@@ -687,4 +688,14 @@ export type {
   NewUserInterest,
   OrganizationInterest,
   NewOrganizationInterest,
+  RankingDefinition,
+  NewRankingDefinition,
+  RankingLevel,
+  NewRankingLevel,
+  MemberRank,
+  NewMemberRank,
+  RankStatEntry,
+  NewRankStatEntry,
+  MatchRecord,
+  NewMatchRecord,
 } from "@/db/types"

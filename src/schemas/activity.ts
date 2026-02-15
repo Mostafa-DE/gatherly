@@ -27,7 +27,8 @@ export const createActivitySchema = z.object({
 
 export const updateActivitySchema = z.object({
   activityId: z.string(),
-  name: z.string().min(1).max(200),
+  name: z.string().min(1).max(200).optional(),
+  joinMode: activityJoinModeSchema.optional(),
 })
 
 export const getActivityByIdSchema = z.object({
@@ -52,6 +53,12 @@ export const reactivateActivitySchema = z.object({
   activityId: z.string(),
 })
 
+export const toggleActivityPluginSchema = z.object({
+  activityId: z.string(),
+  pluginId: z.string(),
+  enabled: z.boolean(),
+})
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -63,3 +70,4 @@ export type GetActivityBySlugInput = z.infer<typeof getActivityBySlugSchema>
 export type ListActivitiesInput = z.infer<typeof listActivitiesSchema>
 export type DeactivateActivityInput = z.infer<typeof deactivateActivitySchema>
 export type ReactivateActivityInput = z.infer<typeof reactivateActivitySchema>
+export type ToggleActivityPluginInput = z.infer<typeof toggleActivityPluginSchema>

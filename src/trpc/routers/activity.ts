@@ -1,6 +1,6 @@
 import { router, orgProcedure, publicProcedure } from "@/trpc"
 import { z } from "zod"
-import { ForbiddenError } from "@/exceptions"
+import { ForbiddenError, BadRequestError } from "@/exceptions"
 import { withOrgScope } from "@/data-access/org-scope"
 import {
   createActivity,
@@ -12,6 +12,7 @@ import {
   deactivateActivity,
   reactivateActivity,
   getActivityBySlugForOrg,
+  updateActivityEnabledPlugins,
 } from "@/data-access/activities"
 import { TRPCError } from "@trpc/server"
 import {
@@ -22,7 +23,9 @@ import {
   listActivitiesSchema,
   deactivateActivitySchema,
   reactivateActivitySchema,
+  toggleActivityPluginSchema,
 } from "@/schemas/activity"
+import { pluginMetaMap } from "@/plugins/catalog"
 
 function assertAdmin(role: string): void {
   if (role !== "owner" && role !== "admin") {
@@ -45,7 +48,10 @@ export const activityRouter = router({
 
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireActivityForMutation(input.activityId)
-        return updateActivity(input.activityId, ctx.activeOrganization.id, { name: input.name })
+        return updateActivity(input.activityId, ctx.activeOrganization.id, {
+          name: input.name,
+          joinMode: input.joinMode,
+        })
       })
     }),
 
@@ -123,6 +129,48 @@ export const activityRouter = router({
       return withOrgScope(ctx.activeOrganization.id, async (scope) => {
         await scope.requireActivityForMutation(input.activityId)
         return reactivateActivity(input.activityId, ctx.activeOrganization.id)
+      })
+    }),
+
+  togglePlugin: orgProcedure
+    .input(toggleActivityPluginSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      const pluginMeta = pluginMetaMap[input.pluginId]
+      if (!pluginMeta) {
+        throw new BadRequestError(`Unknown plugin: ${input.pluginId}`)
+      }
+      if (pluginMeta.scope !== "activity") {
+        throw new BadRequestError(`Plugin "${pluginMeta.name}" is not an activity-scoped plugin`)
+      }
+      if (pluginMeta.alwaysEnabled) {
+        throw new BadRequestError(
+          pluginMeta.alwaysEnabledReason ??
+            `${pluginMeta.name} is always enabled and cannot be disabled.`
+        )
+      }
+
+      return withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        const act = await scope.requireActivityForMutation(input.activityId)
+
+        // Ranking cannot be disabled once enabled
+        if (
+          input.pluginId === "ranking" &&
+          !input.enabled &&
+          (act.enabledPlugins as Record<string, boolean>)?.ranking === true
+        ) {
+          throw new BadRequestError(
+            "Rankings cannot be disabled once enabled. Deactivate the activity to start fresh."
+          )
+        }
+
+        return updateActivityEnabledPlugins(
+          input.activityId,
+          ctx.activeOrganization.id,
+          input.pluginId,
+          input.enabled
+        )
       })
     }),
 })

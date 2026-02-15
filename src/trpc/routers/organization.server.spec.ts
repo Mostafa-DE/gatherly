@@ -11,7 +11,7 @@ import { appRouter } from "@/trpc/routers/_app"
 describe("organization router", () => {
   let orgId = ""
   let otherOrgId = ""
-  let ownerUsername = "public-owner"
+  const ownerUsername = "public-owner"
   let groupSlug = ""
   const organizationIds: string[] = []
   const userIds: string[] = []

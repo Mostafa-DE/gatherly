@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Plus, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, ChevronDown, ChevronUp, Lock } from "lucide-react"
 import { FormFieldEditor, useFormFields } from "@/components/form-field-editor"
 import type { JoinFormSchema } from "@/types/form"
 
@@ -79,6 +79,7 @@ function EditSessionPage() {
   const [error, setError] = useState("")
   const [showJoinForm, setShowJoinForm] = useState(false)
   const [joinFormInitialized, setJoinFormInitialized] = useState<string | null>(null)
+  const [matchFormat, setMatchFormat] = useState<string>("")
   const joinForm = useFormFields([])
 
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
@@ -92,6 +93,27 @@ function EditSessionPage() {
     isLoading: sessionLoading,
     error: sessionError,
   } = trpc.session.getById.useQuery({ sessionId })
+
+  // Query session config for the session's activity ranking domain
+  const { data: sessionConfig } = trpc.plugin.ranking.getSessionConfig.useQuery(
+    { activityId: sessionData?.activityId ?? "" },
+    { enabled: !!sessionData?.activityId }
+  )
+
+  const isMatchMode = sessionConfig?.mode === "match"
+  const activeFormat = matchFormat
+    || (isMatchMode && sessionData
+      // Reverse-derive format from existing capacity
+      ? Object.entries(sessionConfig.formatRules).find(
+          ([, rule]) => rule.playersPerTeam ? rule.playersPerTeam * 2 === sessionData.maxCapacity : false
+        )?.[0] ?? sessionConfig.defaultFormat
+      : "")
+  const formatRule = isMatchMode && activeFormat
+    ? sessionConfig.formatRules[activeFormat]
+    : null
+  const matchCapacity = formatRule?.playersPerTeam
+    ? formatRule.playersPerTeam * 2
+    : null
 
   const updateSession = trpc.session.update.useMutation({
     onSuccess: () => {
@@ -264,7 +286,9 @@ function EditSessionPage() {
       return
     }
 
-    const capacity = parseInt(form.maxCapacity, 10)
+    const capacity = isMatchMode && matchCapacity
+      ? matchCapacity
+      : parseInt(form.maxCapacity, 10)
     const waitlist = parseInt(form.maxWaitlist, 10)
 
     if (isNaN(capacity) || capacity < 1) {
@@ -391,20 +415,61 @@ function EditSessionPage() {
                 />
               </div>
 
+              {isMatchMode && sessionConfig && (
+                <div className="space-y-2">
+                  <Label htmlFor="matchFormat">Format *</Label>
+                  <Select
+                    value={activeFormat}
+                    onValueChange={setMatchFormat}
+                  >
+                    <SelectTrigger id="matchFormat">
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sessionConfig.formats.map((format) => (
+                        <SelectItem key={format} value={format}>
+                          {format.charAt(0).toUpperCase() + format.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="maxCapacity">Max Capacity *</Label>
-                  <Input
-                    id="maxCapacity"
-                    type="number"
-                    min="1"
-                    value={form.maxCapacity}
-                    onChange={(e) => setFormField("maxCapacity", e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum number of participants
-                  </p>
+                  {isMatchMode && matchCapacity ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="maxCapacity"
+                          type="number"
+                          value={matchCapacity}
+                          readOnly
+                          className="bg-muted"
+                        />
+                        <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Locked to {activeFormat} format ({matchCapacity} players)
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        id="maxCapacity"
+                        type="number"
+                        min="1"
+                        value={form.maxCapacity}
+                        onChange={(e) => setFormField("maxCapacity", e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Maximum number of participants
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">

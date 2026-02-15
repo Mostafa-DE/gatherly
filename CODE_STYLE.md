@@ -15,6 +15,9 @@ This guide consolidates coding conventions from `~/code/spank/AGENTS.md`, `~/cod
 - Use repository functions (injected via context) for database access.
 - Simple CRUD-only tRPC endpoints may access DB directly.
 - Keep DB schema/config isolated; do not scatter DB concerns across features.
+- Shared/core DB tables belong in `src/db/schema.ts`; plugin-owned DB tables may live in plugin modules (for example, `src/plugins/<plugin>/schema.ts`) when they are plugin-specific.
+- It is acceptable to compose plugin DB schemas in central wiring (for example, `drizzle.config.ts` and `src/db/index.ts`) when this is the project architecture.
+- Shared validation schemas belong in `src/schemas`; plugin-specific validation schemas may live in plugin-owned modules.
 - Preserve separation between UI, business logic, and IO.
 
 ## 3. Frontend Rules

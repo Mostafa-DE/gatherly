@@ -80,6 +80,38 @@ function SessionParticipantsPage() {
     { enabled: isAdmin }
   )
 
+  // Ranking level data for participants
+  const { data: rankingDefinition } =
+    trpc.plugin.ranking.getByActivity.useQuery(
+      { activityId: sessionData?.activityId ?? "" },
+      { enabled: !!sessionData?.activityId }
+    )
+
+  const { data: leaderboard } =
+    trpc.plugin.ranking.getLeaderboard.useQuery(
+      {
+        rankingDefinitionId: rankingDefinition?.id ?? "",
+        includeFormerMembers: false,
+      },
+      { enabled: !!rankingDefinition?.id }
+    )
+
+  // Build a lookup map: userId -> { levelName, levelColor }
+  const memberLevelMap = new Map<
+    string,
+    { levelName: string | null; levelColor: string | null }
+  >()
+  if (leaderboard) {
+    for (const entry of leaderboard) {
+      if (entry.levelName) {
+        memberLevelMap.set(entry.userId, {
+          levelName: entry.levelName,
+          levelColor: entry.levelColor,
+        })
+      }
+    }
+  }
+
   // Invalidation helper
   const invalidateAll = useCallback(() => {
     utils.participation.participants.invalidate({ sessionId })
@@ -347,6 +379,7 @@ function SessionParticipantsPage() {
             availableTargetSessions={availableTargetSessions}
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
+            memberLevelMap={memberLevelMap}
           />
         </TabsContent>
 
@@ -364,6 +397,7 @@ function SessionParticipantsPage() {
             availableTargetSessions={availableTargetSessions}
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
+            memberLevelMap={memberLevelMap}
           />
         </TabsContent>
 
@@ -383,6 +417,7 @@ function SessionParticipantsPage() {
             availableTargetSessions={availableTargetSessions}
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
+            memberLevelMap={memberLevelMap}
           />
         </TabsContent>
       </Tabs>

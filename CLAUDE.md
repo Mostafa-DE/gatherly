@@ -121,8 +121,15 @@ export const userRouter = router({
 ### Schema Validation
 
 - Define Zod schemas in `src/schemas/`
+- Plugin-specific validation schemas are allowed under plugin paths (for example, `src/plugins/<plugin>/schemas`)
 - Use `drizzle-zod` for DB-schema sync
 - Shared fields in `schemas/shared.ts`
+
+### Database Schema Ownership
+
+- Keep shared/core DB tables in `src/db/schema.ts`
+- Plugin-owned DB tables are allowed in plugin modules (for example, `src/plugins/<plugin>/schema.ts`)
+- It is intentional to compose plugin schemas in central DB wiring (for example, `drizzle.config.ts` and `src/db/index.ts`)
 
 ### Error Handling
 
@@ -152,6 +159,7 @@ pnpm db:studio        # Open Drizzle Studio
 # Build
 pnpm build            # Production build
 pnpm start            # Start production server
+pnpm lint             # Type check + ESLint
 ```
 
 ---

@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Sparkles, Plus, ChevronDown, ChevronUp } from "lucide-react"
+import { Sparkles, Plus, ChevronDown, ChevronUp, Lock } from "lucide-react"
 import { useAISuggestion } from "@/plugins/ai/hooks/use-ai-suggestion"
 import { FormFieldEditor, useFormFields } from "@/components/form-field-editor"
 import { useActivityContext } from "@/hooks/use-activity-context"
@@ -82,9 +82,26 @@ function CreateSessionPage() {
     useActivityContext(orgId)
 
   const [selectedActivity, setSelectedActivity] = useState<string>("")
+  const [matchFormat, setMatchFormat] = useState<string>("")
 
   // Set initial activity from sidebar selection or default
   const effectiveActivityId = selectedActivity || selectedActivityId || defaultActivityId || ""
+
+  // Query session config for the selected activity's ranking domain
+  const { data: sessionConfig } = trpc.plugin.ranking.getSessionConfig.useQuery(
+    { activityId: effectiveActivityId },
+    { enabled: !!effectiveActivityId }
+  )
+
+  // Initialize match format from session config default
+  const activeFormat = matchFormat || sessionConfig?.defaultFormat || ""
+  const isMatchMode = sessionConfig?.mode === "match"
+  const formatRule = isMatchMode && activeFormat
+    ? sessionConfig.formatRules[activeFormat]
+    : null
+  const matchCapacity = formatRule?.playersPerTeam
+    ? formatRule.playersPerTeam * 2
+    : null
 
   const {
     suggest: suggestDesc,
@@ -153,7 +170,9 @@ function CreateSessionPage() {
       return
     }
 
-    const capacity = parseInt(maxCapacity, 10)
+    const capacity = isMatchMode && matchCapacity
+      ? matchCapacity
+      : parseInt(maxCapacity, 10)
     const waitlist = parseInt(maxWaitlist, 10)
 
     if (isNaN(capacity) || capacity < 1) {
@@ -243,7 +262,10 @@ function CreateSessionPage() {
                   <Label htmlFor="activity">Activity *</Label>
                   <Select
                     value={effectiveActivityId}
-                    onValueChange={setSelectedActivity}
+                    onValueChange={(value) => {
+                      setSelectedActivity(value)
+                      setMatchFormat("") // Reset format when activity changes
+                    }}
                   >
                     <SelectTrigger id="activity">
                       <SelectValue placeholder="Select activity" />
@@ -334,20 +356,61 @@ function CreateSessionPage() {
                 />
               </div>
 
+              {isMatchMode && sessionConfig && (
+                <div className="space-y-2">
+                  <Label htmlFor="matchFormat">Format *</Label>
+                  <Select
+                    value={activeFormat}
+                    onValueChange={setMatchFormat}
+                  >
+                    <SelectTrigger id="matchFormat">
+                      <SelectValue placeholder="Select format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sessionConfig.formats.map((format) => (
+                        <SelectItem key={format} value={format}>
+                          {format.charAt(0).toUpperCase() + format.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="maxCapacity">Max Capacity *</Label>
-                  <Input
-                    id="maxCapacity"
-                    type="number"
-                    min="1"
-                    value={maxCapacity}
-                    onChange={(e) => setMaxCapacity(e.target.value)}
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Maximum number of participants
-                  </p>
+                  {isMatchMode && matchCapacity ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="maxCapacity"
+                          type="number"
+                          value={matchCapacity}
+                          readOnly
+                          className="bg-muted"
+                        />
+                        <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Locked to {activeFormat} format ({matchCapacity} players)
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <Input
+                        id="maxCapacity"
+                        type="number"
+                        min="1"
+                        value={maxCapacity}
+                        onChange={(e) => setMaxCapacity(e.target.value)}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Maximum number of participants
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-2">
