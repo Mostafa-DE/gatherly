@@ -51,6 +51,18 @@ import { resolveVolleyballMatch } from "../src/plugins/ranking/domains/volleybal
 import { resolveTennisMatch } from "../src/plugins/ranking/domains/tennis"
 import { resolvePingPongMatch } from "../src/plugins/ranking/domains/ping-pong"
 import { resolveLaserTagMatch } from "../src/plugins/ranking/domains/laser-tag"
+import { resolveBasketballMatch } from "../src/plugins/ranking/domains/basketball"
+import { resolveHockeyMatch } from "../src/plugins/ranking/domains/hockey"
+import { resolveFlagFootballMatch } from "../src/plugins/ranking/domains/flag-football"
+import { resolveKickballMatch } from "../src/plugins/ranking/domains/kickball"
+import { resolveDodgeballMatch } from "../src/plugins/ranking/domains/dodgeball"
+import { resolveFoosballMatch } from "../src/plugins/ranking/domains/foosball"
+import { resolveBowlingMatch } from "../src/plugins/ranking/domains/bowling"
+import { resolvePoolMatch } from "../src/plugins/ranking/domains/pool"
+import { resolveDartsMatch } from "../src/plugins/ranking/domains/darts"
+import { resolvePklBallMatch } from "../src/plugins/ranking/domains/pkl-ball"
+import { resolveSquashMatch } from "../src/plugins/ranking/domains/squash"
+import { resolveChessMatch } from "../src/plugins/ranking/domains/chess"
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -324,6 +336,284 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
       { title: "Team Laser Tag Night", location: "Action Park", price: "12.00" },
     ],
   },
+  // ─── New domains ────────────────────────────────────────────────────────────
+  {
+    domainId: "basketball",
+    activityName: "Basketball",
+    activitySlug: "basketball",
+    defaultFormat: "5v5",
+    playersPerTeam: 5,
+    memberPercent: 50,
+    sessionsCount: 3,
+    matchesPerSession: 3,
+    generateScores: generateBasketballScores,
+    resolveMatch: resolveBasketballMatch,
+    levels: [
+      { name: "Beginner", color: "#6B7280", order: 0 },
+      { name: "Intermediate", color: "#3B82F6", order: 1 },
+      { name: "Advanced", color: "#10B981", order: 2 },
+      { name: "Competitive", color: "#F59E0B", order: 3 },
+    ],
+    sessionTemplates: [
+      { title: "Basketball Pickup", location: "Sports Arena JO", price: "5.00" },
+      { title: "3v3 Basketball", location: "Community Center Court", price: null },
+      { title: "Weekend Hoops", location: "JU Gym", price: "7.00" },
+    ],
+  },
+  {
+    domainId: "hockey",
+    activityName: "Hockey",
+    activitySlug: "hockey",
+    defaultFormat: "5v5",
+    playersPerTeam: 5,
+    memberPercent: 35,
+    sessionsCount: 2,
+    matchesPerSession: 3,
+    generateScores: generateHockeyScores,
+    resolveMatch: resolveHockeyMatch,
+    levels: [
+      { name: "Beginner", color: "#6B7280", order: 0 },
+      { name: "Intermediate", color: "#3B82F6", order: 1 },
+      { name: "Advanced", color: "#10B981", order: 2 },
+      { name: "Competitive", color: "#F59E0B", order: 3 },
+    ],
+    sessionTemplates: [
+      { title: "Hockey Night", location: "Ice Rink Amman", price: "15.00" },
+      { title: "Pickup Hockey", location: "Sports Complex", price: "10.00" },
+    ],
+  },
+  {
+    domainId: "flag-football",
+    activityName: "Flag Football",
+    activitySlug: "flag-football",
+    defaultFormat: "5v5",
+    playersPerTeam: 5,
+    memberPercent: 40,
+    sessionsCount: 2,
+    matchesPerSession: 3,
+    generateScores: generateFlagFootballScores,
+    resolveMatch: resolveFlagFootballMatch,
+    levels: [
+      { name: "Recreational", color: "#6B7280", order: 0 },
+      { name: "Intermediate", color: "#3B82F6", order: 1 },
+      { name: "Competitive", color: "#10B981", order: 2 },
+    ],
+    sessionTemplates: [
+      { title: "Flag Football Sunday", location: "Abdoun Park", price: null },
+      { title: "Flag Football League", location: "Sports Arena JO", price: "8.00" },
+    ],
+  },
+  {
+    domainId: "kickball",
+    activityName: "Kickball",
+    activitySlug: "kickball",
+    defaultFormat: "7v7",
+    playersPerTeam: 7,
+    memberPercent: 35,
+    sessionsCount: 2,
+    matchesPerSession: 2,
+    generateScores: generateKickballScores,
+    resolveMatch: resolveKickballMatch,
+    levels: [
+      { name: "Recreational", color: "#6B7280", order: 0 },
+      { name: "Intermediate", color: "#3B82F6", order: 1 },
+      { name: "Competitive", color: "#10B981", order: 2 },
+    ],
+    sessionTemplates: [
+      { title: "Kickball Night", location: "Community Field", price: null },
+      { title: "Kickball Tournament", location: "Sports Arena JO", price: "5.00" },
+    ],
+  },
+  {
+    domainId: "dodgeball",
+    activityName: "Dodgeball",
+    activitySlug: "dodgeball",
+    defaultFormat: "6v6",
+    playersPerTeam: 6,
+    memberPercent: 45,
+    sessionsCount: 2,
+    matchesPerSession: 3,
+    generateScores: generateDodgeballScores,
+    resolveMatch: resolveDodgeballMatch,
+    levels: [
+      { name: "Recreational", color: "#6B7280", order: 0 },
+      { name: "Intermediate", color: "#3B82F6", order: 1 },
+      { name: "Competitive", color: "#10B981", order: 2 },
+    ],
+    sessionTemplates: [
+      { title: "Dodgeball Night", location: "JU Gym", price: "5.00" },
+      { title: "Dodgeball Rumble", location: "Sports Arena JO", price: "7.00" },
+    ],
+  },
+  {
+    domainId: "foosball",
+    activityName: "Foosball",
+    activitySlug: "foosball",
+    defaultFormat: "doubles",
+    playersPerTeam: 2,
+    memberPercent: 40,
+    sessionsCount: 3,
+    matchesPerSession: 5,
+    generateScores: generateFoosballScores,
+    resolveMatch: resolveFoosballMatch,
+    levels: [
+      { name: "Beginner", color: "#9CA3AF", order: 0 },
+      { name: "D", color: "#6B7280", order: 1 },
+      { name: "C", color: "#3B82F6", order: 2 },
+      { name: "B", color: "#10B981", order: 3 },
+      { name: "A", color: "#F59E0B", order: 4 },
+      { name: "AA", color: "#EF4444", order: 5 },
+    ],
+    sessionTemplates: [
+      { title: "Foosball Night", location: "Community Center", price: null },
+      { title: "Foosball Tournament", location: "Game Room", price: "3.00" },
+      { title: "Lunchtime Foosball", location: "Office Lounge", price: null },
+    ],
+  },
+  {
+    domainId: "bowling",
+    activityName: "Bowling",
+    activitySlug: "bowling",
+    defaultFormat: "singles",
+    playersPerTeam: 1,
+    memberPercent: 45,
+    sessionsCount: 3,
+    matchesPerSession: 4,
+    generateScores: generateBowlingScores,
+    resolveMatch: resolveBowlingMatch,
+    levels: [
+      { name: "Beginner", color: "#6B7280", order: 0 },
+      { name: "Recreational", color: "#3B82F6", order: 1 },
+      { name: "League", color: "#10B981", order: 2 },
+      { name: "Advanced", color: "#F59E0B", order: 3 },
+      { name: "Pro", color: "#EF4444", order: 4 },
+    ],
+    sessionTemplates: [
+      { title: "Bowling Night", location: "Strike Lanes", price: "8.00" },
+      { title: "League Bowling", location: "Strike Lanes", price: "10.00" },
+      { title: "Weekend Bowl", location: "Fun Zone Amman", price: "7.00" },
+    ],
+  },
+  {
+    domainId: "pool",
+    activityName: "Pool / Billiards",
+    activitySlug: "pool",
+    defaultFormat: "singles",
+    playersPerTeam: 1,
+    memberPercent: 40,
+    sessionsCount: 3,
+    matchesPerSession: 4,
+    generateScores: generatePoolScores,
+    resolveMatch: resolvePoolMatch,
+    levels: [
+      { name: "D", color: "#9CA3AF", order: 0 },
+      { name: "C", color: "#6B7280", order: 1 },
+      { name: "B", color: "#3B82F6", order: 2 },
+      { name: "A", color: "#10B981", order: 3 },
+      { name: "AA", color: "#F59E0B", order: 4 },
+      { name: "AAA", color: "#EF4444", order: 5 },
+    ],
+    sessionTemplates: [
+      { title: "Pool Night", location: "Billiards Club Amman", price: "5.00" },
+      { title: "8-Ball Tournament", location: "Billiards Club Amman", price: "10.00" },
+      { title: "Casual Pool", location: "Community Center", price: null },
+    ],
+  },
+  {
+    domainId: "darts",
+    activityName: "Darts",
+    activitySlug: "darts",
+    defaultFormat: "singles",
+    playersPerTeam: 1,
+    memberPercent: 35,
+    sessionsCount: 2,
+    matchesPerSession: 5,
+    generateScores: generateDartsScores,
+    resolveMatch: resolveDartsMatch,
+    levels: [
+      { name: "D", color: "#6B7280", order: 0 },
+      { name: "C", color: "#3B82F6", order: 1 },
+      { name: "B", color: "#10B981", order: 2 },
+      { name: "A", color: "#F59E0B", order: 3 },
+    ],
+    sessionTemplates: [
+      { title: "Darts Night", location: "Pub & Games Amman", price: null },
+      { title: "Darts League", location: "Pub & Games Amman", price: "5.00" },
+    ],
+  },
+  {
+    domainId: "pkl-ball",
+    activityName: "Pkl-Ball",
+    activitySlug: "pkl-ball",
+    defaultFormat: "doubles",
+    playersPerTeam: 2,
+    memberPercent: 35,
+    sessionsCount: 3,
+    matchesPerSession: 4,
+    generateScores: generatePklBallScores,
+    resolveMatch: resolvePklBallMatch,
+    levels: [
+      { name: "2.0", color: "#9CA3AF", order: 0 },
+      { name: "2.5", color: "#6B7280", order: 1 },
+      { name: "3.0", color: "#60A5FA", order: 2 },
+      { name: "3.5", color: "#3B82F6", order: 3 },
+      { name: "4.0", color: "#10B981", order: 4 },
+      { name: "4.5", color: "#F59E0B", order: 5 },
+      { name: "5.0", color: "#EF4444", order: 6 },
+    ],
+    sessionTemplates: [
+      { title: "Pkl-Ball Doubles", location: "Community Courts", price: "5.00" },
+      { title: "Open Pkl-Ball", location: "Sports Arena JO", price: null },
+      { title: "Pkl-Ball Tournament", location: "Community Courts", price: "10.00" },
+    ],
+  },
+  {
+    domainId: "squash",
+    activityName: "Squash",
+    activitySlug: "squash",
+    defaultFormat: "singles",
+    playersPerTeam: 1,
+    memberPercent: 30,
+    sessionsCount: 2,
+    matchesPerSession: 4,
+    generateScores: generateSquashScores,
+    resolveMatch: resolveSquashMatch,
+    levels: [
+      { name: "C", color: "#6B7280", order: 0 },
+      { name: "B", color: "#3B82F6", order: 1 },
+      { name: "BB", color: "#10B981", order: 2 },
+      { name: "A", color: "#F59E0B", order: 3 },
+      { name: "AA", color: "#EF4444", order: 4 },
+    ],
+    sessionTemplates: [
+      { title: "Squash Singles", location: "Royal Squash Club", price: "10.00" },
+      { title: "Squash Match Day", location: "Royal Squash Club", price: "10.00" },
+    ],
+  },
+  {
+    domainId: "chess",
+    activityName: "Chess",
+    activitySlug: "chess",
+    defaultFormat: "singles",
+    playersPerTeam: 1,
+    memberPercent: 30,
+    sessionsCount: 3,
+    matchesPerSession: 6,
+    generateScores: generateChessScores,
+    resolveMatch: resolveChessMatch,
+    levels: [
+      { name: "Beginner", color: "#6B7280", order: 0 },
+      { name: "Intermediate", color: "#3B82F6", order: 1 },
+      { name: "Advanced", color: "#10B981", order: 2 },
+      { name: "Expert", color: "#F59E0B", order: 3 },
+      { name: "Master", color: "#EF4444", order: 4 },
+    ],
+    sessionTemplates: [
+      { title: "Chess Club Night", location: "Community Center", price: null },
+      { title: "Chess Tournament", location: "Cultural Center", price: "5.00" },
+      { title: "Blitz Chess Session", location: "Community Center", price: null },
+    ],
+  },
 ]
 
 // ─── Score generators ────────────────────────────────────────────────────────
@@ -443,6 +733,107 @@ function generateLaserTagScores(): { team1: number; team2: number } {
     team1: randomInt(200, 600),
     team2: randomInt(200, 600),
   }
+}
+
+function generateBasketballScores(): { team1: number; team2: number } {
+  return { team1: randomInt(30, 80), team2: randomInt(30, 80) }
+}
+
+function generateHockeyScores(): { team1: number; team2: number } {
+  return { team1: randomInt(0, 8), team2: randomInt(0, 8) }
+}
+
+function generateFlagFootballScores(): { team1: number; team2: number } {
+  // Scores in multiples of 6 or 7 (touchdowns + conversions)
+  return { team1: randomInt(0, 6) * 7, team2: randomInt(0, 6) * 7 }
+}
+
+function generateKickballScores(): { team1: number; team2: number } {
+  return { team1: randomInt(0, 12), team2: randomInt(0, 12) }
+}
+
+function generateDodgeballScores(): { team1: number; team2: number } {
+  return { team1: randomInt(0, 5), team2: randomInt(0, 5) }
+}
+
+function generateFoosballScores(): { team1: number; team2: number } {
+  return { team1: randomInt(0, 10), team2: randomInt(0, 10) }
+}
+
+function generateBowlingScores(): { team1: number; team2: number } {
+  return { team1: randomInt(80, 280), team2: randomInt(80, 280) }
+}
+
+function generatePoolScores(): { team1: number; team2: number } {
+  // Race to 5 or 7 games
+  const target = pick([5, 7])
+  const winner = target
+  const loser = randomInt(0, target - 1)
+  return Math.random() < 0.5
+    ? { team1: winner, team2: loser }
+    : { team1: loser, team2: winner }
+}
+
+function generateDartsScores(): { team1: number; team2: number } {
+  // Race to 3 or 5 legs
+  const target = pick([3, 5])
+  const winner = target
+  const loser = randomInt(0, target - 1)
+  return Math.random() < 0.5
+    ? { team1: winner, team2: loser }
+    : { team1: loser, team2: winner }
+}
+
+function generatePklBallScores(): [number, number][] {
+  const numGames = randomInt(2, 3)
+  const games: [number, number][] = []
+  for (let i = 0; i < numGames; i++) {
+    const r = Math.random()
+    if (r < 0.65) {
+      const loserScore = randomInt(2, 9)
+      if (Math.random() < 0.5) games.push([11, loserScore])
+      else games.push([loserScore, 11])
+    } else if (r < 0.9) {
+      const extra = randomInt(0, 3)
+      const winner = 12 + extra
+      const loser = 10 + extra
+      if (Math.random() < 0.5) games.push([winner, loser])
+      else games.push([loser, winner])
+    } else {
+      if (Math.random() < 0.5) games.push([15, randomInt(8, 13)])
+      else games.push([randomInt(8, 13), 15])
+    }
+  }
+  return games
+}
+
+function generateSquashScores(): [number, number][] {
+  const numGames = randomInt(3, 5)
+  const games: [number, number][] = []
+  for (let i = 0; i < numGames; i++) {
+    const r = Math.random()
+    if (r < 0.65) {
+      const loserScore = randomInt(3, 9)
+      if (Math.random() < 0.5) games.push([11, loserScore])
+      else games.push([loserScore, 11])
+    } else {
+      const extra = randomInt(0, 3)
+      const winner = 12 + extra
+      const loser = 10 + extra
+      if (Math.random() < 0.5) games.push([winner, loser])
+      else games.push([loser, winner])
+    }
+  }
+  return games
+}
+
+function generateChessScores(): { team1: number; team2: number } {
+  const [team1, team2] = weighted<[number, number]>([
+    [[1, 0], 40],
+    [[0, 1], 40],
+    [[0.5, 0.5], 20],
+  ])
+  return { team1, team2 }
 }
 
 // ─── Seed functions ──────────────────────────────────────────────────────────

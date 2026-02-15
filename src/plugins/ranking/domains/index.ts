@@ -7,6 +7,18 @@ import { volleyballDomain } from "./volleyball/index"
 import { tennisDomain } from "./tennis/index"
 import { pingPongDomain } from "./ping-pong/index"
 import { laserTagDomain } from "./laser-tag/index"
+import { basketballDomain } from "./basketball/index"
+import { hockeyDomain } from "./hockey/index"
+import { flagFootballDomain } from "./flag-football/index"
+import { kickballDomain } from "./kickball/index"
+import { dodgeballDomain } from "./dodgeball/index"
+import { foosballDomain } from "./foosball/index"
+import { bowlingDomain } from "./bowling/index"
+import { poolDomain } from "./pool/index"
+import { dartsDomain } from "./darts/index"
+import { pklBallDomain } from "./pkl-ball/index"
+import { squashDomain } from "./squash/index"
+import { chessDomain } from "./chess/index"
 
 export type {
   RankingDomain,
@@ -34,6 +46,18 @@ const domainRegistry = new Map<string, RankingDomain>([
   [tennisDomain.id, tennisDomain],
   [pingPongDomain.id, pingPongDomain],
   [laserTagDomain.id, laserTagDomain],
+  [basketballDomain.id, basketballDomain],
+  [hockeyDomain.id, hockeyDomain],
+  [flagFootballDomain.id, flagFootballDomain],
+  [kickballDomain.id, kickballDomain],
+  [dodgeballDomain.id, dodgeballDomain],
+  [foosballDomain.id, foosballDomain],
+  [bowlingDomain.id, bowlingDomain],
+  [poolDomain.id, poolDomain],
+  [dartsDomain.id, dartsDomain],
+  [pklBallDomain.id, pklBallDomain],
+  [squashDomain.id, squashDomain],
+  [chessDomain.id, chessDomain],
 ])
 
 export function getDomain(domainId: string): RankingDomain | undefined {
