@@ -36,6 +36,7 @@ import { buildSessionUrl } from "@/lib/share-urls"
 import { SessionJoinFormDialog } from "@/components/session-join-form-dialog"
 import type { JoinFormSchema } from "@/types/form"
 import { SessionMatchesSection } from "@/plugins/ranking/components/session-matches-section"
+import { SessionGroupsSection } from "@/plugins/smart-groups/components/session-groups-section"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/sessions/$sessionId/"
@@ -783,6 +784,16 @@ function SessionDetailPage() {
               image: p.user.image,
             })) ?? []
           }
+        />
+      )}
+
+      {/* ── Smart Groups ── */}
+      {showParticipants && sessionData.activityId && (
+        <SessionGroupsSection
+          activityId={sessionData.activityId}
+          sessionId={sessionId}
+          isAdmin={isAdmin}
+          participantCount={participants?.length ?? 0}
         />
       )}
 

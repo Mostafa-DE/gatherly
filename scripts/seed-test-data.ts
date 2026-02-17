@@ -6,15 +6,21 @@
  *   pnpm db:seed:test --clean  # remove seeded test data (restore previous state)
  *
  * What it creates:
- *   - 1 admin user (the "owner") + 24 member users
+ *   - 1 admin user (the "owner") + 24 member users (with gender + nationality)
  *   - 1 organization ("Seed Community TEST") with settings
- *   - All members added to the org
- *   - 7 domain-specific activities: Padel, Football, Badminton, Volleyball,
- *     Tennis, Ping Pong, Laser Tag — each with ranking definitions
- *   - ~25 sessions across all activities
+ *     - Org join form: Gender, Nationality, Age Range (general questions)
+ *   - All members added to the org with profile answers
+ *   - 19 domain-specific activities: Padel, Football, Badminton, Volleyball,
+ *     Tennis, Ping Pong, Laser Tag, Basketball, Hockey, etc. — each with:
+ *     - Ranking definitions and levels
+ *     - Sport-specific join forms (e.g. Padel: preferred side, dominant hand,
+ *       weight/height range, own racket; Football: position, preferred foot, etc.)
+ *     - Smart Groups plugin enabled + config
+ *   - ~25 sessions across all activities (some with session join forms)
  *   - Match records with realistic scores per domain
  *   - Member ranks with accumulated stats and levels
- *   - Participations, member notes, join requests, invite links
+ *   - Activity join requests with sport-specific form answers
+ *   - Participations (some with session form answers), member notes, join requests, invite links
  *
  * All seeded records use a deterministic ID prefix "seed_" so cleanup is safe.
  */
@@ -33,6 +39,7 @@ import {
   eventSession,
   participation,
   joinRequest,
+  activityJoinRequest,
   groupMemberProfile,
   memberNote,
   inviteLink,
@@ -63,6 +70,10 @@ import { resolveDartsMatch } from "../src/plugins/ranking/domains/darts"
 import { resolvePklBallMatch } from "../src/plugins/ranking/domains/pkl-ball"
 import { resolveSquashMatch } from "../src/plugins/ranking/domains/squash"
 import { resolveChessMatch } from "../src/plugins/ranking/domains/chess"
+import {
+  smartGroupConfig,
+} from "../src/plugins/smart-groups/schema"
+import { getDomain } from "../src/plugins/ranking/domains"
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -110,31 +121,33 @@ function weighted<T>(options: [T, number][]): T {
 // ─── Data definitions ────────────────────────────────────────────────────────
 
 const MEMBER_DATA = [
-  { name: "Lina Haddad", city: "Amman" },
-  { name: "Omar Khalil", city: "Dubai" },
-  { name: "Sara Nasser", city: "Beirut" },
-  { name: "Youssef Farah", city: "Cairo" },
-  { name: "Nadia Karam", city: "Amman" },
-  { name: "Tariq Bazzi", city: "Riyadh" },
-  { name: "Layla Mansour", city: "Istanbul" },
-  { name: "Karim Saleh", city: "Amman" },
-  { name: "Rania Attar", city: "Dubai" },
-  { name: "Hassan Jaber", city: "Amman" },
-  { name: "Dina Awad", city: "Beirut" },
-  { name: "Fadi Tawil", city: "Amman" },
-  { name: "Mira Sabbagh", city: "Cairo" },
-  { name: "Sami Issa", city: "Amman" },
-  { name: "Hana Rashed", city: "Dubai" },
-  { name: "Ziad Mourad", city: "Amman" },
-  { name: "Jana Khoury", city: "Beirut" },
-  { name: "Bilal Saad", city: "Riyadh" },
-  { name: "Noor Hamdan", city: "Amman" },
-  { name: "Adam Darwish", city: "Istanbul" },
-  { name: "Lara Nassar", city: "Amman" },
-  { name: "Mahmoud Ali", city: "Cairo" },
-  { name: "Aya Bishara", city: "Dubai" },
-  { name: "Khaled Zein", city: "Amman" },
+  { name: "Lina Haddad", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Omar Khalil", city: "Dubai", gender: "Male", nationality: "Emirati" },
+  { name: "Sara Nasser", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Youssef Farah", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Nadia Karam", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Tariq Bazzi", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Layla Mansour", city: "Istanbul", gender: "Female", nationality: "Turkish" },
+  { name: "Karim Saleh", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Rania Attar", city: "Dubai", gender: "Female", nationality: "Emirati" },
+  { name: "Hassan Jaber", city: "Amman", gender: "Male", nationality: "Palestinian" },
+  { name: "Dina Awad", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Fadi Tawil", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Mira Sabbagh", city: "Cairo", gender: "Female", nationality: "Egyptian" },
+  { name: "Sami Issa", city: "Amman", gender: "Male", nationality: "Palestinian" },
+  { name: "Hana Rashed", city: "Dubai", gender: "Female", nationality: "Emirati" },
+  { name: "Ziad Mourad", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Jana Khoury", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Bilal Saad", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Noor Hamdan", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Adam Darwish", city: "Istanbul", gender: "Male", nationality: "Turkish" },
+  { name: "Lara Nassar", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Mahmoud Ali", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Aya Bishara", city: "Dubai", gender: "Female", nationality: "Emirati" },
+  { name: "Khaled Zein", city: "Amman", gender: "Male", nationality: "Jordanian" },
 ]
+
+const AGE_RANGES = ["18-25", "26-35", "36-45", "46-55"]
 
 // ─── Domain configs for seed ─────────────────────────────────────────────────
 
@@ -142,11 +155,8 @@ type DomainSeedConfig = {
   domainId: string
   activityName: string
   activitySlug: string
-  defaultFormat: string
-  playersPerTeam: number
   memberPercent: number // what % of total members join this activity
-  sessionsCount: number
-  matchesPerSession: number
+  sessionsCount: number // each session = 1 match (driven by domain sessionConfig)
   generateScores: () => unknown
   resolveMatch: (scores: unknown) => {
     winner: "team1" | "team2" | "draw"
@@ -157,16 +167,45 @@ type DomainSeedConfig = {
   sessionTemplates: { title: string; location: string; price: string | null }[]
 }
 
+/**
+ * Derive session capacity (maxCapacity) and playersPerTeam from the domain's
+ * format rules. Session = 1 match, capacity = playersPerTeam * 2.
+ */
+function getDomainFormatInfo(domainId: string): {
+  defaultFormat: string
+  playersPerTeam: number
+  maxCapacity: number
+} {
+  const domain = getDomain(domainId)
+  if (!domain?.matchConfig) {
+    throw new Error(`Domain ${domainId} has no matchConfig`)
+  }
+
+  const fmt = domain.matchConfig.defaultFormat
+  const rule = domain.matchConfig.formatRules[fmt]
+  if (!rule) {
+    throw new Error(`Domain ${domainId} has no rule for format ${fmt}`)
+  }
+
+  // Use exact playersPerTeam, or midpoint of min/max for flexible formats
+  const ppt = rule.playersPerTeam
+    ?? Math.ceil(((rule.minPlayersPerTeam ?? 1) + (rule.maxPlayersPerTeam ?? 1)) / 2)
+
+  return {
+    defaultFormat: fmt,
+    playersPerTeam: ppt,
+    maxCapacity: ppt * 2,
+  }
+}
+
+// sessionsCount = total number of sessions (each = 1 match, driven by domain sessionConfig)
 const DOMAIN_CONFIGS: DomainSeedConfig[] = [
   {
     domainId: "padel",
     activityName: "Padel",
     activitySlug: "padel",
-    defaultFormat: "doubles",
-    playersPerTeam: 2,
     memberPercent: 60,
-    sessionsCount: 5,
-    matchesPerSession: 4,
+    sessionsCount: 20, // was 5×4
     generateScores: generatePadelScores,
     resolveMatch: resolvePadelMatch,
     levels: [
@@ -192,11 +231,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "football",
     activityName: "Football",
     activitySlug: "football",
-    defaultFormat: "5v5",
-    playersPerTeam: 5,
     memberPercent: 80,
-    sessionsCount: 5,
-    matchesPerSession: 3,
+    sessionsCount: 15, // was 5×3
     generateScores: generateFootballScores,
     resolveMatch: resolveFootballMatch,
     levels: [
@@ -218,11 +254,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "badminton",
     activityName: "Badminton",
     activitySlug: "badminton",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 40,
-    sessionsCount: 3,
-    matchesPerSession: 4,
+    sessionsCount: 12, // was 3×4
     generateScores: generateBadmintonScores,
     resolveMatch: resolveBadmintonMatch,
     levels: [
@@ -242,11 +275,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "volleyball",
     activityName: "Volleyball",
     activitySlug: "volleyball",
-    defaultFormat: "4v4",
-    playersPerTeam: 4,
     memberPercent: 50,
-    sessionsCount: 3,
-    matchesPerSession: 3,
+    sessionsCount: 9, // was 3×3
     generateScores: generateVolleyballScores,
     resolveMatch: resolveVolleyballMatch,
     levels: [
@@ -267,11 +297,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "tennis",
     activityName: "Tennis",
     activitySlug: "tennis",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 35,
-    sessionsCount: 3,
-    matchesPerSession: 3,
+    sessionsCount: 9, // was 3×3
     generateScores: generateTennisScores,
     resolveMatch: resolveTennisMatch,
     levels: [
@@ -293,11 +320,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "ping-pong",
     activityName: "Ping Pong",
     activitySlug: "ping-pong",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 45,
-    sessionsCount: 3,
-    matchesPerSession: 5,
+    sessionsCount: 15, // was 3×5
     generateScores: generatePingPongScores,
     resolveMatch: resolvePingPongMatch,
     levels: [
@@ -317,11 +341,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "laser-tag",
     activityName: "Laser Tag",
     activitySlug: "laser-tag",
-    defaultFormat: "team",
-    playersPerTeam: 5, // use 5 per team for seed (within 1-13 range)
     memberPercent: 55,
-    sessionsCount: 2,
-    matchesPerSession: 3,
+    sessionsCount: 6, // was 2×3
     generateScores: generateLaserTagScores,
     resolveMatch: resolveLaserTagMatch,
     levels: [
@@ -336,16 +357,12 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
       { title: "Team Laser Tag Night", location: "Action Park", price: "12.00" },
     ],
   },
-  // ─── New domains ────────────────────────────────────────────────────────────
   {
     domainId: "basketball",
     activityName: "Basketball",
     activitySlug: "basketball",
-    defaultFormat: "5v5",
-    playersPerTeam: 5,
     memberPercent: 50,
-    sessionsCount: 3,
-    matchesPerSession: 3,
+    sessionsCount: 9, // was 3×3
     generateScores: generateBasketballScores,
     resolveMatch: resolveBasketballMatch,
     levels: [
@@ -364,11 +381,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "hockey",
     activityName: "Hockey",
     activitySlug: "hockey",
-    defaultFormat: "5v5",
-    playersPerTeam: 5,
     memberPercent: 35,
-    sessionsCount: 2,
-    matchesPerSession: 3,
+    sessionsCount: 6, // was 2×3
     generateScores: generateHockeyScores,
     resolveMatch: resolveHockeyMatch,
     levels: [
@@ -386,11 +400,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "flag-football",
     activityName: "Flag Football",
     activitySlug: "flag-football",
-    defaultFormat: "5v5",
-    playersPerTeam: 5,
     memberPercent: 40,
-    sessionsCount: 2,
-    matchesPerSession: 3,
+    sessionsCount: 6, // was 2×3
     generateScores: generateFlagFootballScores,
     resolveMatch: resolveFlagFootballMatch,
     levels: [
@@ -407,11 +418,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "kickball",
     activityName: "Kickball",
     activitySlug: "kickball",
-    defaultFormat: "7v7",
-    playersPerTeam: 7,
     memberPercent: 35,
-    sessionsCount: 2,
-    matchesPerSession: 2,
+    sessionsCount: 4, // was 2×2
     generateScores: generateKickballScores,
     resolveMatch: resolveKickballMatch,
     levels: [
@@ -428,11 +436,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "dodgeball",
     activityName: "Dodgeball",
     activitySlug: "dodgeball",
-    defaultFormat: "6v6",
-    playersPerTeam: 6,
     memberPercent: 45,
-    sessionsCount: 2,
-    matchesPerSession: 3,
+    sessionsCount: 6, // was 2×3
     generateScores: generateDodgeballScores,
     resolveMatch: resolveDodgeballMatch,
     levels: [
@@ -449,11 +454,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "foosball",
     activityName: "Foosball",
     activitySlug: "foosball",
-    defaultFormat: "doubles",
-    playersPerTeam: 2,
     memberPercent: 40,
-    sessionsCount: 3,
-    matchesPerSession: 5,
+    sessionsCount: 15, // was 3×5
     generateScores: generateFoosballScores,
     resolveMatch: resolveFoosballMatch,
     levels: [
@@ -474,11 +476,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "bowling",
     activityName: "Bowling",
     activitySlug: "bowling",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 45,
-    sessionsCount: 3,
-    matchesPerSession: 4,
+    sessionsCount: 12, // was 3×4
     generateScores: generateBowlingScores,
     resolveMatch: resolveBowlingMatch,
     levels: [
@@ -498,11 +497,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "pool",
     activityName: "Pool / Billiards",
     activitySlug: "pool",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 40,
-    sessionsCount: 3,
-    matchesPerSession: 4,
+    sessionsCount: 12, // was 3×4
     generateScores: generatePoolScores,
     resolveMatch: resolvePoolMatch,
     levels: [
@@ -523,11 +519,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "darts",
     activityName: "Darts",
     activitySlug: "darts",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 35,
-    sessionsCount: 2,
-    matchesPerSession: 5,
+    sessionsCount: 10, // was 2×5
     generateScores: generateDartsScores,
     resolveMatch: resolveDartsMatch,
     levels: [
@@ -545,11 +538,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "pkl-ball",
     activityName: "Pkl-Ball",
     activitySlug: "pkl-ball",
-    defaultFormat: "doubles",
-    playersPerTeam: 2,
     memberPercent: 35,
-    sessionsCount: 3,
-    matchesPerSession: 4,
+    sessionsCount: 12, // was 3×4
     generateScores: generatePklBallScores,
     resolveMatch: resolvePklBallMatch,
     levels: [
@@ -571,11 +561,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "squash",
     activityName: "Squash",
     activitySlug: "squash",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 30,
-    sessionsCount: 2,
-    matchesPerSession: 4,
+    sessionsCount: 8, // was 2×4
     generateScores: generateSquashScores,
     resolveMatch: resolveSquashMatch,
     levels: [
@@ -594,11 +581,8 @@ const DOMAIN_CONFIGS: DomainSeedConfig[] = [
     domainId: "chess",
     activityName: "Chess",
     activitySlug: "chess",
-    defaultFormat: "singles",
-    playersPerTeam: 1,
     memberPercent: 30,
-    sessionsCount: 3,
-    matchesPerSession: 6,
+    sessionsCount: 18, // was 3×6
     generateScores: generateChessScores,
     resolveMatch: resolveChessMatch,
     levels: [
@@ -836,6 +820,121 @@ function generateChessScores(): { team1: number; team2: number } {
   return { team1, team2 }
 }
 
+// ─── Activity join forms (sport-specific) ────────────────────────────────────
+
+type ActivityFormDef = {
+  fields: {
+    id: string
+    type: string
+    label: string
+    required: boolean
+    options?: string[]
+    placeholder?: string
+  }[]
+}
+
+const ACTIVITY_JOIN_FORMS: Record<string, ActivityFormDef> = {
+  padel: {
+    fields: [
+      { id: "field_preferred_side", type: "select", label: "Preferred Side", required: true, options: ["Left", "Right", "Both"] },
+      { id: "field_dominant_hand", type: "select", label: "Dominant Hand", required: true, options: ["Right", "Left"] },
+      { id: "field_padel_level", type: "select", label: "Playing Level", required: true, options: ["Beginner", "Intermediate", "Advanced", "Competitive"] },
+      { id: "field_weight_range", type: "select", label: "Weight Range", required: false, options: ["Under 60kg", "60-70kg", "70-80kg", "80-90kg", "Over 90kg"] },
+      { id: "field_height_range", type: "select", label: "Height Range", required: false, options: ["Under 165cm", "165-175cm", "175-185cm", "Over 185cm"] },
+      { id: "field_own_racket", type: "select", label: "Own Racket?", required: false, options: ["Yes", "No"] },
+    ],
+  },
+  football: {
+    fields: [
+      { id: "field_position", type: "select", label: "Preferred Position", required: true, options: ["Goalkeeper", "Defender", "Midfielder", "Forward"] },
+      { id: "field_preferred_foot", type: "select", label: "Preferred Foot", required: true, options: ["Right", "Left", "Both"] },
+      { id: "field_football_level", type: "select", label: "Playing Level", required: true, options: ["Casual", "Regular", "Competitive", "Semi-Pro"] },
+    ],
+  },
+  badminton: {
+    fields: [
+      { id: "field_format_pref", type: "select", label: "Preferred Format", required: true, options: ["Singles", "Doubles", "Mixed Doubles"] },
+      { id: "field_dominant_hand", type: "select", label: "Dominant Hand", required: true, options: ["Right", "Left"] },
+      { id: "field_badminton_level", type: "select", label: "Playing Level", required: true, options: ["Beginner", "Intermediate", "Advanced"] },
+    ],
+  },
+  volleyball: {
+    fields: [
+      { id: "field_vb_position", type: "select", label: "Preferred Position", required: true, options: ["Setter", "Libero", "Outside Hitter", "Middle Blocker", "Opposite", "Flexible"] },
+      { id: "field_vb_level", type: "select", label: "Playing Level", required: true, options: ["Recreational", "Intermediate", "Competitive"] },
+      { id: "field_vb_height", type: "select", label: "Height Range", required: false, options: ["Under 170cm", "170-180cm", "180-190cm", "Over 190cm"] },
+    ],
+  },
+  tennis: {
+    fields: [
+      { id: "field_ntrp", type: "select", label: "Self-Rated NTRP Level", required: true, options: ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5"] },
+      { id: "field_tennis_format", type: "select", label: "Preferred Format", required: true, options: ["Singles", "Doubles", "Both"] },
+      { id: "field_tennis_hand", type: "select", label: "Dominant Hand", required: true, options: ["Right", "Left"] },
+    ],
+  },
+  "ping-pong": {
+    fields: [
+      { id: "field_pp_style", type: "select", label: "Playing Style", required: true, options: ["Offensive", "Defensive", "All-Round"] },
+      { id: "field_pp_grip", type: "select", label: "Grip Style", required: true, options: ["Shakehand", "Penhold"] },
+      { id: "field_pp_level", type: "select", label: "Playing Level", required: true, options: ["Casual", "Intermediate", "Advanced", "Competitive"] },
+    ],
+  },
+  basketball: {
+    fields: [
+      { id: "field_bball_pos", type: "select", label: "Position", required: true, options: ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center", "Flexible"] },
+      { id: "field_bball_level", type: "select", label: "Playing Level", required: true, options: ["Casual", "Regular", "Competitive"] },
+      { id: "field_bball_height", type: "select", label: "Height Range", required: false, options: ["Under 170cm", "170-180cm", "180-190cm", "Over 190cm"] },
+    ],
+  },
+  "laser-tag": {
+    fields: [
+      { id: "field_lt_role", type: "select", label: "Preferred Role", required: true, options: ["Attacker", "Defender", "Support", "Any"] },
+      { id: "field_lt_experience", type: "select", label: "Experience", required: true, options: ["First Time", "Played Before", "Regular"] },
+    ],
+  },
+}
+
+// Simpler 2-field form for remaining sports
+const SIMPLE_SPORT_FORM: ActivityFormDef = {
+  fields: [
+    { id: "field_sport_level", type: "select", label: "Experience Level", required: true, options: ["Beginner", "Intermediate", "Advanced"] },
+    { id: "field_availability", type: "select", label: "Preferred Schedule", required: false, options: ["Weekday Evenings", "Weekends", "Both"] },
+  ],
+}
+
+function getActivityJoinForm(domainId: string): ActivityFormDef {
+  return ACTIVITY_JOIN_FORMS[domainId] ?? SIMPLE_SPORT_FORM
+}
+
+function generateActivityFormAnswers(domainId: string): Record<string, unknown> {
+  const form = getActivityJoinForm(domainId)
+  const answers: Record<string, unknown> = {}
+  for (const field of form.fields) {
+    if (field.options) {
+      if (field.id === "field_dominant_hand" || field.id === "field_tennis_hand") {
+        answers[field.id] = weighted([["Right", 85], ["Left", 15]])
+      } else if (field.id === "field_preferred_foot") {
+        answers[field.id] = weighted([["Right", 70], ["Left", 20], ["Both", 10]])
+      } else if (field.id === "field_pp_grip") {
+        answers[field.id] = weighted([["Shakehand", 80], ["Penhold", 20]])
+      } else if (field.id === "field_own_racket") {
+        answers[field.id] = weighted([["Yes", 65], ["No", 35]])
+      } else {
+        answers[field.id] = pick(field.options)
+      }
+    }
+  }
+  return answers
+}
+
+// Session join form (used on some sessions)
+const SESSION_JOIN_FORM = {
+  fields: [
+    { id: "field_warmup", type: "select", label: "Warm-up Preference", required: false, options: ["Yes, join warm-up", "No, skip warm-up"] },
+    { id: "field_session_note", type: "textarea", label: "Notes for this session", required: false, placeholder: "Injuries, late arrival, etc." },
+  ],
+}
+
 // ─── Seed functions ──────────────────────────────────────────────────────────
 
 async function createUsers(): Promise<string[]> {
@@ -913,29 +1012,36 @@ async function createOrganization(ownerId: string): Promise<string> {
   await db.insert(organizationSettings).values({
     organizationId: orgId,
     currency: "JOD",
-    enabledPlugins: { analytics: true, ai: true, ranking: true },
+    enabledPlugins: { analytics: true, ai: true, ranking: true, "smart-groups": true },
     joinFormSchema: {
       fields: [
         {
-          id: "field_sport",
+          id: "field_gender",
           type: "select",
-          label: "Favourite Sport",
+          label: "Gender",
           required: true,
-          options: ["Padel", "Football", "Tennis", "Badminton", "Volleyball", "Ping Pong", "Laser Tag"],
+          options: ["Male", "Female"],
         },
         {
-          id: "field_experience",
+          id: "field_nationality",
           type: "select",
-          label: "Experience Level",
+          label: "Nationality",
           required: true,
-          options: ["Beginner", "Intermediate", "Advanced", "Competitive"],
+          options: ["Jordanian", "Egyptian", "Lebanese", "Palestinian", "Emirati", "Saudi", "Turkish", "Syrian", "Iraqi", "Other"],
+        },
+        {
+          id: "field_age_range",
+          type: "select",
+          label: "Age Range",
+          required: true,
+          options: ["18-25", "26-35", "36-45", "46-55"],
         },
         {
           id: "field_note",
           type: "textarea",
           label: "Anything we should know?",
           required: false,
-          placeholder: "Injuries, availability, etc.",
+          placeholder: "Injuries, availability, dietary restrictions, etc.",
         },
       ],
     },
@@ -952,11 +1058,9 @@ async function addMembers(
 ): Promise<void> {
   console.log("Adding members to org...")
 
-  const sports = ["Padel", "Football", "Tennis", "Badminton", "Volleyball", "Ping Pong", "Laser Tag"]
-  const levels = ["Beginner", "Intermediate", "Advanced", "Competitive"]
-
   for (let i = 0; i < memberUserIds.length; i++) {
     const userId = memberUserIds[i]
+    const memberInfo = MEMBER_DATA[i]
     const joinedDaysAgo = randomInt(5, 100)
 
     await db.insert(member).values({
@@ -972,9 +1076,10 @@ async function addMembers(
       organizationId: orgId,
       userId,
       answers: {
-        field_sport: pick(sports),
-        field_experience: pick(levels),
-        field_note: i % 3 === 0 ? "Available weekends only" : "",
+        field_gender: memberInfo.gender,
+        field_nationality: memberInfo.nationality,
+        field_age_range: AGE_RANGES[i % AGE_RANGES.length],
+        field_note: i % 4 === 0 ? "Available weekends only" : "",
       },
     })
   }
@@ -997,22 +1102,26 @@ async function createActivitiesAndRankings(
     const activityId = seedId(`activity_${cfg.domainId}`)
     allActivityIds.push(activityId)
 
-    // 1. Create activity
+    // 1. Create activity with sport-specific join form
+    const actJoinForm = getActivityJoinForm(cfg.domainId)
     await db.insert(activity).values({
       id: activityId,
       organizationId: orgId,
       name: cfg.activityName,
       slug: cfg.activitySlug,
-      joinMode: "open",
+      joinMode: "require_approval",
       isActive: true,
-      enabledPlugins: { ranking: true },
+      enabledPlugins: { ranking: true, "smart-groups": true },
+      joinFormSchema: actJoinForm,
+      joinFormVersion: 1,
       createdBy: ownerId,
       createdAt: daysAgo(120 - d * 5),
     })
 
     // 2. Assign random subset of members to this activity
+    const fmtInfoForMembers = getDomainFormatInfo(cfg.domainId)
     const memberCount = Math.max(
-      cfg.playersPerTeam * 2 + 2, // minimum: enough for 1 match + spare
+      fmtInfoForMembers.maxCapacity + 2, // minimum: enough for 1 match + spare
       Math.floor(memberUserIds.length * cfg.memberPercent / 100)
     )
     const activityMemberIds = [ownerId, ...pickN(memberUserIds, memberCount)]
@@ -1066,12 +1175,18 @@ async function createActivitiesAndRankings(
     // Track cumulative stats per user for this ranking
     const userStats: Record<string, Record<string, number>> = {}
 
+    // Derive capacity and format from domain rules
+    const fmtInfo = getDomainFormatInfo(cfg.domainId)
+
     for (let s = 0; s < cfg.sessionsCount; s++) {
       const template = cfg.sessionTemplates[s % cfg.sessionTemplates.length]
       const sessionDaysAgo = Math.max(1, 80 - s * 14 + randomInt(-3, 3))
       const sessionId = seedId(`session_${cfg.domainId}_${s}`)
       activitySessionIds.push(sessionId)
       allSessionIds.push(sessionId)
+
+      // Add session join form to ~40% of sessions
+      const hasSessionForm = s % 3 === 0
 
       await db.insert(eventSession).values({
         id: sessionId,
@@ -1083,23 +1198,22 @@ async function createActivitiesAndRankings(
         description: `${cfg.activityName} session. All levels welcome.`,
         dateTime: daysAgo(sessionDaysAgo),
         location: template.location,
-        maxCapacity: pick([10, 12, 16, 20]),
+        maxCapacity: fmtInfo.maxCapacity,
         maxWaitlist: pick([0, 3, 5]),
         price: template.price,
         joinMode: "open",
         status: sessionDaysAgo > 3 ? "completed" : "published",
+        ...(hasSessionForm ? { joinFormSchema: SESSION_JOIN_FORM, joinFormVersion: 1 } : {}),
         createdBy: ownerId,
       })
 
-      // Generate matches for this session
-      for (let m = 0; m < cfg.matchesPerSession; m++) {
-        const ppt = cfg.playersPerTeam
-        const neededPlayers = ppt * 2
-        if (uniqueActivityMemberIds.length < neededPlayers) continue
-
+      // Each session = 1 match (driven by domain sessionConfig.mode = "match")
+      const ppt = fmtInfo.playersPerTeam
+      const neededPlayers = ppt * 2
+      if (uniqueActivityMemberIds.length >= neededPlayers) {
         const players = pickN(uniqueActivityMemberIds, neededPlayers)
         const team1 = players.slice(0, ppt)
-        const team2 = players.slice(ppt, ppt * 2)
+        const team2 = players.slice(ppt, neededPlayers)
 
         const scores = cfg.generateScores()
         const result = cfg.resolveMatch(scores)
@@ -1108,7 +1222,6 @@ async function createActivitiesAndRankings(
         const derivedStats: Record<string, Record<string, number>> = {}
         for (const userId of team1) {
           derivedStats[userId] = { ...result.team1Stats }
-          // Accumulate for member ranks
           if (!userStats[userId]) userStats[userId] = {}
           for (const [k, v] of Object.entries(result.team1Stats)) {
             userStats[userId][k] = (userStats[userId][k] ?? 0) + v
@@ -1123,11 +1236,11 @@ async function createActivitiesAndRankings(
         }
 
         await db.insert(matchRecord).values({
-          id: seedId(`match_${cfg.domainId}_s${s}_m${m}`),
+          id: seedId(`match_${cfg.domainId}_s${s}`),
           organizationId: orgId,
           rankingDefinitionId: defId,
           sessionId,
-          matchFormat: cfg.defaultFormat,
+          matchFormat: fmtInfo.defaultFormat,
           team1,
           team2,
           scores,
@@ -1188,7 +1301,7 @@ async function createParticipations(
   let total = 0
 
   for (const sessionId of sessionIds) {
-    // Fetch session to know capacity & price
+    // Fetch session to know capacity, price, and form
     const [sess] = await db
       .select({
         maxCapacity: eventSession.maxCapacity,
@@ -1196,11 +1309,23 @@ async function createParticipations(
         status: eventSession.status,
         dateTime: eventSession.dateTime,
         activityId: eventSession.activityId,
+        joinFormSchema: eventSession.joinFormSchema,
       })
       .from(eventSession)
       .where(eq(eventSession.id, sessionId))
 
     if (!sess) continue
+
+    // Get match players for this session (they MUST have participation records)
+    const matchRows = await db
+      .select({ team1: matchRecord.team1, team2: matchRecord.team2 })
+      .from(matchRecord)
+      .where(eq(matchRecord.sessionId, sessionId))
+    const matchPlayerIds = new Set<string>()
+    for (const row of matchRows) {
+      for (const id of (row.team1 as string[])) matchPlayerIds.add(id)
+      for (const id of (row.team2 as string[])) matchPlayerIds.add(id)
+    }
 
     // Get activity members for this session's activity
     const actMembers = await db
@@ -1209,34 +1334,41 @@ async function createParticipations(
       .where(eq(activityMember.activityId, sess.activityId))
     const actMemberIds = actMembers.map((r) => r.userId)
 
-    // 50-90% of activity members join each session
-    const joinCount = randomInt(
-      Math.floor(actMemberIds.length * 0.5),
-      Math.min(actMemberIds.length, sess.maxCapacity + 3)
-    )
+    // Ensure match players are always first in the joiners list
+    const nonMatchMembers = actMemberIds.filter((id) => !matchPlayerIds.has(id))
+    const shuffledNonMatch = [...nonMatchMembers].sort(() => Math.random() - 0.5)
 
-    const shuffled = [...actMemberIds].sort(() => Math.random() - 0.5)
-    const joiners = shuffled.slice(0, joinCount)
+    // Join count: at least match players + some extras (up to capacity + a few waitlist)
+    const extraCount = randomInt(
+      0,
+      Math.min(shuffledNonMatch.length, Math.max(0, sess.maxCapacity + 3 - matchPlayerIds.size))
+    )
+    const joiners = [...Array.from(matchPlayerIds), ...shuffledNonMatch.slice(0, extraCount)]
 
     for (let j = 0; j < joiners.length; j++) {
       const userId = joiners[j]
       const isOverCapacity = j >= sess.maxCapacity
       const isCompleted = sess.status === "completed"
 
-      const status: "joined" | "waitlisted" | "cancelled" = isOverCapacity
-        ? "waitlisted"
-        : weighted([
-            ["joined", 85],
-            ["cancelled", 15],
-          ])
+      const isMatchPlayer = matchPlayerIds.has(userId)
+      const status: "joined" | "waitlisted" | "cancelled" = isMatchPlayer
+        ? "joined" // match players are always joined
+        : isOverCapacity
+          ? "waitlisted"
+          : weighted([
+              ["joined", 85],
+              ["cancelled", 15],
+            ])
 
       let attendance: "pending" | "show" | "no_show" = "pending"
       if (isCompleted && status === "joined") {
-        attendance = weighted([
-          ["show", 75],
-          ["no_show", 18],
-          ["pending", 7],
-        ])
+        attendance = isMatchPlayer
+          ? "show" // match players always showed up
+          : weighted([
+              ["show", 75],
+              ["no_show", 18],
+              ["pending", 7],
+            ])
       }
 
       let payment: "paid" | "unpaid" = "unpaid"
@@ -1247,6 +1379,12 @@ async function createParticipations(
         ])
       }
 
+      // Generate session form answers if the session has a join form
+      const sessionFormAnswers = sess.joinFormSchema ? {
+        field_warmup: pick(["Yes, join warm-up", "No, skip warm-up"]),
+        field_session_note: j % 5 === 0 ? "Might arrive 10 min late" : "",
+      } : undefined
+
       await db.insert(participation).values({
         id: seedId(`part_${sessionId.replace(SEED_PREFIX, "")}_${j}`),
         sessionId,
@@ -1254,6 +1392,7 @@ async function createParticipations(
         status,
         attendance,
         payment,
+        formAnswers: sessionFormAnswers ?? null,
         joinedAt: new Date(
           sess.dateTime.getTime() - randomInt(1, 72) * 60 * 60 * 1000
         ),
@@ -1264,6 +1403,93 @@ async function createParticipations(
   }
 
   console.log(`  Created ${total} participations`)
+}
+
+async function createActivityJoinRequests(
+  orgId: string,
+  ownerId: string
+): Promise<void> {
+  console.log("Creating activity join requests with form answers...")
+
+  // Get all activities for this org
+  const activities = await db
+    .select({ id: activity.id, slug: activity.slug })
+    .from(activity)
+    .where(eq(activity.organizationId, orgId))
+
+  let total = 0
+
+  for (const act of activities) {
+    // Get all members of this activity (except owner)
+    const members = await db
+      .select({ userId: activityMember.userId })
+      .from(activityMember)
+      .where(eq(activityMember.activityId, act.id))
+
+    // Derive domainId from slug
+    const domainId = act.slug
+
+    for (let i = 0; i < members.length; i++) {
+      const userId = members[i].userId
+      if (userId === ownerId) continue // owner doesn't need a join request
+
+      const answers = generateActivityFormAnswers(domainId)
+
+      await db.insert(activityJoinRequest).values({
+        id: seedId(`actjoinreq_${domainId}_${i}`),
+        activityId: act.id,
+        userId,
+        status: "approved",
+        formAnswers: answers,
+        reviewedBy: ownerId,
+        reviewedAt: daysAgo(randomInt(5, 90)),
+        createdAt: daysAgo(randomInt(10, 100)),
+      })
+      total++
+    }
+  }
+
+  console.log(`  Created ${total} activity join requests`)
+}
+
+async function createSmartGroupConfigs(
+  orgId: string,
+  ownerId: string
+): Promise<void> {
+  console.log("Creating smart group configs...")
+
+  // Get all activities with smart-groups enabled
+  const activities = await db
+    .select({
+      id: activity.id,
+      name: activity.name,
+      slug: activity.slug,
+      enabledPlugins: activity.enabledPlugins,
+    })
+    .from(activity)
+    .where(eq(activity.organizationId, orgId))
+
+  let count = 0
+
+  for (const act of activities) {
+    const plugins = act.enabledPlugins as Record<string, boolean> | null
+    if (!plugins?.["smart-groups"]) continue
+
+    await db.insert(smartGroupConfig).values({
+      id: seedId(`sgconfig_${act.slug}`),
+      organizationId: orgId,
+      activityId: act.id,
+      name: `${act.name} Groups`,
+      defaultCriteria: {
+        fields: [],
+        maxFields: 2,
+      },
+      createdBy: ownerId,
+    })
+    count++
+  }
+
+  console.log(`  Created ${count} smart group configs`)
 }
 
 async function createMemberNotes(
@@ -1329,8 +1555,9 @@ async function createJoinRequests(
         null,
       ]),
       formAnswers: {
-        field_sport: pick(["Padel", "Football", "Tennis"]),
-        field_experience: pick(["Beginner", "Intermediate"]),
+        field_gender: pick(["Male", "Female"]),
+        field_nationality: pick(["Jordanian", "Egyptian", "Lebanese"]),
+        field_age_range: pick(AGE_RANGES),
       },
       reviewedAt: statuses[i] !== "pending" ? daysAgo(randomInt(1, 10)) : null,
       createdAt: daysAgo(randomInt(5, 30)),
@@ -1401,6 +1628,8 @@ async function seed() {
     memberUserIds
   )
   await createParticipations(sessionIds)
+  await createActivityJoinRequests(orgId, ownerId)
+  await createSmartGroupConfigs(orgId, ownerId)
   await createMemberNotes(orgId, ownerId, memberUserIds)
   await createJoinRequests(orgId, memberUserIds)
   await createInviteLinks(orgId, ownerId)
@@ -1476,7 +1705,12 @@ async function clean() {
     .delete(rankingDefinition)
     .where(eq(rankingDefinition.organizationId, orgId))
 
-  console.log("Deleting activity members...")
+  console.log("Deleting smart group data...")
+  await db
+    .delete(smartGroupConfig)
+    .where(eq(smartGroupConfig.organizationId, orgId))
+
+  console.log("Deleting activity members & join requests...")
   const orgActivities = await db
     .select({ id: activity.id })
     .from(activity)
@@ -1484,6 +1718,9 @@ async function clean() {
   const orgActivityIds = orgActivities.map((a) => a.id)
 
   if (orgActivityIds.length > 0) {
+    await db
+      .delete(activityJoinRequest)
+      .where(inArray(activityJoinRequest.activityId, orgActivityIds))
     await db
       .delete(activityMember)
       .where(inArray(activityMember.activityId, orgActivityIds))

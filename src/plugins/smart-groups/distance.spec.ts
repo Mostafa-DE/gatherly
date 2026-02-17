@@ -1,0 +1,272 @@
+import { describe, it, expect } from "vitest"
+import {
+  fieldDistance,
+  gowerDistance,
+  buildDistanceMatrix,
+  computeNumericRanges,
+  jaccard,
+  type FieldMeta,
+} from "./distance"
+import type { GroupEntry } from "./algorithm"
+
+// =============================================================================
+// jaccard
+// =============================================================================
+
+describe("jaccard", () => {
+  it("returns 0 for two empty arrays", () => {
+    expect(jaccard([], [])).toBe(0)
+  })
+
+  it("returns 0 for identical arrays", () => {
+    expect(jaccard(["a", "b"], ["a", "b"])).toBe(0)
+  })
+
+  it("returns 1 for disjoint arrays", () => {
+    expect(jaccard(["a", "b"], ["c", "d"])).toBe(1)
+  })
+
+  it("returns correct distance for partial overlap", () => {
+    // intersection = {b}, union = {a,b,c} → 1 - 1/3 = 2/3
+    expect(jaccard(["a", "b"], ["b", "c"])).toBeCloseTo(2 / 3)
+  })
+})
+
+// =============================================================================
+// fieldDistance
+// =============================================================================
+
+describe("fieldDistance", () => {
+  it("select: 0 if equal, 1 if different", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "select", weight: 1 }
+    expect(fieldDistance("A", "A", meta)).toBe(0)
+    expect(fieldDistance("A", "B", meta)).toBe(1)
+  })
+
+  it("text: case-insensitive comparison", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "text", weight: 1 }
+    expect(fieldDistance("Hello", "hello", meta)).toBe(0)
+    expect(fieldDistance("Hello", "World", meta)).toBe(1)
+  })
+
+  it("checkbox: 0 if equal, 1 if different", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "checkbox", weight: 1 }
+    expect(fieldDistance(true, true, meta)).toBe(0)
+    expect(fieldDistance(true, false, meta)).toBe(1)
+  })
+
+  it("multiselect: jaccard distance", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "multiselect", weight: 1 }
+    expect(fieldDistance(["a", "b"], ["a", "b"], meta)).toBe(0)
+    expect(fieldDistance(["a"], ["b"], meta)).toBe(1)
+    expect(fieldDistance(["a", "b"], ["b", "c"], meta)).toBeCloseTo(2 / 3)
+  })
+
+  it("number: range-normalized distance", () => {
+    const meta: FieldMeta = {
+      sourceId: "x",
+      type: "number",
+      weight: 1,
+      numericRange: { min: 0, max: 10 },
+    }
+    expect(fieldDistance(0, 10, meta)).toBe(1)
+    expect(fieldDistance(3, 7, meta)).toBeCloseTo(0.4)
+    expect(fieldDistance(5, 5, meta)).toBe(0)
+  })
+
+  it("number: returns 0 when range is 0", () => {
+    const meta: FieldMeta = {
+      sourceId: "x",
+      type: "number",
+      weight: 1,
+      numericRange: { min: 5, max: 5 },
+    }
+    expect(fieldDistance(5, 5, meta)).toBe(0)
+  })
+
+  it("ranking_stat: same as number", () => {
+    const meta: FieldMeta = {
+      sourceId: "x",
+      type: "ranking_stat",
+      weight: 1,
+      numericRange: { min: 0, max: 20 },
+    }
+    expect(fieldDistance(5, 15, meta)).toBeCloseTo(0.5)
+  })
+
+  it("ranking_level: ordinal distance via levelOrderMap", () => {
+    const meta: FieldMeta = {
+      sourceId: "x",
+      type: "ranking_level",
+      weight: 1,
+      levelOrderMap: new Map([
+        ["D", 0],
+        ["C", 1],
+        ["B", 2],
+        ["A", 3],
+      ]),
+    }
+    expect(fieldDistance("D", "A", meta)).toBe(1)
+    expect(fieldDistance("C", "B", meta)).toBeCloseTo(1 / 3)
+    expect(fieldDistance("B", "B", meta)).toBe(0)
+  })
+
+  it("ranking_level: returns 1 for unknown level names", () => {
+    const meta: FieldMeta = {
+      sourceId: "x",
+      type: "ranking_level",
+      weight: 1,
+      levelOrderMap: new Map([["D", 0], ["A", 1]]),
+    }
+    expect(fieldDistance("D", "Z", meta)).toBe(1)
+  })
+
+  it("returns 1 when either value is null or undefined", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "select", weight: 1 }
+    expect(fieldDistance(null, "A", meta)).toBe(1)
+    expect(fieldDistance("A", undefined, meta)).toBe(1)
+    expect(fieldDistance(null, null, meta)).toBe(1)
+  })
+})
+
+// =============================================================================
+// gowerDistance
+// =============================================================================
+
+describe("gowerDistance", () => {
+  it("returns 0 for identical data", () => {
+    const fields: FieldMeta[] = [
+      { sourceId: "a", type: "select", weight: 1 },
+      { sourceId: "b", type: "number", weight: 1, numericRange: { min: 0, max: 10 } },
+    ]
+    const data = { a: "X", b: 5 }
+    expect(gowerDistance(data, data, fields)).toBe(0)
+  })
+
+  it("returns 1 for maximally different data", () => {
+    const fields: FieldMeta[] = [
+      { sourceId: "a", type: "select", weight: 1 },
+      { sourceId: "b", type: "number", weight: 1, numericRange: { min: 0, max: 10 } },
+    ]
+    expect(gowerDistance({ a: "X", b: 0 }, { a: "Y", b: 10 }, fields)).toBe(1)
+  })
+
+  it("respects field weights", () => {
+    const fields: FieldMeta[] = [
+      { sourceId: "a", type: "select", weight: 0 },  // weight 0 → ignored
+      { sourceId: "b", type: "number", weight: 1, numericRange: { min: 0, max: 10 } },
+    ]
+    // Field a differs but weight=0, field b: |3-7|/10 = 0.4
+    expect(gowerDistance({ a: "X", b: 3 }, { a: "Y", b: 7 }, fields)).toBeCloseTo(0.4)
+  })
+
+  it("returns 0 when all weights are 0", () => {
+    const fields: FieldMeta[] = [
+      { sourceId: "a", type: "select", weight: 0 },
+    ]
+    expect(gowerDistance({ a: "X" }, { a: "Y" }, fields)).toBe(0)
+  })
+
+  it("handles mixed types", () => {
+    const fields: FieldMeta[] = [
+      { sourceId: "gender", type: "select", weight: 1 },
+      { sourceId: "score", type: "number", weight: 1, numericRange: { min: 0, max: 100 } },
+    ]
+    // gender: same → 0, score: |20-80|/100 = 0.6 → avg = 0.3
+    expect(
+      gowerDistance({ gender: "M", score: 20 }, { gender: "M", score: 80 }, fields)
+    ).toBeCloseTo(0.3)
+  })
+})
+
+// =============================================================================
+// buildDistanceMatrix
+// =============================================================================
+
+describe("buildDistanceMatrix", () => {
+  it("builds symmetric matrix with 0 diagonal", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { x: "A" } },
+      { userId: "u2", data: { x: "B" } },
+      { userId: "u3", data: { x: "A" } },
+    ]
+    const fields: FieldMeta[] = [{ sourceId: "x", type: "select", weight: 1 }]
+    const matrix = buildDistanceMatrix(entries, fields)
+
+    // Diagonal = 0
+    expect(matrix[0][0]).toBe(0)
+    expect(matrix[1][1]).toBe(0)
+    expect(matrix[2][2]).toBe(0)
+
+    // Symmetric
+    expect(matrix[0][1]).toBe(matrix[1][0])
+    expect(matrix[0][2]).toBe(matrix[2][0])
+    expect(matrix[1][2]).toBe(matrix[2][1])
+
+    // u1 and u3 are same ("A"), u2 is different ("B")
+    expect(matrix[0][2]).toBe(0)
+    expect(matrix[0][1]).toBe(1)
+  })
+})
+
+// =============================================================================
+// computeNumericRanges
+// =============================================================================
+
+describe("computeNumericRanges", () => {
+  it("sets min/max from entries", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 30 } },
+      { userId: "u3", data: { score: 20 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+    computeNumericRanges(entries, fields)
+    expect(fields[0].numericRange).toEqual({ min: 10, max: 30 })
+  })
+
+  it("handles single value (range = 0)", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 5 } },
+      { userId: "u2", data: { score: 5 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+    computeNumericRanges(entries, fields)
+    expect(fields[0].numericRange).toEqual({ min: 5, max: 5 })
+  })
+
+  it("handles all NaN values", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: "abc" } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+    computeNumericRanges(entries, fields)
+    expect(fields[0].numericRange).toEqual({ min: 0, max: 0 })
+  })
+
+  it("skips non-numeric field types", () => {
+    const fields: FieldMeta[] = [
+      { sourceId: "name", type: "select", weight: 1 },
+    ]
+    computeNumericRanges([], fields)
+    expect(fields[0].numericRange).toBeUndefined()
+  })
+
+  it("handles ranking_stat type", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { wins: 2 } },
+      { userId: "u2", data: { wins: 8 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "wins", type: "ranking_stat", weight: 1 },
+    ]
+    computeNumericRanges(entries, fields)
+    expect(fields[0].numericRange).toEqual({ min: 2, max: 8 })
+  })
+})

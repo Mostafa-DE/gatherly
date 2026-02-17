@@ -29,6 +29,13 @@ export const pluginCatalog: PluginMeta[] = [
     description: "Member ranking system with levels and stats tracking per activity",
     scope: "activity",
   },
+  {
+    id: "smart-groups",
+    name: "Smart Groups",
+    description:
+      "Form-driven grouping engine to organize members into groups by attributes and criteria",
+    scope: "activity",
+  },
 ]
 
 export const pluginMetaMap = Object.fromEntries(

@@ -698,4 +698,12 @@ export type {
   NewRankStatEntry,
   MatchRecord,
   NewMatchRecord,
+  SmartGroupConfig,
+  NewSmartGroupConfig,
+  SmartGroupRun,
+  NewSmartGroupRun,
+  SmartGroupEntry,
+  NewSmartGroupEntry,
+  SmartGroupProposal,
+  NewSmartGroupProposal,
 } from "@/db/types"

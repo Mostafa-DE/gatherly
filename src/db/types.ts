@@ -22,6 +22,12 @@ import type {
   rankStatEntry,
   matchRecord,
 } from "@/plugins/ranking/schema"
+import type {
+  smartGroupConfig,
+  smartGroupRun,
+  smartGroupEntry,
+  smartGroupProposal,
+} from "@/plugins/smart-groups/schema"
 
 // Auth types (from Better Auth)
 export type User = typeof user.$inferSelect
@@ -76,3 +82,13 @@ export type RankStatEntry = typeof rankStatEntry.$inferSelect
 export type NewRankStatEntry = typeof rankStatEntry.$inferInsert
 export type MatchRecord = typeof matchRecord.$inferSelect
 export type NewMatchRecord = typeof matchRecord.$inferInsert
+
+// Smart Groups plugin types
+export type SmartGroupConfig = typeof smartGroupConfig.$inferSelect
+export type NewSmartGroupConfig = typeof smartGroupConfig.$inferInsert
+export type SmartGroupRun = typeof smartGroupRun.$inferSelect
+export type NewSmartGroupRun = typeof smartGroupRun.$inferInsert
+export type SmartGroupEntry = typeof smartGroupEntry.$inferSelect
+export type NewSmartGroupEntry = typeof smartGroupEntry.$inferInsert
+export type SmartGroupProposal = typeof smartGroupProposal.$inferSelect
+export type NewSmartGroupProposal = typeof smartGroupProposal.$inferInsert
