@@ -23,7 +23,6 @@ import {
   Shield,
   Users,
   UserMinus,
-  Sparkles,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { FormField } from "@/types/form"
@@ -32,6 +31,7 @@ import { EngagementStatsCard } from "@/components/engagement-stats"
 import { MemberNotesSection } from "@/components/member-notes"
 import { useAISummarizeMemberProfile } from "@/plugins/ai/hooks/use-ai-suggestion"
 import { MemberRankCards } from "@/plugins/ranking/components/member-rank-cards"
+import { InsightsPanel } from "@/components/ai-insights"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/members/$userId"
@@ -284,6 +284,14 @@ function MemberDetailPage() {
   )
 }
 
+const MEMBER_LOADING_MESSAGES = [
+  "Reviewing member profile...",
+  "Analyzing attendance patterns...",
+  "Checking ranking performance...",
+  "Examining activity participation...",
+  "Generating insights...",
+]
+
 function getAISummaryCacheKey(orgId: string, userId: string) {
   return `gatherly:ai-summary:${orgId}:${userId}`
 }
@@ -292,7 +300,7 @@ function MemberAISummary({ userId }: { userId: string }) {
   const { orgId } = Route.useParams()
   const cacheKey = getAISummaryCacheKey(orgId, userId)
 
-  const [summaryText, setSummaryText] = useState(() => {
+  const [rawText, setRawText] = useState(() => {
     try {
       return localStorage.getItem(cacheKey) ?? ""
     } catch {
@@ -301,7 +309,7 @@ function MemberAISummary({ userId }: { userId: string }) {
   })
 
   const onComplete = useCallback((text: string) => {
-    setSummaryText(text)
+    setRawText(text)
     try {
       localStorage.setItem(cacheKey, text)
     } catch {
@@ -316,47 +324,23 @@ function MemberAISummary({ userId }: { userId: string }) {
     isPending,
     error,
     isAvailable,
-  } = useAISummarizeMemberProfile({ onComplete: onComplete })
-
-  if (!isAvailable) return null
-
-  const hasCached = summaryText.length > 0
-  const displayText = isStreaming ? streamedText : summaryText
+  } = useAISummarizeMemberProfile({ onComplete })
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 className="font-semibold">AI Summary</h2>
-            <p className="text-sm text-muted-foreground">
-              AI-generated member overview
-            </p>
-          </div>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => suggest({ userId })}
-          disabled={isPending}
-        >
-          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-          {isPending ? "Generating..." : hasCached ? "Regenerate" : "Generate Summary"}
-        </Button>
-      </div>
-      {displayText && (
-        <p className="text-sm leading-relaxed">{displayText}</p>
-      )}
-      {!displayText && !isPending && (
-        <p className="text-sm text-muted-foreground">
-          Click &ldquo;Generate Summary&rdquo; to create an AI-powered overview of this member.
-        </p>
-      )}
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-    </div>
+    <InsightsPanel
+      title="AI Summary"
+      subtitle="Member overview"
+      emptyTitle="Get AI-powered member insights"
+      emptyDescription="Analyze this member's profile, engagement, rankings, and activity data to surface what matters most."
+      loadingMessages={MEMBER_LOADING_MESSAGES}
+      rawText={rawText}
+      streamedText={streamedText}
+      isStreaming={isStreaming}
+      isPending={isPending}
+      error={error}
+      isAvailable={isAvailable}
+      onGenerate={() => suggest({ userId })}
+    />
   )
 }
 

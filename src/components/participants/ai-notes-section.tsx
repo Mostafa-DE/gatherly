@@ -1,100 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Sparkles,
   RefreshCw,
   Loader2,
-  TrendingUp,
-  AlertTriangle,
-  Lightbulb,
-  ArrowRight,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import {
+  InsightCard,
+  useIncrementalParse,
+} from "@/components/ai-insights"
 import { useAISuggestParticipationNote } from "@/plugins/ai/hooks/use-ai-suggestion"
-
-// ─── Types & parsing (same format as analytics insights) ────────────────────
-
-type InsightCategory = "STRENGTH" | "CONCERN" | "ACTION" | "TREND"
-
-type ParsedInsight = {
-  category: InsightCategory
-  title: string
-  description: string
-}
-
-const VALID_CATEGORIES = new Set<string>(["STRENGTH", "CONCERN", "ACTION", "TREND"])
-
-const CATEGORY_CONFIG: Record<
-  InsightCategory,
-  {
-    label: string
-    icon: typeof TrendingUp
-    borderClass: string
-    bgClass: string
-    iconClass: string
-    badgeClass: string
-  }
-> = {
-  STRENGTH: {
-    label: "Strength",
-    icon: TrendingUp,
-    borderClass: "border-l-[var(--color-status-success)]",
-    bgClass: "bg-[var(--color-badge-success-bg)]",
-    iconClass: "text-[var(--color-status-success)]",
-    badgeClass: "bg-[var(--color-badge-success-bg)] text-[var(--color-status-success)]",
-  },
-  CONCERN: {
-    label: "Concern",
-    icon: AlertTriangle,
-    borderClass: "border-l-[var(--color-status-danger)]",
-    bgClass: "bg-[var(--color-badge-danger-bg)]",
-    iconClass: "text-[var(--color-status-danger)]",
-    badgeClass: "bg-[var(--color-badge-danger-bg)] text-[var(--color-status-danger)]",
-  },
-  ACTION: {
-    label: "Action",
-    icon: Lightbulb,
-    borderClass: "border-l-primary",
-    bgClass: "bg-[var(--color-badge-inactive-bg)]",
-    iconClass: "text-primary",
-    badgeClass: "bg-[var(--color-badge-inactive-bg)] text-primary",
-  },
-  TREND: {
-    label: "Trend",
-    icon: ArrowRight,
-    borderClass: "border-l-[var(--color-status-warning)]",
-    bgClass: "bg-[var(--color-badge-warning-bg)]",
-    iconClass: "text-[var(--color-status-warning)]",
-    badgeClass: "bg-[var(--color-badge-warning-bg)] text-[var(--color-status-warning)]",
-  },
-}
-
-function parseInsights(text: string): ParsedInsight[] {
-  if (!text.trim()) return []
-  const lines = text.split("\n").filter((l) => l.trim().length > 0)
-  const insights: ParsedInsight[] = []
-  for (const line of lines) {
-    const match = line.match(/^\[(\w+)\]\s*(.+?)\s*\|\s*(.+)$/)
-    if (!match) continue
-    const [, rawCategory, title, description] = match
-    const category = rawCategory.toUpperCase()
-    if (!VALID_CATEGORIES.has(category)) continue
-    insights.push({
-      category: category as InsightCategory,
-      title: title.trim(),
-      description: description.trim(),
-    })
-  }
-  return insights
-}
-
-function countNewlines(text: string): number {
-  let c = 0
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === "\n") c++
-  }
-  return c
-}
 
 // ─── localStorage cache ─────────────────────────────────────────────────────
 
@@ -116,77 +31,6 @@ function setCachedSummary(participationId: string, text: string) {
   } catch {
     // Storage full or unavailable — ignore
   }
-}
-
-// ─── Insight card ───────────────────────────────────────────────────────────
-
-function InsightCard({ insight }: { insight: ParsedInsight }) {
-  const config = CATEGORY_CONFIG[insight.category]
-  const Icon = config.icon
-
-  return (
-    <div
-      className={cn(
-        "rounded-lg border border-border/50 border-l-[3px] p-3",
-        config.borderClass,
-        config.bgClass
-      )}
-    >
-      <div className="flex items-start gap-2.5">
-        <div
-          className={cn(
-            "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-            config.badgeClass
-          )}
-        >
-          <Icon className={cn("h-3 w-3", config.iconClass)} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span
-              className={cn(
-                "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                config.badgeClass
-              )}
-            >
-              {config.label}
-            </span>
-            <h4 className="text-xs font-semibold leading-snug">
-              {insight.title}
-            </h4>
-          </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            {insight.description}
-          </p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Incremental parse hook ─────────────────────────────────────────────────
-
-function useIncrementalParse(
-  streamedText: string,
-  rawText: string,
-  isStreaming: boolean
-): ParsedInsight[] {
-  const displayText = isStreaming ? streamedText : rawText
-  const insightsRef = useRef<ParsedInsight[]>([])
-  const prevLineCountRef = useRef(-1)
-  const prevRawTextRef = useRef(rawText)
-
-  const lineCount = countNewlines(displayText)
-  const rawTextChanged = rawText !== prevRawTextRef.current
-  const lineCountChanged = lineCount !== prevLineCountRef.current
-
-  if (lineCountChanged || rawTextChanged) {
-    prevLineCountRef.current = lineCount
-    prevRawTextRef.current = rawText
-    insightsRef.current = parseInsights(displayText)
-  }
-
-  return insightsRef.current
 }
 
 // ─── Main component ─────────────────────────────────────────────────────────
@@ -288,6 +132,7 @@ export function AINotesSection({
             <InsightCard
               key={`${insight.category}-${insight.title}`}
               insight={insight}
+              compact
             />
           ))}
         </div>

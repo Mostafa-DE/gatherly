@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { UserPlus, Check, X, Clock, Sparkles } from "lucide-react"
+import { UserPlus, Check, X, Clock, Sparkles, Loader2 } from "lucide-react"
 import { useAISummarizeJoinRequest } from "@/plugins/ai/hooks/use-ai-suggestion"
 
 export const Route = createFileRoute("/dashboard/org/$orgId/join-requests")({
@@ -205,19 +205,41 @@ function JoinRequestsPage() {
                   </div>
                   {/* AI Summary */}
                   {summarizingId === request.id && aiIsStreaming && (
-                    <div className="rounded-md bg-primary/5 p-3">
-                      <p className="text-sm text-muted-foreground">
-                        <Sparkles className="mr-1 inline h-3.5 w-3.5 text-primary" />
-                        {aiStreamedText || "Generating summary..."}
-                      </p>
+                    <div className="rounded-lg border border-border/50 border-l-[3px] border-l-primary bg-primary/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-primary/10 text-primary">
+                              Summary
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            {aiStreamedText || "Analyzing applicant..."}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {summaries[request.id] && !(summarizingId === request.id && aiIsStreaming) && (
-                    <div className="rounded-md bg-primary/5 p-3">
-                      <p className="text-sm text-muted-foreground">
-                        <Sparkles className="mr-1 inline h-3.5 w-3.5 text-primary" />
-                        {summaries[request.id]}
-                      </p>
+                    <div className="rounded-lg border border-border/50 border-l-[3px] border-l-primary bg-primary/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                          <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-primary/10 text-primary">
+                              Summary
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed text-muted-foreground">
+                            {summaries[request.id]}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                   {summarizingId === request.id && aiError && (
