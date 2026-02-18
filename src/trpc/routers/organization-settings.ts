@@ -77,6 +77,10 @@ export const organizationSettingsRouter = router({
         throw new BadRequestError(`Unknown plugin: ${input.pluginId}`)
       }
 
+      if (pluginMeta.scope !== "org") {
+        throw new BadRequestError(`Plugin "${pluginMeta.name}" is not an organization-scoped plugin`)
+      }
+
       if (pluginMeta.alwaysEnabled) {
         throw new BadRequestError(
           pluginMeta.alwaysEnabledReason ??

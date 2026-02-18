@@ -357,6 +357,12 @@ export const smartGroupsRouter = router({
         })
       }
 
+      // Compute excluded entries (saved for display but not grouped)
+      const effectiveUserIds = new Set(effectiveEntries.map((e) => e.userId))
+      const excludedEntries = allEntries.filter(
+        (e) => !effectiveUserIds.has(e.userId)
+      )
+
       // Create run + entries + proposals in transaction
       const result = await db.transaction(async (tx) => {
         const run = await createRunWithEntries(
@@ -372,10 +378,16 @@ export const smartGroupsRouter = router({
             excludedCount,
             generatedBy: ctx.user.id,
           },
-          effectiveEntries.map((e) => ({
-            userId: e.userId,
-            dataSnapshot: e.data,
-          }))
+          [
+            ...effectiveEntries.map((e) => ({
+              userId: e.userId,
+              dataSnapshot: e.data,
+            })),
+            ...excludedEntries.map((e) => ({
+              userId: e.userId,
+              dataSnapshot: e.data,
+            })),
+          ]
         )
 
         await createProposals(

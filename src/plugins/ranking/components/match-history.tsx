@@ -1,8 +1,7 @@
 import { trpc } from "@/lib/trpc"
-import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Pencil } from "lucide-react"
 import { getDomain } from "@/plugins/ranking/domains"
+import { MatchCard } from "./match-card"
 
 export type MatchData = {
   id: string
@@ -23,6 +22,7 @@ type MatchHistoryProps = {
   sessionId?: string
   playerNames: Record<string, string>
   isAdmin?: boolean
+  editingMatchId?: string
   onCorrectMatch?: (match: MatchData) => void
 }
 
@@ -32,6 +32,7 @@ export function MatchHistory({
   sessionId,
   playerNames,
   isAdmin,
+  editingMatchId,
   onCorrectMatch,
 }: MatchHistoryProps) {
   const domain = getDomain(domainId)
@@ -49,9 +50,9 @@ export function MatchHistory({
 
   if (isLoading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-10 rounded-lg" />
+          <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
       </div>
     )
@@ -74,7 +75,7 @@ export function MatchHistory({
   }
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2.5">
       {matches.map((match) => {
         const team1Ids = match.team1 as string[]
         const team2Ids = match.team2 as string[]
@@ -82,35 +83,20 @@ export function MatchHistory({
         const team2Names = team2Ids.map((id) => playerNames[id] ?? "Unknown")
 
         return (
-          <div
+          <MatchCard
             key={match.id}
-            className="flex items-center justify-between rounded-lg border border-border/50 bg-background/50 px-3 py-2"
-          >
-            <MatchDisplay
-              scores={match.scores}
-              winner={match.winner as "team1" | "team2" | "draw"}
-              team1Names={team1Names}
-              team2Names={team2Names}
-            />
-            <div className="flex items-center gap-1 shrink-0 ml-2">
-              <span className="text-[10px] text-muted-foreground">
-                {new Date(match.createdAt).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
-              {isAdmin && onCorrectMatch && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-foreground"
-                  onClick={() => onCorrectMatch(match as MatchData)}
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          </div>
+            match={match as MatchData}
+            team1Names={team1Names}
+            team2Names={team2Names}
+            MatchDisplay={MatchDisplay}
+            isAdmin={isAdmin}
+            isEditing={editingMatchId === match.id}
+            onCorrect={
+              onCorrectMatch
+                ? () => onCorrectMatch(match as MatchData)
+                : undefined
+            }
+          />
         )
       })}
     </div>

@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, Navigate } from "@tanstack/react-router"
 import { useSession } from "@/auth/client"
 import { AppSidebar, BreadcrumbNav, QuickActions } from "@/components/dashboard"
+import { MobileActivitySwitcher } from "@/components/dashboard/activity-switcher"
 import { ThemeToggle } from "@/components/theme-toggle"
 import {
   SidebarInset,
@@ -67,6 +68,7 @@ function DashboardLayout() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-1 h-4 sm:mr-2" />
           <BreadcrumbNav />
+          <MobileActivitySwitcher />
           <QuickActions />
           <ThemeToggle />
         </header>

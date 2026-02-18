@@ -220,7 +220,7 @@ describe("plugin router", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" })
   })
 
-  it("rejects attempts to toggle always-enabled analytics plugin", async () => {
+  it("rejects attempts to toggle activity-scoped analytics plugin from org settings", async () => {
     const ownerCaller = buildCaller(owner, organizationId)
 
     await expect(
@@ -230,7 +230,7 @@ describe("plugin router", () => {
       })
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",
-      message: "Analytics is a core capability and is always enabled for every group.",
+      message: 'Plugin "Analytics" is not an organization-scoped plugin',
     })
   })
 

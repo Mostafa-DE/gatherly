@@ -317,9 +317,11 @@ function AnalyticsPage() {
                 {topSessions.length > 0 ? (
                   <div className="space-y-2">
                     {topSessions.map((s, i) => (
-                      <div
+                      <Link
                         key={s.id}
-                        className="flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2"
+                        to="/dashboard/org/$orgId/sessions/$sessionId"
+                        params={{ orgId, sessionId: s.id }}
+                        className="group flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2 transition-colors hover:bg-muted/40 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
@@ -338,7 +340,7 @@ function AnalyticsPage() {
                             {s.joinedCount}/{s.maxCapacity}
                           </p>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 ) : (
@@ -362,9 +364,11 @@ function AnalyticsPage() {
                 {topAttendees.length > 0 ? (
                   <div className="space-y-2">
                     {topAttendees.map((a, i) => (
-                      <div
+                      <Link
                         key={a.userId}
-                        className="flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2"
+                        to="/dashboard/org/$orgId/members/$userId"
+                        params={{ orgId, userId: a.userId }}
+                        className="group flex items-center justify-between rounded-lg border border-border/30 bg-background/60 px-3 py-2 transition-colors hover:bg-muted/40 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
@@ -395,7 +399,7 @@ function AnalyticsPage() {
                         <span className="ml-2 shrink-0 text-sm font-bold font-mono tabular-nums text-primary">
                           {a.count} sessions
                         </span>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 ) : (

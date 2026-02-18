@@ -252,13 +252,19 @@ export async function confirmRun(
       }
     }
 
-    // Check for members not in any group
+    // Check for members not in any group (excluding deliberately excluded members)
+    // Excluded members are entries saved for display but not assigned to any group.
+    // The number of unassigned entries should match the run's excludedCount.
+    let unassignedCount = 0
     for (const userId of entryUserIds) {
       if (!seenInProposals.has(userId)) {
-        throw new ValidationError(
-          `Member ${userId} is not assigned to any group`
-        )
+        unassignedCount++
       }
+    }
+    if (unassignedCount !== run.excludedCount) {
+      throw new ValidationError(
+        `Expected ${run.excludedCount} excluded members, but found ${unassignedCount} unassigned`
+      )
     }
 
     // Optimistic lock: update status

@@ -712,11 +712,11 @@ function SessionDetailPage() {
             <div className="flex flex-wrap gap-2">
               {participants.slice(0, 8).map((p, i) => {
                 const level = memberLevelMap.get(p.user.id)
-                return (
-                  <div
-                    key={p.participation.id}
-                    className="group relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 transition-colors hover:bg-muted/50"
-                  >
+                const participantClasses =
+                  "group relative flex items-center gap-2 rounded-lg border bg-background px-3 py-2 transition-colors hover:bg-muted/50"
+
+                const participantContent = (
+                  <>
                     <div
                       className={cn(
                         "flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium shrink-0",
@@ -751,6 +751,28 @@ function SessionDetailPage() {
                         {level.levelName}
                       </span>
                     )}
+                  </>
+                )
+
+                if (isAdmin) {
+                  return (
+                    <Link
+                      key={p.participation.id}
+                      to="/dashboard/org/$orgId/members/$userId"
+                      params={{ orgId, userId: p.user.id }}
+                      className={`${participantClasses} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+                    >
+                      {participantContent}
+                    </Link>
+                  )
+                }
+
+                return (
+                  <div
+                    key={p.participation.id}
+                    className={participantClasses}
+                  >
+                    {participantContent}
                   </div>
                 )
               })}

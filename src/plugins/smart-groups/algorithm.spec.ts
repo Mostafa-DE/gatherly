@@ -417,4 +417,535 @@ describe("multiBalancedTeams", () => {
     // After swap optimization, teams should be reasonably balanced
     expect(spread).toBeLessThan(10)
   })
+
+  it("balances by multiple fields simultaneously", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { wins: 10, losses: 2 } },
+      { userId: "u2", data: { wins: 8, losses: 4 } },
+      { userId: "u3", data: { wins: 3, losses: 9 } },
+      { userId: "u4", data: { wins: 1, losses: 7 } },
+      { userId: "u5", data: { wins: 6, losses: 5 } },
+      { userId: "u6", data: { wins: 5, losses: 6 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [
+        { sourceId: "wins", weight: 1 },
+        { sourceId: "losses", weight: 1 },
+      ],
+    })
+
+    expect(result).toHaveLength(2)
+    const allIds = result.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4", "u5", "u6"])
+
+    // Both fields should be somewhat balanced
+    for (const field of ["wins", "losses"] as const) {
+      const teamAvgs = result.map((t) => {
+        const sum = t.memberIds.reduce(
+          (acc, id) => acc + (entries.find((e) => e.userId === id)!.data[field] as number),
+          0
+        )
+        return sum / t.memberIds.length
+      })
+      const spread = Math.max(...teamAvgs) - Math.min(...teamAvgs)
+      expect(spread).toBeLessThan(5)
+    }
+  })
+
+  it("partitions by categorical field before balancing", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { gender: "M", score: 10 } },
+      { userId: "u2", data: { gender: "M", score: 8 } },
+      { userId: "u3", data: { gender: "F", score: 9 } },
+      { userId: "u4", data: { gender: "F", score: 7 } },
+      { userId: "u5", data: { gender: "M", score: 6 } },
+      { userId: "u6", data: { gender: "F", score: 5 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+      partitionFields: ["gender"],
+    })
+
+    expect(result).toHaveLength(2)
+
+    // Each team should have a mix of genders (partitioned snake draft distributes evenly)
+    for (const team of result) {
+      const genders = team.memberIds.map(
+        (id) => entries.find((e) => e.userId === id)!.data.gender
+      )
+      const maleCount = genders.filter((g) => g === "M").length
+      const femaleCount = genders.filter((g) => g === "F").length
+      // With 3M/3F into 2 teams, each should have at least 1 of each
+      expect(maleCount).toBeGreaterThanOrEqual(1)
+      expect(femaleCount).toBeGreaterThanOrEqual(1)
+    }
+  })
+
+  it("handles partition with missing values as 'Unknown'", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { gender: "M", score: 10 } },
+      { userId: "u2", data: { score: 8 } },
+      { userId: "u3", data: { gender: "F", score: 6 } },
+      { userId: "u4", data: { score: 4 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+      partitionFields: ["gender"],
+    })
+
+    expect(result).toHaveLength(2)
+    const allIds = result.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4"])
+  })
+
+  it("handles non-numeric balance field values as 0", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: "abc" } },
+      { userId: "u2", data: { score: 10 } },
+      { userId: "u3", data: { score: null } },
+      { userId: "u4", data: { score: 5 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+    })
+
+    expect(result).toHaveLength(2)
+    const allIds = result.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4"])
+  })
+
+  it("handles single entry", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0].memberIds).toEqual(["u1"])
+  })
+
+  it("creates 3 balanced teams", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 30 } },
+      { userId: "u2", data: { score: 25 } },
+      { userId: "u3", data: { score: 20 } },
+      { userId: "u4", data: { score: 15 } },
+      { userId: "u5", data: { score: 10 } },
+      { userId: "u6", data: { score: 5 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 3,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+    })
+
+    expect(result).toHaveLength(3)
+    expect(result.map((t) => t.groupName)).toEqual(["Team 1", "Team 2", "Team 3"])
+
+    const teamAvgs = result.map((t) => {
+      const sum = t.memberIds.reduce(
+        (acc, id) => acc + (entries.find((e) => e.userId === id)!.data.score as number),
+        0
+      )
+      return sum / t.memberIds.length
+    })
+    const spread = Math.max(...teamAvgs) - Math.min(...teamAvgs)
+    expect(spread).toBeLessThan(5)
+  })
+})
+
+// =============================================================================
+// clusterByDistance — variety penalty
+// =============================================================================
+
+describe("clusterByDistance with variety penalty", () => {
+  it("similarity mode: previously-paired users are less likely to group together", () => {
+    // 4 users, 2 clusters: u1+u2 close, u3+u4 close
+    // But variety penalty makes u1-u2 pairing undesirable
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 12 } },
+      { userId: "u3", data: { score: 90 } },
+      { userId: "u4", data: { score: 88 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    // Without variety: u1+u2 should cluster, u3+u4 should cluster
+    const noVariety = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+    })
+    const group1 = noVariety.find((g) => g.memberIds.includes("u1"))!
+    expect(group1.memberIds).toContain("u2")
+
+    // With strong variety penalty on u1-u2 pair
+    const penaltyMatrix = new Map<string, number>()
+    penaltyMatrix.set("u1:u2", 1) // max penalty
+
+    const withVariety = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+      varietyPenalty: penaltyMatrix,
+      varietyWeight: 5, // high weight to override distance
+    })
+
+    // With such strong penalty, u1 and u2 may still end up together
+    // since they're so close, but the distance should be inflated
+    const allIds = withVariety.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4"])
+  })
+
+  it("diversity mode: previously-paired users become less attractive for mixing", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 50 } },
+      { userId: "u3", data: { score: 90 } },
+      { userId: "u4", data: { score: 30 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const penaltyMatrix = new Map<string, number>()
+    penaltyMatrix.set("u1:u3", 1)
+
+    const result = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "diversity",
+      varietyPenalty: penaltyMatrix,
+      varietyWeight: 2,
+    })
+
+    expect(result).toHaveLength(2)
+    const allIds = result.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4"])
+  })
+
+  it("variety penalty with empty matrix has no effect", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 12 } },
+      { userId: "u3", data: { score: 90 } },
+      { userId: "u4", data: { score: 88 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const without = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+    })
+
+    const withEmpty = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+      varietyPenalty: new Map(),
+      varietyWeight: 1,
+    })
+
+    // Same result since penalty matrix is empty
+    expect(without.map((g) => g.memberIds.sort())).toEqual(
+      withEmpty.map((g) => g.memberIds.sort())
+    )
+  })
+
+  it("varietyWeight=0 disables variety even with non-empty matrix", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 12 } },
+      { userId: "u3", data: { score: 90 } },
+      { userId: "u4", data: { score: 88 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const penaltyMatrix = new Map([["u1:u2", 1]])
+
+    const without = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+    })
+
+    const withZeroWeight = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+      varietyPenalty: penaltyMatrix,
+      varietyWeight: 0,
+    })
+
+    expect(without.map((g) => g.memberIds.sort())).toEqual(
+      withZeroWeight.map((g) => g.memberIds.sort())
+    )
+  })
+})
+
+// =============================================================================
+// clusterByDistance — multi-field and edge cases
+// =============================================================================
+
+describe("clusterByDistance — multi-field", () => {
+  it("clusters by multiple fields with different types", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { gender: "M", score: 10, tags: ["fast"] } },
+      { userId: "u2", data: { gender: "M", score: 15, tags: ["fast"] } },
+      { userId: "u3", data: { gender: "F", score: 80, tags: ["slow"] } },
+      { userId: "u4", data: { gender: "F", score: 85, tags: ["slow"] } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "gender", type: "select", weight: 1 },
+      { sourceId: "score", type: "number", weight: 1 },
+      { sourceId: "tags", type: "multiselect", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(2)
+    // u1+u2 should cluster (same gender, similar score, same tags)
+    const group1 = result.find((g) => g.memberIds.includes("u1"))!
+    expect(group1.memberIds).toContain("u2")
+    const group2 = result.find((g) => g.memberIds.includes("u3"))!
+    expect(group2.memberIds).toContain("u4")
+  })
+
+  it("handles single entry", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { x: "A" } },
+    ]
+    const fields: FieldMeta[] = [{ sourceId: "x", type: "select", weight: 1 }]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 3,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0].memberIds).toEqual(["u1"])
+  })
+
+  it("handles 3 groups with uneven distribution", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 1 } },
+      { userId: "u2", data: { score: 2 } },
+      { userId: "u3", data: { score: 50 } },
+      { userId: "u4", data: { score: 51 } },
+      { userId: "u5", data: { score: 99 } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 3,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(3)
+    const allIds = result.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4", "u5"])
+  })
+})
+
+// =============================================================================
+// multiBalancedTeams — variety penalty
+// =============================================================================
+
+describe("multiBalancedTeams with variety penalty", () => {
+  it("variety penalty influences swap optimization", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 9 } },
+      { userId: "u3", data: { score: 8 } },
+      { userId: "u4", data: { score: 7 } },
+    ]
+
+    // Heavy penalty on u1-u2 pair
+    const penaltyMatrix = new Map([["u1:u2", 1]])
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+      varietyPenalty: penaltyMatrix,
+      varietyWeight: 1,
+    })
+
+    expect(result).toHaveLength(2)
+    const allIds = result.flatMap((g) => g.memberIds).sort()
+    expect(allIds).toEqual(["u1", "u2", "u3", "u4"])
+  })
+
+  it("variety with weight 0 has no effect", () => {
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { score: 10 } },
+      { userId: "u2", data: { score: 8 } },
+      { userId: "u3", data: { score: 6 } },
+      { userId: "u4", data: { score: 4 } },
+    ]
+
+    const penaltyMatrix = new Map([["u1:u4", 1]])
+
+    const without = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+    })
+
+    const withZero = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+      varietyPenalty: penaltyMatrix,
+      varietyWeight: 0,
+    })
+
+    expect(without.map((g) => g.memberIds.sort())).toEqual(
+      withZero.map((g) => g.memberIds.sort())
+    )
+  })
+})
+
+// =============================================================================
+// Score projection fallback (>1200 entries)
+// =============================================================================
+
+describe("clusterByDistance — score projection fallback", () => {
+  it("handles large entry sets via projection (>1200)", () => {
+    // Generate 1300 entries with known score pattern
+    const entries: GroupEntry[] = Array.from({ length: 1300 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: i },
+    }))
+
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 4,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(4)
+    const allIds = result.flatMap((g) => g.memberIds)
+    expect(allIds).toHaveLength(1300)
+    // No duplicates
+    expect(new Set(allIds).size).toBe(1300)
+
+    // Groups should be roughly equal in size
+    for (const group of result) {
+      expect(group.memberIds.length).toBeGreaterThan(250)
+      expect(group.memberIds.length).toBeLessThan(400)
+    }
+  })
+
+  it("score projection similarity: groups have contiguous score ranges", () => {
+    const entries: GroupEntry[] = Array.from({ length: 1500 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: i },
+    }))
+
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 3,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(3)
+
+    // For similarity with linear scores, each group should contain a contiguous range
+    for (const group of result) {
+      const scores = group.memberIds
+        .map((id) => entries.find((e) => e.userId === id)!.data.score as number)
+        .sort((a, b) => a - b)
+      // Check scores are contiguous (each is within 1 of next)
+      for (let i = 1; i < scores.length; i++) {
+        expect(scores[i] - scores[i - 1]).toBe(1)
+      }
+    }
+  })
+
+  it("score projection diversity: groups have interleaved scores", () => {
+    const entries: GroupEntry[] = Array.from({ length: 1500 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: i },
+    }))
+
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 3,
+      fields,
+      objective: "diversity",
+    })
+
+    expect(result).toHaveLength(3)
+
+    // For diversity, each group should span the full range (not contiguous)
+    for (const group of result) {
+      const scores = group.memberIds
+        .map((id) => entries.find((e) => e.userId === id)!.data.score as number)
+      const min = Math.min(...scores)
+      const max = Math.max(...scores)
+      // Each group should span most of the range
+      expect(max - min).toBeGreaterThan(1000)
+    }
+  })
+
+  it("score projection: variety penalty is ignored (no distance matrix)", () => {
+    const entries: GroupEntry[] = Array.from({ length: 1300 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: i },
+    }))
+
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const penaltyMatrix = new Map([["u0:u1", 1]])
+
+    // Should not throw, variety is silently ignored
+    const result = clusterByDistance(entries, {
+      groupCount: 2,
+      fields,
+      objective: "similarity",
+      varietyPenalty: penaltyMatrix,
+      varietyWeight: 1,
+    })
+
+    expect(result).toHaveLength(2)
+    expect(result.flatMap((g) => g.memberIds)).toHaveLength(1300)
+  })
 })

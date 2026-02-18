@@ -1,11 +1,10 @@
 import { useState } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Swords } from "lucide-react"
+import { Plus, Swords } from "lucide-react"
 import { getDomain } from "@/plugins/ranking/domains"
-import { MatchRecordingDialog } from "./match-recording-dialog"
+import { MatchInlineForm } from "./match-inline-form"
 import { MatchHistory, type MatchData } from "./match-history"
 
 type SessionMatchesSectionProps = {
@@ -25,8 +24,8 @@ export function SessionMatchesSection({
   isAdmin,
   participants,
 }: SessionMatchesSectionProps) {
-  const [showRecordDialog, setShowRecordDialog] = useState(false)
-  const [correctingMatch, setCorrectingMatch] = useState<MatchData | null>(null)
+  const [formMode, setFormMode] = useState<"hidden" | "create" | "correct">("hidden")
+  const [editingMatch, setEditingMatch] = useState<MatchData | null>(null)
 
   const { data: definition, isLoading } =
     trpc.plugin.ranking.getByActivity.useQuery({ activityId })
@@ -66,57 +65,68 @@ export function SessionMatchesSection({
     participants.map((p) => [p.userId, p.name ?? "Unknown"])
   )
 
+  const showForm = formMode !== "hidden"
+
+  function closeForm() {
+    setFormMode("hidden")
+    setEditingMatch(null)
+  }
+
+  function handleCorrectMatch(match: MatchData) {
+    setEditingMatch(match)
+    setFormMode("correct")
+  }
+
   return (
-    <div className="rounded-xl border bg-card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="font-medium">Matches</h3>
+    <div className="rounded-xl border bg-card">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
+        <div className="flex items-center gap-2.5">
+          <Swords className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold text-sm">Matches</h3>
           {matchCount > 0 && (
-            <Badge variant="secondary" className="text-xs tabular-nums">
-              {matchCount}
-            </Badge>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              ({matchCount})
+            </span>
           )}
         </div>
-        {isAdmin && (
+        {isAdmin && !showForm && (
           <Button
-            variant="outline"
             size="sm"
-            onClick={() => setShowRecordDialog(true)}
+            onClick={() => setFormMode("create")}
+            className="h-8 text-xs"
           >
-            <Swords className="h-3.5 w-3.5 mr-1.5" />
-            Record Match
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Record
           </Button>
         )}
       </div>
 
-      {definition.id && (
-        <MatchHistory
-          rankingDefinitionId={definition.id}
-          domainId={definition.domainId}
-          sessionId={sessionId}
-          playerNames={playerNames}
-          isAdmin={isAdmin}
-          onCorrectMatch={(match) => setCorrectingMatch(match)}
-        />
-      )}
+      <div className="p-4 space-y-3">
+        {showForm && (
+          <MatchInlineForm
+            key={editingMatch?.id ?? "new"}
+            rankingDefinitionId={definition.id}
+            domainId={definition.domainId}
+            sessionId={sessionId}
+            availablePlayers={availablePlayers}
+            editingMatch={editingMatch}
+            onClose={closeForm}
+            onSuccess={closeForm}
+          />
+        )}
 
-      {(showRecordDialog || correctingMatch) && (
-        <MatchRecordingDialog
-          rankingDefinitionId={definition.id}
-          domainId={definition.domainId}
-          activityId={activityId}
-          sessionId={sessionId}
-          availablePlayers={availablePlayers}
-          open={showRecordDialog || !!correctingMatch}
-          onOpenChange={(open) => {
-            if (!open) {
-              setShowRecordDialog(false)
-              setCorrectingMatch(null)
-            }
-          }}
-          editingMatch={correctingMatch}
-        />
-      )}
+        {definition.id && (
+          <MatchHistory
+            rankingDefinitionId={definition.id}
+            domainId={definition.domainId}
+            sessionId={sessionId}
+            playerNames={playerNames}
+            isAdmin={isAdmin}
+            editingMatchId={editingMatch?.id}
+            onCorrectMatch={handleCorrectMatch}
+          />
+        )}
+      </div>
     </div>
   )
 }

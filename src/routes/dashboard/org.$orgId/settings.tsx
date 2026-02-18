@@ -86,6 +86,7 @@ function SettingsPage() {
   const persistedCurrency = (settings?.currency as SupportedCurrency | null) ?? ""
   const persistedFields =
     ((settings?.joinFormSchema as { fields?: FormField[] } | null)?.fields || [])
+  const orgPlugins = pluginCatalog.filter((plugin) => plugin.scope === "org")
 
   const nameAlreadyChanged = settings?.nameChangedAt != null
   const canEditName = isOwner && !nameAlreadyChanged
@@ -444,7 +445,7 @@ function SettingsPage() {
           </div>
 
           <div className="space-y-4">
-            {pluginCatalog.map((plugin) => (
+            {orgPlugins.map((plugin) => (
               <PluginToggle
                 key={plugin.id}
                 pluginId={plugin.id}
