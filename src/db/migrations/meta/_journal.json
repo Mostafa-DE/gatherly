@@ -50,6 +50,20 @@
       "when": 1771261376439,
       "tag": "0006_white_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771340667123,
+      "tag": "0007_greedy_maestro",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771414205268,
+      "tag": "0008_wakeful_stellaris",
+      "breakpoints": true
     }
   ]
 }

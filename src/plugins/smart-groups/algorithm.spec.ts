@@ -3,7 +3,7 @@ import {
   splitByAttribute,
   splitByAttributes,
   clusterByDistance,
-  balancedTeams,
+  multiBalancedTeams,
   type GroupEntry,
 } from "./algorithm"
 import type { FieldMeta } from "./distance"
@@ -283,12 +283,12 @@ describe("clusterByDistance", () => {
 })
 
 // =============================================================================
-// balancedTeams
+// multiBalancedTeams
 // =============================================================================
 
-describe("balancedTeams", () => {
+describe("multiBalancedTeams", () => {
   it("returns empty array for empty entries", () => {
-    const result = balancedTeams([], { teamCount: 2, balanceField: "wins" })
+    const result = multiBalancedTeams([], { teamCount: 2, balanceFields: [{ sourceId: "wins", weight: 1 }] })
     expect(result).toEqual([])
   })
 
@@ -304,7 +304,7 @@ describe("balancedTeams", () => {
       { userId: "u8", data: { wins: 3 } },
     ]
 
-    const result = balancedTeams(entries, { teamCount: 2, balanceField: "wins" })
+    const result = multiBalancedTeams(entries, { teamCount: 2, balanceFields: [{ sourceId: "wins", weight: 1 }] })
 
     expect(result).toHaveLength(2)
 
@@ -335,7 +335,7 @@ describe("balancedTeams", () => {
       { userId: "u4", data: { rating: 4 } },
     ]
 
-    const result = balancedTeams(entries, { teamCount: 2, balanceField: "rating" })
+    const result = multiBalancedTeams(entries, { teamCount: 2, balanceFields: [{ sourceId: "rating", weight: 1 }] })
 
     expect(result).toHaveLength(2)
 
@@ -362,7 +362,7 @@ describe("balancedTeams", () => {
       { userId: "u4", data: { score: 5 } },
     ]
 
-    const result = balancedTeams(entries, { teamCount: 2, balanceField: "score" })
+    const result = multiBalancedTeams(entries, { teamCount: 2, balanceFields: [{ sourceId: "score", weight: 1 }] })
 
     expect(result).toHaveLength(2)
     expect(result[0].memberIds).toHaveLength(2)
@@ -375,7 +375,7 @@ describe("balancedTeams", () => {
       { userId: "u2", data: { score: 5 } },
     ]
 
-    const result = balancedTeams(entries, { teamCount: 5, balanceField: "score" })
+    const result = multiBalancedTeams(entries, { teamCount: 5, balanceFields: [{ sourceId: "score", weight: 1 }] })
 
     // Should create at most n teams
     expect(result).toHaveLength(2)
@@ -388,14 +388,12 @@ describe("balancedTeams", () => {
       { userId: "u3", data: { score: 8 } },
     ]
 
-    const result = balancedTeams(entries, { teamCount: 3, balanceField: "score" })
+    const result = multiBalancedTeams(entries, { teamCount: 3, balanceFields: [{ sourceId: "score", weight: 1 }] })
 
     expect(result.map((t) => t.groupName)).toEqual(["Team 1", "Team 2", "Team 3"])
   })
 
   it("swap optimization improves balance", () => {
-    // Create a scenario where snake draft alone isn't optimal
-    // but swap can improve it
     const entries: GroupEntry[] = [
       { userId: "u1", data: { score: 100 } },
       { userId: "u2", data: { score: 50 } },
@@ -405,7 +403,7 @@ describe("balancedTeams", () => {
       { userId: "u6", data: { score: 10 } },
     ]
 
-    const result = balancedTeams(entries, { teamCount: 2, balanceField: "score" })
+    const result = multiBalancedTeams(entries, { teamCount: 2, balanceFields: [{ sourceId: "score", weight: 1 }] })
 
     const teamAvgs = result.map((t) => {
       const sum = t.memberIds.reduce(

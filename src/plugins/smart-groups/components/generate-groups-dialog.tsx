@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -6,13 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Dialog,
   DialogContent,
@@ -39,6 +32,8 @@ type GenerateGroupsDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  visibleFields?: string[] | null
+  defaultCriteria?: Criteria | null
 }
 
 type Mode = "split" | "similarity" | "diversity" | "balanced"
@@ -91,9 +86,12 @@ export function GenerateGroupsDialog({
   open,
   onOpenChange,
   onSuccess,
+  visibleFields,
+  defaultCriteria,
 }: GenerateGroupsDialogProps) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [error, setError] = useState("")
+  const [initialized, setInitialized] = useState(false)
 
   // Split mode state
   const [splitFields, setSplitFields] = useState<string[]>([])
@@ -105,15 +103,34 @@ export function GenerateGroupsDialog({
   )
 
   // Balanced mode state
-  const [balanceField, setBalanceField] = useState<string>("")
+  const [balanceFields, setBalanceFields] = useState<WeightedFieldState[]>([])
+  const [partitionFields, setPartitionFields] = useState<string[]>([])
   const [teamCount, setTeamCount] = useState(() =>
     Math.max(2, Math.ceil(participantCount / 4))
   )
 
-  const { data: fields, isLoading } = trpc.plugin.smartGroups.getAvailableFields.useQuery(
+  // Variety state (shared across similarity/diversity/balanced)
+  const [varietyWeight, setVarietyWeight] = useState(0)
+
+  const { data: rawFields, isLoading } = trpc.plugin.smartGroups.getAvailableFields.useQuery(
     { activityId, sessionId },
     { enabled: open }
   )
+
+  // Filter fields by visibility config
+  const fields = rawFields
+    ? visibleFields && visibleFields.length > 0
+      ? rawFields.filter((f) => visibleFields.includes(f.sourceId))
+      : rawFields
+    : undefined
+
+  // Initialize from defaultCriteria on first open
+  useEffect(() => {
+    if (!initialized && open && defaultCriteria && fields) {
+      initializeFromCriteria(defaultCriteria)
+      setInitialized(true)
+    }
+  }, [initialized, open, defaultCriteria, fields])
 
   const generateGroups = trpc.plugin.smartGroups.generateGroups.useMutation({
     onSuccess: () => {
@@ -124,14 +141,37 @@ export function GenerateGroupsDialog({
     onError: (err) => setError(err.message),
   })
 
+  const updateConfig = trpc.plugin.smartGroups.updateConfig.useMutation({
+    onError: (err) => setError(err.message),
+  })
+
   function resetState() {
     setError("")
     setMode(null)
     setSplitFields([])
     setClusterFields([])
     setGroupCount(Math.max(2, Math.ceil(participantCount / 4)))
-    setBalanceField("")
+    setBalanceFields([])
+    setPartitionFields([])
     setTeamCount(Math.max(2, Math.ceil(participantCount / 4)))
+    setVarietyWeight(0)
+    setInitialized(false)
+  }
+
+  function initializeFromCriteria(criteria: Criteria) {
+    setMode(criteria.mode)
+    if (criteria.mode === "split") {
+      setSplitFields(criteria.fields.map((f) => f.sourceId))
+    } else if (criteria.mode === "similarity" || criteria.mode === "diversity") {
+      setClusterFields(criteria.fields.map((f) => ({ sourceId: f.sourceId, weight: f.weight })))
+      setGroupCount(criteria.groupCount)
+      if (criteria.varietyWeight !== undefined) setVarietyWeight(criteria.varietyWeight)
+    } else if (criteria.mode === "balanced") {
+      setBalanceFields(criteria.balanceFields.map((f) => ({ sourceId: f.sourceId, weight: f.weight })))
+      if (criteria.partitionFields) setPartitionFields(criteria.partitionFields)
+      setTeamCount(criteria.teamCount)
+      if (criteria.varietyWeight !== undefined) setVarietyWeight(criteria.varietyWeight)
+    }
   }
 
   // Split mode helpers
@@ -160,6 +200,23 @@ export function GenerateGroupsDialog({
     )
   }
 
+  // Balanced mode helpers
+  function toggleBalanceField(sourceId: string) {
+    setBalanceFields((prev) => {
+      if (prev.some((f) => f.sourceId === sourceId)) {
+        return prev.filter((f) => f.sourceId !== sourceId)
+      }
+      if (prev.length >= 10) return prev
+      return [...prev, { sourceId, weight: 1 }]
+    })
+  }
+
+  function setBalanceFieldWeight(sourceId: string, weight: number) {
+    setBalanceFields((prev) =>
+      prev.map((f) => (f.sourceId === sourceId ? { ...f, weight } : f))
+    )
+  }
+
   // Build criteria from current state
   function buildCriteria(): Criteria | null {
     if (!mode) return null
@@ -178,15 +235,18 @@ export function GenerateGroupsDialog({
         mode,
         fields: clusterFields.map((f) => ({ sourceId: f.sourceId, weight: f.weight })),
         groupCount,
+        ...(varietyWeight > 0 ? { varietyWeight } : {}),
       }
     }
 
     if (mode === "balanced") {
-      if (!balanceField) return null
+      if (balanceFields.length === 0) return null
       return {
         mode: "balanced",
-        balanceField,
+        balanceFields: balanceFields.map((f) => ({ sourceId: f.sourceId, weight: f.weight })),
+        ...(partitionFields.length > 0 ? { partitionFields } : {}),
         teamCount,
+        ...(varietyWeight > 0 ? { varietyWeight } : {}),
       }
     }
 
@@ -218,12 +278,32 @@ export function GenerateGroupsDialog({
     }
   }
 
-  // Numeric fields only (for balanced mode)
+  // Numeric fields only (for balanced mode balance fields)
   const numericFields = fields?.filter(
     (f) => f.type === "ranking_stat" || f.type === "number"
   ) ?? []
 
+  // Categorical fields (for balanced mode partition field)
+  const categoricalFields = fields?.filter(
+    (f) => f.type === "select" || f.type === "radio" || f.type === "ranking_level"
+  ) ?? []
+
+  // Numeric fields grouped by source (for balanced multi-field UI)
+  const numericGroupedFields = new Map<string, NonNullable<typeof fields>>()
+  for (const field of numericFields) {
+    const group = numericGroupedFields.get(field.source) ?? []
+    group.push(field)
+    numericGroupedFields.set(field.source, group)
+  }
+
   const memberLabel = scope === "session" ? "participants" : "members"
+
+  function handleSaveAsDefault() {
+    const criteria = buildCriteria()
+    if (!criteria) return
+    setError("")
+    updateConfig.mutate({ configId, defaultCriteria: criteria })
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetState(); onOpenChange(v) }}>
@@ -301,9 +381,19 @@ export function GenerateGroupsDialog({
               />
             ) : mode === "balanced" ? (
               <BalancedConfig
-                numericFields={numericFields}
-                balanceField={balanceField}
-                onBalanceFieldChange={setBalanceField}
+                numericGroupedFields={numericGroupedFields}
+                categoricalFields={categoricalFields}
+                balanceFields={balanceFields}
+                onToggleBalanceField={toggleBalanceField}
+                onBalanceFieldWeightChange={setBalanceFieldWeight}
+                partitionFields={partitionFields}
+                onTogglePartitionField={(sourceId) => {
+                  setPartitionFields((prev) =>
+                    prev.includes(sourceId)
+                      ? prev.filter((id) => id !== sourceId)
+                      : [...prev, sourceId]
+                  )
+                }}
                 teamCount={teamCount}
                 onTeamCountChange={setTeamCount}
                 participantCount={participantCount}
@@ -312,13 +402,22 @@ export function GenerateGroupsDialog({
           </div>
         )}
 
+        {/* Variety Slider — shown for all modes except split */}
+        {mode && mode !== "split" && (
+          <VarietySlider
+            value={varietyWeight}
+            onChange={setVarietyWeight}
+          />
+        )}
+
         {/* Preview */}
         {canGenerate && (
           <PreviewText
             mode={mode!}
             splitFields={splitFields}
             clusterFields={clusterFields}
-            balanceField={balanceField}
+            balanceFields={balanceFields}
+            partitionFields={partitionFields}
             groupCount={groupCount}
             teamCount={teamCount}
             participantCount={participantCount}
@@ -327,7 +426,18 @@ export function GenerateGroupsDialog({
           />
         )}
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {canGenerate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSaveAsDefault}
+              disabled={updateConfig.isPending}
+              className="mr-auto"
+            >
+              {updateConfig.isPending ? "Saving..." : "Save as Default"}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => { resetState(); onOpenChange(false) }}>
             Cancel
           </Button>
@@ -523,21 +633,32 @@ function ClusterConfig({
 // =============================================================================
 
 function BalancedConfig({
-  numericFields,
-  balanceField,
-  onBalanceFieldChange,
+  numericGroupedFields,
+  categoricalFields,
+  balanceFields,
+  onToggleBalanceField,
+  onBalanceFieldWeightChange,
+  partitionFields,
+  onTogglePartitionField,
   teamCount,
   onTeamCountChange,
   participantCount,
 }: {
-  numericFields: AvailableField[]
-  balanceField: string
-  onBalanceFieldChange: (field: string) => void
+  numericGroupedFields: Map<string, AvailableField[]>
+  categoricalFields: AvailableField[]
+  balanceFields: WeightedFieldState[]
+  onToggleBalanceField: (sourceId: string) => void
+  onBalanceFieldWeightChange: (sourceId: string, weight: number) => void
+  partitionFields: string[]
+  onTogglePartitionField: (sourceId: string) => void
   teamCount: number
   onTeamCountChange: (count: number) => void
   participantCount: number
 }) {
-  if (numericFields.length === 0) {
+  const hasNumericFields = numericGroupedFields.size > 0
+  const selectedIds = new Set(balanceFields.map((f) => f.sourceId))
+
+  if (!hasNumericFields) {
     return (
       <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
         <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -551,30 +672,103 @@ function BalancedConfig({
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Create teams balanced by a numeric stat using snake draft.
+        Create teams balanced by numeric stats. Select fields and adjust weights.
       </p>
 
-      {/* Balance field selector */}
-      <div className="space-y-2">
-        <Label htmlFor="balance-field" className="text-sm">
-          Balance by
-        </Label>
-        <Select value={balanceField} onValueChange={onBalanceFieldChange}>
-          <SelectTrigger id="balance-field">
-            <SelectValue placeholder="Select a numeric field" />
-          </SelectTrigger>
-          <SelectContent>
-            {numericFields.map((field) => (
-              <SelectItem key={field.sourceId} value={field.sourceId}>
-                {field.label}
-              </SelectItem>
+      {/* Balance fields — multi-select with weights */}
+      {[...numericGroupedFields.entries()].map(([source, sourceFields]) => (
+        <div key={source}>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            {sourceLabels[source] ?? source}
+          </p>
+          <div className="space-y-2">
+            {sourceFields.map((field) => {
+              const isSelected = selectedIds.has(field.sourceId)
+              const weightState = balanceFields.find((f) => f.sourceId === field.sourceId)
+
+              return (
+                <div
+                  key={field.sourceId}
+                  className="rounded-lg border border-border/50 bg-background/50 p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id={`balance-${field.sourceId}`}
+                      checked={isSelected}
+                      onCheckedChange={() => onToggleBalanceField(field.sourceId)}
+                    />
+                    <Label
+                      htmlFor={`balance-${field.sourceId}`}
+                      className="flex-1 cursor-pointer text-sm"
+                    >
+                      {field.label}
+                    </Label>
+                    <Badge variant="outline" className="text-xs">
+                      {field.type}
+                    </Badge>
+                  </div>
+                  {isSelected && weightState && (
+                    <div className="mt-2 ml-8 flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground w-14 shrink-0">
+                        Weight
+                      </span>
+                      <Slider
+                        value={[weightState.weight]}
+                        onValueChange={([v]) => onBalanceFieldWeightChange(field.sourceId, v)}
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        className="flex-1"
+                      />
+                      <span className="text-xs tabular-nums text-muted-foreground w-8 text-right">
+                        {weightState.weight.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+
+      {/* Optional partition fields */}
+      {categoricalFields.length > 0 && (
+        <div className="space-y-2 border-t border-border/50 pt-3">
+          <div>
+            <p className="text-sm font-medium">Partition by (optional)</p>
+            <p className="text-xs text-muted-foreground">
+              Ensures each team has members from every category
+            </p>
+          </div>
+          <div className="space-y-2">
+            {categoricalFields.map((field) => (
+              <div
+                key={field.sourceId}
+                className="flex items-center gap-3 rounded-lg border border-border/50 bg-background/50 p-3"
+              >
+                <Checkbox
+                  id={`partition-${field.sourceId}`}
+                  checked={partitionFields.includes(field.sourceId)}
+                  onCheckedChange={() => onTogglePartitionField(field.sourceId)}
+                />
+                <Label
+                  htmlFor={`partition-${field.sourceId}`}
+                  className="flex-1 cursor-pointer text-sm"
+                >
+                  {field.label}
+                </Label>
+                <Badge variant="outline" className="text-xs">
+                  {field.type === "ranking_level" ? "level" : field.type}
+                </Badge>
+              </div>
             ))}
-          </SelectContent>
-        </Select>
-      </div>
+          </div>
+        </div>
+      )}
 
       {/* Team count input */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pt-2 border-t border-border/50">
         <Label htmlFor="team-count" className="text-sm whitespace-nowrap">
           Number of teams
         </Label>
@@ -599,6 +793,39 @@ function BalancedConfig({
 }
 
 // =============================================================================
+// Variety Slider
+// =============================================================================
+
+function VarietySlider({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (value: number) => void
+}) {
+  return (
+    <div className="space-y-2 border-t border-border/50 pt-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-sm">Variety</Label>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {value.toFixed(1)}
+        </span>
+      </div>
+      <Slider
+        value={[value]}
+        onValueChange={([v]) => onChange(v)}
+        min={0}
+        max={1}
+        step={0.1}
+      />
+      <p className="text-xs text-muted-foreground">
+        Higher variety avoids repeating previous group pairings
+      </p>
+    </div>
+  )
+}
+
+// =============================================================================
 // Preview Text
 // =============================================================================
 
@@ -606,7 +833,8 @@ function PreviewText({
   mode,
   splitFields,
   clusterFields,
-  balanceField,
+  balanceFields,
+  partitionFields,
   groupCount,
   teamCount,
   participantCount,
@@ -616,7 +844,8 @@ function PreviewText({
   mode: Mode
   splitFields: string[]
   clusterFields: WeightedFieldState[]
-  balanceField: string
+  balanceFields: WeightedFieldState[]
+  partitionFields: string[]
   groupCount: number
   teamCount: number
   participantCount: number
@@ -662,10 +891,14 @@ function PreviewText({
   }
 
   if (mode === "balanced") {
+    const balanceLabels = balanceFields.map((f) => getLabel(f.sourceId)).join(", ")
     return (
       <div className="rounded-lg bg-muted/50 p-3 text-sm">
         Will create <span className="font-medium">{teamCount} balanced teams</span> by{" "}
-        <span className="font-medium">{getLabel(balanceField)}</span>
+        <span className="font-medium">{balanceLabels}</span>
+        {partitionFields.length > 0 && (
+          <>, partitioned by <span className="font-medium">{partitionFields.map(getLabel).join(", ")}</span></>
+        )}
       </div>
     )
   }

@@ -8,9 +8,12 @@ import {
   buildMemberProfiles,
   getAvailableFields as getAvailableFieldsUtil,
 } from "@/data-access/member-profiles"
-import { splitByAttributes, clusterByDistance, balancedTeams } from "./algorithm"
+import { splitByAttributes, clusterByDistance, multiBalancedTeams } from "./algorithm"
 import type { GroupEntry, GroupResult } from "./algorithm"
 import { buildFieldMeta, fetchLevelOrderMap } from "./field-meta"
+import { getCooccurrenceCounts } from "./data-access/history"
+import { buildPenaltyMatrix } from "./variety"
+import type { PenaltyMatrix } from "./variety"
 import type { Criteria } from "./schemas"
 import {
   createConfigSchema,
@@ -71,31 +74,6 @@ function assertGroupingLimit(mode: Criteria["mode"], count: number) {
       code: "BAD_REQUEST",
       message: `Too many members for ${mode} mode (${count}). Maximum supported is ${limit}.`,
     })
-  }
-}
-
-/**
- * Normalize legacy criteria (old flat shape without `mode`) into the
- * discriminated union format. If already has `mode`, pass through.
- */
-function normalizeCriteria(raw: unknown): Criteria {
-  if (raw && typeof raw === "object" && "mode" in raw) {
-    return raw as Criteria
-  }
-  // Legacy shape: { fields: [{ sourceId, strategy }] }
-  const legacy = raw as { fields?: Array<{ sourceId: string; strategy: string }> } | null
-  if (!legacy?.fields || legacy.fields.length === 0) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: "No criteria fields specified",
-    })
-  }
-  return {
-    mode: "split" as const,
-    fields: legacy.fields.map((f) => ({
-      sourceId: f.sourceId,
-      strategy: "split" as const,
-    })),
   }
 }
 
@@ -268,9 +246,8 @@ export const smartGroupsRouter = router({
         })
       }
 
-      // Determine criteria (override or default, with legacy normalization)
-      const rawCriteria = input.criteriaOverride ?? config.defaultCriteria
-      const criteria = normalizeCriteria(rawCriteria)
+      // Determine criteria (override or default)
+      const criteria = (input.criteriaOverride ?? config.defaultCriteria) as Criteria
       assertGroupingLimit(criteria.mode, userIds.length)
 
       // Build member profiles
@@ -286,6 +263,19 @@ export const smartGroupsRouter = router({
         userId: p.userId,
         data: { ...p.merged, _userName: p.userName },
       }))
+
+      // Build variety penalty if requested and applicable
+      let varietyPenalty: PenaltyMatrix | undefined
+      const varietyWeight = criteria.mode !== "split"
+        ? (criteria as { varietyWeight?: number }).varietyWeight ?? 0
+        : 0
+
+      if (varietyWeight > 0) {
+        const cooccurrences = await getCooccurrenceCounts(config.activityId, userIds)
+        if (cooccurrences.size > 0) {
+          varietyPenalty = buildPenaltyMatrix(cooccurrences)
+        }
+      }
 
       // Dispatch by mode
       let groups: GroupResult[]
@@ -327,26 +317,43 @@ export const smartGroupsRouter = router({
           groupCount: criteria.groupCount,
           fields: fieldMetas,
           objective: criteria.mode,
+          varietyPenalty,
+          varietyWeight,
         })
 
       } else {
         // balanced mode
-        effectiveEntries = allEntries.filter((e) => {
-          const val = e.data[criteria.balanceField]
-          return val !== null && val !== undefined && typeof val === "number"
-        })
+        effectiveEntries = allEntries.filter((e) =>
+          criteria.balanceFields.every((bf) => {
+            const val = e.data[bf.sourceId]
+            return val !== null && val !== undefined && typeof val === "number"
+          })
+        )
+
+        if (criteria.partitionFields && criteria.partitionFields.length > 0) {
+          effectiveEntries = effectiveEntries.filter((e) =>
+            criteria.partitionFields!.every((pf) => {
+              const val = e.data[pf]
+              return val !== null && val !== undefined && val !== ""
+            })
+          )
+        }
+
         excludedCount = allEntries.length - effectiveEntries.length
 
         if (effectiveEntries.length < 2) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `Not enough members with numeric data for "${criteria.balanceField}" (${effectiveEntries.length} after excluding ${excludedCount}). Need at least 2.`,
+            message: `Not enough members with required data (${effectiveEntries.length} after excluding ${excludedCount}). Need at least 2.`,
           })
         }
 
-        groups = balancedTeams(effectiveEntries, {
+        groups = multiBalancedTeams(effectiveEntries, {
           teamCount: criteria.teamCount,
-          balanceField: criteria.balanceField,
+          balanceFields: criteria.balanceFields,
+          partitionFields: criteria.partitionFields,
+          varietyPenalty,
+          varietyWeight,
         })
       }
 

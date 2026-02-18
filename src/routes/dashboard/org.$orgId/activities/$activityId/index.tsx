@@ -27,6 +27,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   ArrowLeft,
+  FileText,
+  Plus,
   Save,
   Settings,
   Users,
@@ -38,6 +40,8 @@ import {
   Trophy,
   XCircle,
 } from "lucide-react"
+import { FormFieldEditor } from "@/components/form-field-editor"
+import type { FormField } from "@/types/form"
 import { pluginCatalog } from "@/plugins/catalog"
 import { RankingManagement } from "@/plugins/ranking/components/ranking-management"
 import { RankingSetupForm } from "@/plugins/ranking/components/ranking-setup-form"
@@ -128,6 +132,12 @@ function ActivitySettingsPage() {
         activity={activityData}
       />
 
+      {/* Join Form Section */}
+      <JoinFormSection
+        activityId={activityId}
+        activity={activityData}
+      />
+
       {/* Members Section */}
       <MembersSection activityId={activityId} />
 
@@ -152,6 +162,7 @@ type ActivityData = {
   name: string
   slug: string
   joinMode: string
+  joinFormSchema: unknown
   isActive: boolean
   enabledPlugins: unknown
 }
@@ -342,6 +353,161 @@ function GeneralSettingsSection({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  )
+}
+
+// =============================================================================
+// Join Form Section
+// =============================================================================
+
+function JoinFormSection({
+  activityId,
+  activity,
+}: {
+  activityId: string
+  activity: ActivityData
+}) {
+  const utils = trpc.useUtils()
+  const [fieldsDraft, setFieldsDraft] = useState<FormField[] | null>(null)
+  const [formError, setFormError] = useState("")
+
+  const persistedFields =
+    ((activity.joinFormSchema as { fields?: FormField[] } | null)?.fields || [])
+
+  const fields = fieldsDraft ?? persistedFields
+  const formDirty = fieldsDraft !== null
+
+  const updateJoinForm = trpc.activity.update.useMutation({
+    onSuccess: () => {
+      utils.activity.getById.invalidate({ activityId })
+      setFieldsDraft(null)
+      setFormError("")
+    },
+    onError: (err) => {
+      setFormError(err.message)
+    },
+  })
+
+  const generateFieldId = () => `field_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+
+  const addField = () => {
+    const newField: FormField = {
+      id: generateFieldId(),
+      type: "text",
+      label: "",
+      required: false,
+    }
+    setFieldsDraft((prev) => [...(prev ?? persistedFields), newField])
+  }
+
+  const removeField = (id: string) => {
+    setFieldsDraft((prev) => (prev ?? persistedFields).filter((f) => f.id !== id))
+  }
+
+  const updateField = (id: string, updates: Partial<FormField>) => {
+    setFieldsDraft((prev) =>
+      (prev ?? persistedFields).map((f) => (f.id === id ? { ...f, ...updates } : f))
+    )
+  }
+
+  const moveField = (index: number, direction: "up" | "down") => {
+    const currentFields = fieldsDraft ?? persistedFields
+    const newIndex = direction === "up" ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= currentFields.length) return
+    const newFields = [...currentFields]
+    const [removed] = newFields.splice(index, 1)
+    newFields.splice(newIndex, 0, removed)
+    setFieldsDraft(newFields)
+  }
+
+  const handleSaveForm = () => {
+    setFormError("")
+    for (const field of fields) {
+      if (!field.label.trim()) {
+        setFormError("All fields must have a label")
+        return
+      }
+      if ((field.type === "select" || field.type === "multiselect") && (!field.options || field.options.length === 0)) {
+        setFormError(`Field "${field.label}" requires at least one option`)
+        return
+      }
+    }
+    updateJoinForm.mutate({
+      activityId,
+      joinFormSchema: fields.length > 0 ? { fields } : null,
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+          <FileText className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="font-semibold">Join Form</h2>
+          <p className="text-sm text-muted-foreground">
+            Custom fields members fill out when joining this activity
+          </p>
+        </div>
+      </div>
+
+      {formError && (
+        <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+          {formError}
+        </div>
+      )}
+
+      {fields.length === 0 ? (
+        <div className="py-12 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <FileText className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="font-medium">No Custom Fields</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Add custom fields that members fill out when joining this activity.
+          </p>
+          <Button onClick={addField} className="mt-4">
+            <Plus className="h-4 w-4 mr-2" />
+            Add First Field
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {fields.map((field, index) => (
+            <FormFieldEditor
+              key={field.id}
+              field={field}
+              index={index}
+              totalFields={fields.length}
+              onUpdate={(updates) => updateField(field.id, updates)}
+              onRemove={() => removeField(field.id)}
+              onMoveUp={() => moveField(index, "up")}
+              onMoveDown={() => moveField(index, "down")}
+            />
+          ))}
+          <Button variant="outline" onClick={addField} className="w-full">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Field
+          </Button>
+        </div>
+      )}
+
+      {fields.length > 0 && (
+        <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-6">
+          <p className="text-sm text-muted-foreground">
+            {fields.length} field{fields.length !== 1 ? "s" : ""} configured
+          </p>
+          <Button
+            onClick={handleSaveForm}
+            disabled={!formDirty || updateJoinForm.isPending}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {updateJoinForm.isPending ? "Saving..." : "Save Form"}
+          </Button>
+        </div>
+      )}
+    </div>
   )
 }
 

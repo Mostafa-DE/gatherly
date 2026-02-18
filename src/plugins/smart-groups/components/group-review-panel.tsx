@@ -59,7 +59,9 @@ export function GroupReviewPanel({
 
   const criteriaSnapshot = run.criteriaSnapshot as Criteria | null
   const isBalanced = criteriaSnapshot?.mode === "balanced"
-  const balanceField = isBalanced ? criteriaSnapshot.balanceField : null
+  const balanceField = isBalanced
+    ? (criteriaSnapshot.balanceFields[0]?.sourceId ?? null)
+    : null
 
   return (
     <div className="space-y-4">

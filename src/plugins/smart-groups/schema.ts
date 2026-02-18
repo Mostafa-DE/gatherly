@@ -30,6 +30,7 @@ export const smartGroupConfig = pgTable(
       .references(() => activity.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     defaultCriteria: jsonb("default_criteria"), // { fields: [{ sourceId, strategy }], maxFields: 2 }
+    visibleFields: jsonb("visible_fields"), // string[] | null (null = show all)
     createdBy: text("created_by").references(() => user.id, {
       onDelete: "set null",
     }),
@@ -147,6 +148,48 @@ export const smartGroupProposal = pgTable(
 )
 
 // =============================================================================
+// Smart Group History (pairwise co-grouping records)
+// =============================================================================
+
+export const smartGroupHistory = pgTable(
+  "smart_group_history",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    activityId: text("activity_id")
+      .notNull()
+      .references(() => activity.id, { onDelete: "cascade" }),
+    smartGroupRunId: text("smart_group_run_id")
+      .notNull()
+      .references(() => smartGroupRun.id, { onDelete: "cascade" }),
+    user1Id: text("user1_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    user2Id: text("user2_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    groupedAt: timestamp("grouped_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("smart_group_history_activity_pair_idx").on(
+      table.activityId,
+      table.user1Id,
+      table.user2Id
+    ),
+    index("smart_group_history_run_idx").on(table.smartGroupRunId),
+    uniqueIndex("smart_group_history_run_pair_idx").on(
+      table.smartGroupRunId,
+      table.user1Id,
+      table.user2Id
+    ),
+  ]
+)
+
+// =============================================================================
 // Relations
 // =============================================================================
 
@@ -218,6 +261,24 @@ export const smartGroupProposalRelations = relations(
   ({ one }) => ({
     run: one(smartGroupRun, {
       fields: [smartGroupProposal.smartGroupRunId],
+      references: [smartGroupRun.id],
+    }),
+  })
+)
+
+export const smartGroupHistoryRelations = relations(
+  smartGroupHistory,
+  ({ one }) => ({
+    organization: one(organization, {
+      fields: [smartGroupHistory.organizationId],
+      references: [organization.id],
+    }),
+    activity: one(activity, {
+      fields: [smartGroupHistory.activityId],
+      references: [activity.id],
+    }),
+    run: one(smartGroupRun, {
+      fields: [smartGroupHistory.smartGroupRunId],
       references: [smartGroupRun.id],
     }),
   })

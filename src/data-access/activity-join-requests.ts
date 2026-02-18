@@ -136,6 +136,33 @@ export async function countPendingActivityRequestsForOrg(organizationId: string)
   return result?.count ?? 0
 }
 
+/**
+ * Get a user's approved activity form answers across all activities in an org.
+ * Returns one row per activity with the form answers and the activity's join form schema.
+ */
+export async function getUserActivityFormAnswers(
+  userId: string,
+  organizationId: string
+) {
+  return db
+    .select({
+      activityId: activity.id,
+      activityName: activity.name,
+      formAnswers: activityJoinRequest.formAnswers,
+      joinFormSchema: activity.joinFormSchema,
+    })
+    .from(activityJoinRequest)
+    .innerJoin(activity, eq(activityJoinRequest.activityId, activity.id))
+    .where(
+      and(
+        eq(activityJoinRequest.userId, userId),
+        eq(activityJoinRequest.status, "approved"),
+        eq(activity.organizationId, organizationId)
+      )
+    )
+    .orderBy(activity.name)
+}
+
 // =============================================================================
 // Mutations
 // =============================================================================

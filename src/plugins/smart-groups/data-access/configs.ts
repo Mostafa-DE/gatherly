@@ -72,6 +72,7 @@ export async function updateConfig(
   const setValues: Record<string, unknown> = {}
   if (updates.name !== undefined) setValues.name = updates.name
   if (updates.defaultCriteria !== undefined) setValues.defaultCriteria = updates.defaultCriteria
+  if (updates.visibleFields !== undefined) setValues.visibleFields = updates.visibleFields
 
   if (Object.keys(setValues).length === 0) {
     const config = await getConfigById(configId, organizationId)

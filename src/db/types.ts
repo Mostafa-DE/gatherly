@@ -27,6 +27,7 @@ import type {
   smartGroupRun,
   smartGroupEntry,
   smartGroupProposal,
+  smartGroupHistory,
 } from "@/plugins/smart-groups/schema"
 
 // Auth types (from Better Auth)
@@ -92,3 +93,5 @@ export type SmartGroupEntry = typeof smartGroupEntry.$inferSelect
 export type NewSmartGroupEntry = typeof smartGroupEntry.$inferInsert
 export type SmartGroupProposal = typeof smartGroupProposal.$inferSelect
 export type NewSmartGroupProposal = typeof smartGroupProposal.$inferInsert
+export type SmartGroupHistory = typeof smartGroupHistory.$inferSelect
+export type NewSmartGroupHistory = typeof smartGroupHistory.$inferInsert

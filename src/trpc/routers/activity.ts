@@ -51,6 +51,7 @@ export const activityRouter = router({
         return updateActivity(input.activityId, ctx.activeOrganization.id, {
           name: input.name,
           joinMode: input.joinMode,
+          joinFormSchema: input.joinFormSchema,
         })
       })
     }),

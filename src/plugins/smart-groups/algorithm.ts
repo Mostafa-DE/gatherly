@@ -4,6 +4,8 @@ import {
   buildDistanceMatrix,
   computeNumericRanges,
 } from "./distance"
+import type { PenaltyMatrix } from "./variety"
+import { getPenalty } from "./variety"
 
 export type GroupEntry = {
   userId: string
@@ -19,11 +21,16 @@ export type ClusterConfig = {
   groupCount: number
   fields: FieldMeta[]
   objective: "similarity" | "diversity"
+  varietyPenalty?: PenaltyMatrix
+  varietyWeight?: number
 }
 
-export type BalancedConfig = {
+export type MultiBalancedConfig = {
   teamCount: number
-  balanceField: string
+  balanceFields: Array<{ sourceId: string; weight: number }>
+  partitionFields?: string[]
+  varietyPenalty?: PenaltyMatrix
+  varietyWeight?: number
 }
 
 const MAX_EXACT_CLUSTER_ENTRIES = 1200
@@ -96,7 +103,7 @@ export function clusterByDistance(
   entries: GroupEntry[],
   config: ClusterConfig
 ): GroupResult[] {
-  const { groupCount, fields, objective } = config
+  const { groupCount, fields, objective, varietyPenalty, varietyWeight = 0 } = config
   const n = entries.length
 
   if (n === 0) return []
@@ -105,11 +112,32 @@ export function clusterByDistance(
   computeNumericRanges(entries, fields)
 
   if (n > MAX_EXACT_CLUSTER_ENTRIES) {
+    // Score projection fallback — variety not supported (no distance matrix)
     return clusterByScoreProjection(entries, k, fields, objective)
   }
 
   // 1. Build exact distance matrix
   const dist = buildDistanceMatrix(entries, fields)
+
+  // 1b. Blend variety penalty into distance matrix
+  if (varietyWeight > 0 && varietyPenalty && varietyPenalty.size > 0) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const penalty = getPenalty(varietyPenalty, entries[i].userId, entries[j].userId)
+        if (penalty > 0) {
+          if (objective === "similarity") {
+            // Higher penalty → more distance → less likely to group together
+            dist[i][j] += varietyWeight * penalty
+            dist[j][i] = dist[i][j]
+          } else {
+            // diversity: Higher penalty → less distance → less attractive for diversity grouping
+            dist[i][j] = Math.max(0, dist[i][j] - varietyWeight * penalty)
+            dist[j][i] = dist[i][j]
+          }
+        }
+      }
+    }
+  }
 
   // 2. Farthest-first seed selection
   const seeds: number[] = [0] // deterministic first seed
@@ -209,128 +237,195 @@ function avgDistToGroup(
 }
 
 // =============================================================================
-// Balanced Teams (Snake Draft + Swap Optimization)
+// Balanced Teams (Snake Draft + Partition + Swap)
 // =============================================================================
 
 /**
- * Create balanced teams by a numeric field using snake draft + swap optimization.
- * Entries must have a numeric value for balanceField (caller filters missing).
+ * Sum of variety penalties between a member and all other members in the team.
  */
-export function balancedTeams(
+function varietyCostForMember(
+  memberIdx: number,
+  teamMembers: number[],
   entries: GroupEntry[],
-  config: BalancedConfig
+  penaltyMatrix: PenaltyMatrix
+): number {
+  let cost = 0
+  for (const other of teamMembers) {
+    if (other === memberIdx) continue
+    cost += getPenalty(penaltyMatrix, entries[memberIdx].userId, entries[other].userId)
+  }
+  return cost
+}
+
+/**
+ * Create balanced teams by multiple numeric fields with optional partition.
+ *
+ * Without partition: composite score snake draft → swap optimization across all fields.
+ * With partition: split entries into pools by partition value, snake draft within each
+ * pool, assemble teams from corresponding buckets, then swap-optimize.
+ */
+export function multiBalancedTeams(
+  entries: GroupEntry[],
+  config: MultiBalancedConfig
 ): GroupResult[] {
-  const { teamCount, balanceField } = config
+  const { teamCount, balanceFields, partitionFields, varietyPenalty, varietyWeight = 0 } = config
   const n = entries.length
 
   if (n === 0) return []
 
   const k = Math.min(teamCount, n)
 
-  // 1. Extract ratings and sort descending
-  const indexed = entries.map((e, i) => ({
-    index: i,
-    rating: Number(e.data[balanceField]) || 0,
-  }))
-  indexed.sort((a, b) => b.rating - a.rating)
+  // Extract all field ratings per entry
+  const fieldRatings: number[][] = balanceFields.map((bf) =>
+    entries.map((e) => Number(e.data[bf.sourceId]) || 0)
+  )
+  const totalWeight = balanceFields.reduce((sum, bf) => sum + bf.weight, 0) || 1
 
-  // 2. Snake draft
-  const teams: number[][] = Array.from({ length: k }, () => [])
-  let forward = true
-
-  for (let i = 0; i < indexed.length; ) {
-    if (forward) {
-      for (let t = 0; t < k && i < indexed.length; t++, i++) {
-        teams[t].push(indexed[i].index)
-      }
-    } else {
-      for (let t = k - 1; t >= 0 && i < indexed.length; t--, i++) {
-        teams[t].push(indexed[i].index)
-      }
-    }
-    forward = !forward
-  }
-
-  // 3. Swap optimization
-  const ratings = entries.map((e) => Number(e.data[balanceField]) || 0)
-  const teamSums = teams.map((team) => {
+  // Composite score per entry
+  const compositeScores = entries.map((_, ei) => {
     let sum = 0
-    for (const idx of team) {
-      sum += ratings[idx]
+    for (let fi = 0; fi < balanceFields.length; fi++) {
+      sum += balanceFields[fi].weight * fieldRatings[fi][ei]
     }
-    return sum
+    return sum / totalWeight
   })
-  const teamSizes = teams.map((team) => team.length)
-  const MAX_SWAP_ITERATIONS = 100
-  let currentSpread = spreadFromSums(teamSums, teamSizes)
 
-  if (n > MAX_BALANCED_SWAP_ENTRIES) {
-    return teams.map((members, i) => ({
-      groupName: `Team ${i + 1}`,
-      memberIds: members.map((idx) => entries[idx].userId),
-    }))
+  let teams: number[][]
+
+  if (!partitionFields || partitionFields.length === 0) {
+    // Simple multi-field: snake draft by composite score
+    const indexed = entries.map((_, i) => i)
+    indexed.sort((a, b) => compositeScores[b] - compositeScores[a])
+
+    teams = Array.from({ length: k }, () => [] as number[])
+    let forward = true
+    for (let i = 0; i < indexed.length; ) {
+      if (forward) {
+        for (let t = 0; t < k && i < indexed.length; t++, i++) {
+          teams[t].push(indexed[i])
+        }
+      } else {
+        for (let t = k - 1; t >= 0 && i < indexed.length; t--, i++) {
+          teams[t].push(indexed[i])
+        }
+      }
+      forward = !forward
+    }
+  } else {
+    // Partition: split into pools by cross-product of partition field values
+    const pools = new Map<string, number[]>()
+    for (let i = 0; i < n; i++) {
+      const parts = partitionFields.map((pf) =>
+        String(entries[i].data[pf] ?? "Unknown")
+      )
+      const key = parts.join(" + ")
+      const pool = pools.get(key)
+      if (pool) pool.push(i)
+      else pools.set(key, [i])
+    }
+
+    // Sort each pool descending by composite score
+    for (const pool of pools.values()) {
+      pool.sort((a, b) => compositeScores[b] - compositeScores[a])
+    }
+
+    // Snake draft within each pool into k buckets, then assemble teams
+    teams = Array.from({ length: k }, () => [] as number[])
+
+    for (const pool of pools.values()) {
+      let forward = true
+      let bi = 0
+      for (const idx of pool) {
+        const t = forward ? bi : k - 1 - bi
+        teams[t].push(idx)
+        bi++
+        if (bi === k) {
+          bi = 0
+          forward = !forward
+        }
+      }
+    }
   }
 
-  for (let iter = 0; iter < MAX_SWAP_ITERATIONS; iter++) {
-    let improved = false
+  // Swap optimization: minimize weighted sum of per-field spreads
+  if (n <= MAX_BALANCED_SWAP_ENTRIES) {
+    const vw = varietyWeight > 0 && varietyPenalty && varietyPenalty.size > 0 ? varietyWeight : 0
 
-    for (let ti = 0; ti < k && !improved; ti++) {
-      for (let tj = ti + 1; tj < k && !improved; tj++) {
-        if (teamSizes[ti] === 0 || teamSizes[tj] === 0) continue
+    const computeCost = (t: number[][]) => {
+      let cost = 0
+      for (let fi = 0; fi < balanceFields.length; fi++) {
+        const ratings = fieldRatings[fi]
+        let minAvg = Infinity
+        let maxAvg = -Infinity
+        for (let ti = 0; ti < k; ti++) {
+          if (t[ti].length === 0) continue
+          let sum = 0
+          for (const idx of t[ti]) sum += ratings[idx]
+          const avg = sum / t[ti].length
+          if (avg < minAvg) minAvg = avg
+          if (avg > maxAvg) maxAvg = avg
+        }
+        cost += (balanceFields[fi].weight / totalWeight) * (maxAvg - minAvg)
+      }
+      return cost
+    }
 
-        for (let mi = 0; mi < teams[ti].length && !improved; mi++) {
-          const memberTi = teams[ti][mi]
-          const ratingTi = ratings[memberTi]
+    let currentCost = computeCost(teams)
+    const MAX_SWAP_ITERATIONS = 100
 
-          for (let mj = 0; mj < teams[tj].length && !improved; mj++) {
-            const memberTj = teams[tj][mj]
-            const ratingTj = ratings[memberTj]
+    for (let iter = 0; iter < MAX_SWAP_ITERATIONS; iter++) {
+      let improved = false
 
-            const newSumTi = teamSums[ti] - ratingTi + ratingTj
-            const newSumTj = teamSums[tj] - ratingTj + ratingTi
-            const newSpread = spreadWithSwap(
-              teamSums,
-              teamSizes,
-              ti,
-              newSumTi,
-              tj,
-              newSumTj
-            )
+      for (let ti = 0; ti < k && !improved; ti++) {
+        for (let tj = ti + 1; tj < k && !improved; tj++) {
+          if (teams[ti].length === 0 || teams[tj].length === 0) continue
 
-            if (newSpread < currentSpread - 1e-9) {
-              teams[ti][mi] = memberTj
-              teams[tj][mj] = memberTi
-              teamSums[ti] = newSumTi
-              teamSums[tj] = newSumTj
-              currentSpread = newSpread
-              improved = true
+          for (let mi = 0; mi < teams[ti].length && !improved; mi++) {
+            for (let mj = 0; mj < teams[tj].length && !improved; mj++) {
+              // Try swap
+              const a = teams[ti][mi]
+              const b = teams[tj][mj]
+              teams[ti][mi] = b
+              teams[tj][mj] = a
+
+              let newCost = computeCost(teams)
+
+              if (vw > 0) {
+                // Swap back to compute old variety cost
+                teams[ti][mi] = a
+                teams[tj][mj] = b
+                const oldV = varietyCostForMember(a, teams[ti], entries, varietyPenalty!)
+                  + varietyCostForMember(b, teams[tj], entries, varietyPenalty!)
+                // Swap again for new variety cost
+                teams[ti][mi] = b
+                teams[tj][mj] = a
+                const newV = varietyCostForMember(b, teams[ti], entries, varietyPenalty!)
+                  + varietyCostForMember(a, teams[tj], entries, varietyPenalty!)
+                const varietyImprovement = oldV - newV
+                newCost = newCost - vw * varietyImprovement * 0.1
+              }
+
+              if (newCost < currentCost - 1e-9) {
+                currentCost = newCost
+                improved = true
+              } else {
+                // Swap back
+                teams[ti][mi] = a
+                teams[tj][mj] = b
+              }
             }
           }
         }
       }
-    }
 
-    if (!improved) break
+      if (!improved) break
+    }
   }
 
-  // 4. Build results
   return teams.map((members, i) => ({
     groupName: `Team ${i + 1}`,
     memberIds: members.map((idx) => entries[idx].userId),
   }))
-}
-
-function spreadFromSums(teamSums: number[], teamSizes: number[]): number {
-  let minAvg = Infinity
-  let maxAvg = -Infinity
-
-  for (let i = 0; i < teamSums.length; i++) {
-    const avg = teamSizes[i] === 0 ? 0 : teamSums[i] / teamSizes[i]
-    if (avg < minAvg) minAvg = avg
-    if (avg > maxAvg) maxAvg = avg
-  }
-
-  return maxAvg - minAvg
 }
 
 function clusterByScoreProjection(
@@ -447,28 +542,3 @@ function clamp01(value: number): number {
   return value
 }
 
-function spreadWithSwap(
-  teamSums: number[],
-  teamSizes: number[],
-  teamI: number,
-  newSumI: number,
-  teamJ: number,
-  newSumJ: number
-): number {
-  let minAvg = Infinity
-  let maxAvg = -Infinity
-
-  for (let i = 0; i < teamSums.length; i++) {
-    const sum =
-      i === teamI
-        ? newSumI
-        : i === teamJ
-          ? newSumJ
-          : teamSums[i]
-    const avg = teamSizes[i] === 0 ? 0 : sum / teamSizes[i]
-    if (avg < minAvg) minAvg = avg
-    if (avg > maxAvg) maxAvg = avg
-  }
-
-  return maxAvg - minAvg
-}

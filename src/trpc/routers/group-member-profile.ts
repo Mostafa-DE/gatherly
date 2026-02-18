@@ -7,6 +7,7 @@ import {
 } from "@/data-access/group-member-profiles"
 import { getOrgSettings } from "@/data-access/organization-settings"
 import { getEngagementStats } from "@/data-access/engagement-stats"
+import { getUserActivityFormAnswers } from "@/data-access/activity-join-requests"
 import {
   getMyProfileSchema,
   updateMyProfileSchema,
@@ -105,5 +106,15 @@ export const groupMemberProfileRouter = router({
     .query(async ({ ctx, input }) => {
       assertAdmin(ctx.membership.role)
       return getEngagementStats(input.userId, ctx.activeOrganization.id)
+    }),
+
+  /**
+   * Get a user's activity form answers across all activities (Admin)
+   */
+  getUserActivityForms: orgProcedure
+    .input(getUserProfileSchema)
+    .query(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+      return getUserActivityFormAnswers(input.userId, ctx.activeOrganization.id)
     }),
 })

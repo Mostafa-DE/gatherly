@@ -21,18 +21,25 @@ const similarityCriteriaSchema = z.object({
   mode: z.literal("similarity"),
   fields: z.array(weightedFieldSchema).min(1).max(10),
   groupCount: z.number().int().min(2).max(100),
+  varietyWeight: z.number().min(0).max(1).default(0).optional(),
 })
 
 const diversityCriteriaSchema = z.object({
   mode: z.literal("diversity"),
   fields: z.array(weightedFieldSchema).min(1).max(10),
   groupCount: z.number().int().min(2).max(100),
+  varietyWeight: z.number().min(0).max(1).default(0).optional(),
 })
 
 const balancedCriteriaSchema = z.object({
   mode: z.literal("balanced"),
-  balanceField: z.string().min(1),
+  balanceFields: z.array(z.object({
+    sourceId: z.string().min(1),
+    weight: z.number().min(0).max(1).default(1),
+  })).min(1).max(10),
+  partitionFields: z.array(z.string().min(1)).min(1).max(5).optional(),
   teamCount: z.number().int().min(2).max(100),
+  varietyWeight: z.number().min(0).max(1).default(0).optional(),
 })
 
 export const criteriaSchema = z.discriminatedUnion("mode", [
@@ -60,6 +67,7 @@ export const updateConfigSchema = z.object({
   configId: z.string().min(1),
   name: z.string().min(1).max(200).optional(),
   defaultCriteria: criteriaSchema.optional(),
+  visibleFields: z.array(z.string().min(1)).nullable().optional(),
 })
 
 export type UpdateConfigInput = z.infer<typeof updateConfigSchema>

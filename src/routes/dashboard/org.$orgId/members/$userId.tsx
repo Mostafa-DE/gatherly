@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Calendar,
   ChevronDown,
+  FileText,
   History,
   User,
   XCircle,
@@ -268,6 +269,9 @@ function MemberDetailPage() {
       {/* Profile Fields */}
       <MemberProfileSection userId={userId} />
 
+      {/* Activity Form Answers */}
+      <ActivityProfileSection userId={userId} />
+
       {/* Rankings */}
       <MemberRankCards userId={userId} />
 
@@ -413,6 +417,84 @@ function MemberProfileSection({ userId }: { userId: string }) {
                 <p className="mt-1 font-medium">
                   {Array.isArray(value) ? value.join(", ") : String(value)}
                 </p>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ActivityProfileSection({ userId }: { userId: string }) {
+  const { data: activityForms, isLoading } =
+    trpc.groupMemberProfile.getUserActivityForms.useQuery({ userId })
+
+  // Filter to only activities that have form answers
+  const activitiesWithAnswers = (activityForms ?? []).filter((item) => {
+    const answers = item.formAnswers as Record<string, unknown> | null
+    return answers && Object.keys(answers).length > 0
+  })
+
+  if (!isLoading && activitiesWithAnswers.length === 0) return null
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm">
+      <div className="mb-6 flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
+          <FileText className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="font-semibold">Activity Profiles</h2>
+          <p className="text-sm text-muted-foreground">
+            Form answers submitted when joining activities
+          </p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-4">
+          {[1, 2].map((i) => (
+            <div key={i} className="space-y-1">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-5 w-48" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {activitiesWithAnswers.map((item) => {
+            const answers = item.formAnswers as Record<string, unknown>
+            const schema = item.joinFormSchema as {
+              fields?: FormField[]
+            } | null
+            const formFields = schema?.fields ?? []
+
+            return (
+              <div key={item.activityId}>
+                <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  {item.activityName}
+                </h3>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {formFields.map((field) => {
+                    const value = answers[field.id]
+                    if (value === undefined || value === null || value === "")
+                      return null
+                    return (
+                      <div
+                        key={field.id}
+                        className="rounded-lg border border-border/50 bg-background/50 p-4"
+                      >
+                        <p className="text-sm font-medium text-muted-foreground">
+                          {field.label}
+                        </p>
+                        <p className="mt-1 font-medium">
+                          {Array.isArray(value) ? value.join(", ") : String(value)}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )
           })}

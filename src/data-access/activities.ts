@@ -3,6 +3,7 @@ import { db } from "@/db"
 import { activity, activityMember, activityJoinRequest } from "@/db/schema"
 import type { Activity } from "@/db/types"
 import type { CreateActivityInput } from "@/schemas/activity"
+import type { JoinFormSchema } from "@/types/form"
 import { ConflictError } from "@/exceptions"
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -51,11 +52,15 @@ export async function createActivity(
 export async function updateActivity(
   activityId: string,
   organizationId: string,
-  data: { name?: string; joinMode?: string }
+  data: { name?: string; joinMode?: string; joinFormSchema?: JoinFormSchema | null }
 ): Promise<Activity | null> {
   const setData: Record<string, unknown> = { updatedAt: new Date() }
   if (data.name !== undefined) setData.name = data.name
   if (data.joinMode !== undefined) setData.joinMode = data.joinMode
+  if (data.joinFormSchema !== undefined) {
+    setData.joinFormSchema = data.joinFormSchema
+    setData.joinFormVersion = sql`${activity.joinFormVersion} + 1`
+  }
 
   const [updated] = await db
     .update(activity)

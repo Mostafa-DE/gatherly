@@ -4,7 +4,9 @@ import {
   smartGroupRun,
   smartGroupEntry,
   smartGroupProposal,
+  smartGroupConfig,
 } from "@/plugins/smart-groups/schema"
+import { recordHistoryFromProposals } from "./history"
 import type { SmartGroupRun, SmartGroupEntry, SmartGroupProposal } from "@/db/types"
 import { ConflictError, NotFoundError, ValidationError } from "@/exceptions"
 import type { Database } from "@/db"
@@ -192,10 +194,14 @@ export async function confirmRun(
   expectedVersion: number
 ): Promise<SmartGroupRun> {
   return db.transaction(async (tx) => {
-    // Fetch run + proposals
-    const [run] = await tx
-      .select()
+    // Fetch run with config (to get activityId for history)
+    const [runWithConfig] = await tx
+      .select({
+        run: smartGroupRun,
+        activityId: smartGroupConfig.activityId,
+      })
       .from(smartGroupRun)
+      .innerJoin(smartGroupConfig, eq(smartGroupRun.smartGroupConfigId, smartGroupConfig.id))
       .where(
         and(
           eq(smartGroupRun.id, runId),
@@ -204,9 +210,12 @@ export async function confirmRun(
       )
       .limit(1)
 
-    if (!run) {
+    if (!runWithConfig) {
       throw new NotFoundError("Run not found")
     }
+
+    const run = runWithConfig.run
+    const { activityId } = runWithConfig
 
     if (run.status !== "generated") {
       throw new ConflictError("Run is already confirmed")
@@ -282,6 +291,14 @@ export async function confirmRun(
         .set({ status: newStatus })
         .where(eq(smartGroupProposal.id, proposal.id))
     }
+
+    // Record pairwise history for variety tracking
+    await recordHistoryFromProposals(tx, {
+      organizationId,
+      activityId,
+      smartGroupRunId: runId,
+      proposals,
+    })
 
     return confirmed
   })

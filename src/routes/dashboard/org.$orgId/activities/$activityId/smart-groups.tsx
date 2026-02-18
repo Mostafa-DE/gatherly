@@ -216,6 +216,8 @@ function SmartGroupsPage() {
               configId: config.id,
             })
           }}
+          visibleFields={config.visibleFields as string[] | null}
+          defaultCriteria={config.defaultCriteria as import("@/plugins/smart-groups/schemas").Criteria | null}
         />
       )}
     </div>

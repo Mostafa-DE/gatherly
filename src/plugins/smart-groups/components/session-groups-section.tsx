@@ -108,6 +108,8 @@ export function SessionGroupsSection({
           onSuccess={() => {
             utils.plugin.smartGroups.getRunBySession.invalidate({ sessionId })
           }}
+          visibleFields={config.visibleFields as string[] | null}
+          defaultCriteria={config.defaultCriteria as import("@/plugins/smart-groups/schemas").Criteria | null}
         />
       )}
     </div>

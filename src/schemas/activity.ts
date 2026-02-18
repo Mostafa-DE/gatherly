@@ -29,6 +29,7 @@ export const updateActivitySchema = z.object({
   activityId: z.string(),
   name: z.string().min(1).max(200).optional(),
   joinMode: activityJoinModeSchema.optional(),
+  joinFormSchema: joinFormSchemaSchema.nullable().optional(),
 })
 
 export const getActivityByIdSchema = z.object({
