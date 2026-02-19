@@ -192,11 +192,15 @@ export function clusterByDistance(
     groupMembers[g].push(seeds[g])
   }
 
-  for (const idx of unassigned) {
-    let bestGroup = 0
-    let bestAvgDist = avgDistToGroup(idx, groupMembers[0], dist)
+  const maxGroupSize = Math.ceil(n / k)
 
-    for (let g = 1; g < k; g++) {
+  for (const idx of unassigned) {
+    let bestGroup = -1
+    let bestAvgDist = objective === "similarity" ? Infinity : -Infinity
+
+    for (let g = 0; g < k; g++) {
+      // Soft size cap: skip full groups unless all are full
+      if (groupMembers[g].length >= maxGroupSize) continue
       const avgDist = avgDistToGroup(idx, groupMembers[g], dist)
       if (objective === "similarity") {
         if (avgDist < bestAvgDist) {
@@ -204,8 +208,18 @@ export function clusterByDistance(
           bestGroup = g
         }
       } else {
-        // diversity: assign to farthest group
         if (avgDist > bestAvgDist) {
+          bestAvgDist = avgDist
+          bestGroup = g
+        }
+      }
+    }
+
+    // Fallback: all groups at cap — pick best regardless of size
+    if (bestGroup === -1) {
+      for (let g = 0; g < k; g++) {
+        const avgDist = avgDistToGroup(idx, groupMembers[g], dist)
+        if (objective === "similarity" ? avgDist < bestAvgDist : avgDist > bestAvgDist) {
           bestAvgDist = avgDist
           bestGroup = g
         }
@@ -216,7 +230,70 @@ export function clusterByDistance(
     groupMembers[bestGroup].push(idx)
   }
 
-  // 5. Build results
+  // 5. Simulated annealing refinement
+  if (n > 2 && k > 1) {
+    const rand = createPRNG(n * k + 42)
+    const maxIter = Math.min(n * 15, 10000)
+    let temperature = 1.0
+    const coolingRate = Math.pow(0.001, 1 / maxIter)
+
+    // Build position index for O(1) swap
+    const memberPosMap = new Int32Array(n)
+    for (let g = 0; g < k; g++) {
+      for (let p = 0; p < groupMembers[g].length; p++) {
+        memberPosMap[groupMembers[g][p]] = p
+      }
+    }
+
+    for (let iter = 0; iter < maxIter; iter++) {
+      // Pick random member
+      const idxA = Math.floor(rand() * n)
+      const groupA = assignments[idxA]
+
+      // Pick a random different group
+      let groupB = Math.floor(rand() * (k - 1))
+      if (groupB >= groupA) groupB++
+      if (groupMembers[groupB].length === 0) {
+        temperature *= coolingRate
+        continue
+      }
+
+      // Pick random member from groupB
+      const posB = Math.floor(rand() * groupMembers[groupB].length)
+      const idxB = groupMembers[groupB][posB]
+
+      // Compute cost delta incrementally
+      // delta = change in total intra-group pairwise distance sum
+      let deltaSum = 0
+      for (const m of groupMembers[groupA]) {
+        if (m === idxA) continue
+        deltaSum += dist[idxB][m] - dist[idxA][m]
+      }
+      for (const m of groupMembers[groupB]) {
+        if (m === idxB) continue
+        deltaSum += dist[idxA][m] - dist[idxB][m]
+      }
+
+      // similarity: minimize intra-group distance → accept if deltaSum < 0
+      // diversity: maximize intra-group distance → accept if deltaSum > 0
+      const delta = objective === "similarity" ? deltaSum : -deltaSum
+
+      if (delta < -1e-9 || rand() < Math.exp(-delta / temperature)) {
+        // Accept swap
+        const posA = memberPosMap[idxA]
+        groupMembers[groupA][posA] = idxB
+        groupMembers[groupB][posB] = idxA
+        assignments[idxA] = groupB
+        assignments[idxB] = groupA
+        memberPosMap[idxA] = posB
+        memberPosMap[idxB] = posA
+      }
+
+      temperature *= coolingRate
+    }
+  }
+
+  // 6. Build results
   return groupMembers.map((members, i) => ({
     groupName: `Group ${i + 1}`,
     memberIds: members.map((idx) => entries[idx].userId),
@@ -347,21 +424,27 @@ export function multiBalancedTeams(
     }
   }
 
-  // Swap optimization: minimize weighted sum of per-field spreads
-  if (n <= MAX_BALANCED_SWAP_ENTRIES) {
+  // Simulated annealing optimization: minimize weighted sum of per-field spreads
+  if (n > 1 && k > 1 && n <= MAX_BALANCED_SWAP_ENTRIES) {
     const vw = varietyWeight > 0 && varietyPenalty && varietyPenalty.size > 0 ? varietyWeight : 0
 
-    const computeCost = (t: number[][]) => {
+    // Pre-compute group sums per field for incremental cost updates
+    const groupFieldSums: number[][] = Array.from({ length: k }, (_, ti) =>
+      balanceFields.map((_, fi) => {
+        let sum = 0
+        for (const idx of teams[ti]) sum += fieldRatings[fi][idx]
+        return sum
+      })
+    )
+
+    const computeCostFromSums = () => {
       let cost = 0
       for (let fi = 0; fi < balanceFields.length; fi++) {
-        const ratings = fieldRatings[fi]
         let minAvg = Infinity
         let maxAvg = -Infinity
         for (let ti = 0; ti < k; ti++) {
-          if (t[ti].length === 0) continue
-          let sum = 0
-          for (const idx of t[ti]) sum += ratings[idx]
-          const avg = sum / t[ti].length
+          if (teams[ti].length === 0) continue
+          const avg = groupFieldSums[ti][fi] / teams[ti].length
           if (avg < minAvg) minAvg = avg
           if (avg > maxAvg) maxAvg = avg
         }
@@ -370,55 +453,80 @@ export function multiBalancedTeams(
       return cost
     }
 
-    let currentCost = computeCost(teams)
-    const MAX_SWAP_ITERATIONS = 100
+    // Build position index for O(1) swap
+    const memberTeam = new Int32Array(n)
+    const memberPos = new Int32Array(n)
+    for (let ti = 0; ti < k; ti++) {
+      for (let pi = 0; pi < teams[ti].length; pi++) {
+        memberTeam[teams[ti][pi]] = ti
+        memberPos[teams[ti][pi]] = pi
+      }
+    }
 
-    for (let iter = 0; iter < MAX_SWAP_ITERATIONS; iter++) {
-      let improved = false
+    let currentCost = computeCostFromSums()
+    const rand = createPRNG(n * k + 7)
+    const maxIter = Math.min(n * 20, 20000)
+    let temperature = Math.max(currentCost * 2, 0.01)
+    const coolingRate = Math.pow(0.001, 1 / maxIter)
 
-      for (let ti = 0; ti < k && !improved; ti++) {
-        for (let tj = ti + 1; tj < k && !improved; tj++) {
-          if (teams[ti].length === 0 || teams[tj].length === 0) continue
+    for (let iter = 0; iter < maxIter; iter++) {
+      // Pick random member a
+      const a = Math.floor(rand() * n)
+      const ta = memberTeam[a]
 
-          for (let mi = 0; mi < teams[ti].length && !improved; mi++) {
-            for (let mj = 0; mj < teams[tj].length && !improved; mj++) {
-              // Try swap
-              const a = teams[ti][mi]
-              const b = teams[tj][mj]
-              teams[ti][mi] = b
-              teams[tj][mj] = a
+      // Pick a random different team
+      let tb = Math.floor(rand() * (k - 1))
+      if (tb >= ta) tb++
+      if (teams[tb].length === 0) { temperature *= coolingRate; continue }
 
-              let newCost = computeCost(teams)
+      // Pick random member b from team tb
+      const b = teams[tb][Math.floor(rand() * teams[tb].length)]
+      const pa = memberPos[a]
+      const pb = memberPos[b]
 
-              if (vw > 0) {
-                // Swap back to compute old variety cost
-                teams[ti][mi] = a
-                teams[tj][mj] = b
-                const oldV = varietyCostForMember(a, teams[ti], entries, varietyPenalty!)
-                  + varietyCostForMember(b, teams[tj], entries, varietyPenalty!)
-                // Swap again for new variety cost
-                teams[ti][mi] = b
-                teams[tj][mj] = a
-                const newV = varietyCostForMember(b, teams[ti], entries, varietyPenalty!)
-                  + varietyCostForMember(a, teams[tj], entries, varietyPenalty!)
-                const varietyImprovement = oldV - newV
-                newCost = newCost - vw * varietyImprovement * 0.1
-              }
+      // Compute old variety cost before swap
+      let oldVCost = 0
+      if (vw > 0) {
+        oldVCost = varietyCostForMember(a, teams[ta], entries, varietyPenalty!)
+          + varietyCostForMember(b, teams[tb], entries, varietyPenalty!)
+      }
 
-              if (newCost < currentCost - 1e-9) {
-                currentCost = newCost
-                improved = true
-              } else {
-                // Swap back
-                teams[ti][mi] = a
-                teams[tj][mj] = b
-              }
-            }
-          }
+      // Apply swap
+      teams[ta][pa] = b
+      teams[tb][pb] = a
+      for (let fi = 0; fi < balanceFields.length; fi++) {
+        groupFieldSums[ta][fi] += fieldRatings[fi][b] - fieldRatings[fi][a]
+        groupFieldSums[tb][fi] += fieldRatings[fi][a] - fieldRatings[fi][b]
+      }
+
+      let newCost = computeCostFromSums()
+
+      if (vw > 0) {
+        const newVCost = varietyCostForMember(b, teams[ta], entries, varietyPenalty!)
+          + varietyCostForMember(a, teams[tb], entries, varietyPenalty!)
+        newCost -= vw * (oldVCost - newVCost) * 0.1
+      }
+
+      const delta = newCost - currentCost
+
+      if (delta < -1e-9 || rand() < Math.exp(-delta / temperature)) {
+        // Accept swap
+        memberTeam[a] = tb
+        memberTeam[b] = ta
+        memberPos[a] = pb
+        memberPos[b] = pa
+        currentCost = newCost
+      } else {
+        // Reject — revert swap
+        teams[ta][pa] = a
+        teams[tb][pb] = b
+        for (let fi = 0; fi < balanceFields.length; fi++) {
+          groupFieldSums[ta][fi] += fieldRatings[fi][a] - fieldRatings[fi][b]
+          groupFieldSums[tb][fi] += fieldRatings[fi][b] - fieldRatings[fi][a]
         }
       }
 
-      if (!improved) break
+      temperature *= coolingRate
     }
   }
 
@@ -522,8 +630,15 @@ function normalizeFieldValue(value: unknown, field: FieldMeta): number {
     }
     case "select":
     case "text":
-    default:
-      return hashToUnit(String(value).toLowerCase())
+    default: {
+      const str = String(value).toLowerCase()
+      // Use evenly spaced values when options are known
+      if (field.options && field.options.length > 1) {
+        const idx = field.options.findIndex((o) => o.toLowerCase() === str)
+        if (idx >= 0) return idx / (field.options.length - 1)
+      }
+      return hashToUnit(str)
+    }
   }
 }
 
@@ -540,5 +655,17 @@ function clamp01(value: number): number {
   if (value < 0) return 0
   if (value > 1) return 1
   return value
+}
+
+/**
+ * Simple seeded PRNG (LCG) for deterministic simulated annealing.
+ * Returns values in [0, 1).
+ */
+function createPRNG(seed: number) {
+  let state = seed | 0
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) | 0
+    return (state >>> 0) / 4294967296
+  }
 }
 

@@ -443,7 +443,7 @@ function ActivityMembersDialog({
   const [addError, setAddError] = useState("")
 
   const { data: members, isLoading: membersLoading } = trpc.activityMembership.members.useQuery(
-    { activityId },
+    { activityId, limit: 1000, offset: 0 },
     { enabled: open }
   )
 

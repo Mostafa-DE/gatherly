@@ -143,6 +143,7 @@ export async function listActivitiesForOrg(
       createdBy: activity.createdBy,
       createdAt: activity.createdAt,
       updatedAt: activity.updatedAt,
+      enabledPlugins: activity.enabledPlugins,
       myMembershipStatus: sql<string | null>`${activityMember.status}`.as("my_membership_status"),
       myJoinRequestStatus: sql<string | null>`${pendingJoinRequest.status}`.as("my_join_request_status"),
     })

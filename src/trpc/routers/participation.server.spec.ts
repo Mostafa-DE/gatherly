@@ -198,6 +198,38 @@ describe("participation router", () => {
     expect(createdMembership?.status).toBe("active")
   })
 
+  it("reactivates existing non-active activity membership when joining an open session", async () => {
+    await createTestActivityMember({
+      activityId: openActivityId,
+      userId: memberUser.id,
+      status: "rejected",
+    })
+
+    const session = await createPublishedSession({ activityId: openActivityId })
+    const memberCaller = buildCaller(memberUser, organizationId)
+
+    const joined = await memberCaller.participation.join({
+      sessionId: session.id,
+    })
+
+    expect(joined.sessionId).toBe(session.id)
+    expect(joined.userId).toBe(memberUser.id)
+    expect(joined.status).toBe("joined")
+
+    const [membership] = await db
+      .select({ status: activityMember.status })
+      .from(activityMember)
+      .where(
+        and(
+          eq(activityMember.activityId, openActivityId),
+          eq(activityMember.userId, memberUser.id)
+        )
+      )
+      .limit(1)
+
+    expect(membership?.status).toBe("active")
+  })
+
   it("rejects join when activity requires approval and user is not an active activity member", async () => {
     const session = await createPublishedSession({ activityId: approvalActivityId })
     const memberCaller = buildCaller(memberUser, organizationId)

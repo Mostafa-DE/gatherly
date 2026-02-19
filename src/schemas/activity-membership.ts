@@ -31,7 +31,7 @@ export const removeActivityMemberSchema = z.object({
 export const listActivityMembersSchema = z.object({
   activityId: z.string(),
   status: z.enum(["pending", "active", "rejected"]).optional(),
-  limit: z.number().int().positive().max(100).default(50),
+  limit: z.number().int().positive().max(1000).default(50),
   offset: z.number().int().nonnegative().default(0),
 })
 

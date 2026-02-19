@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { activity as activityTable, activityJoinRequest } from "@/db/schema"
+import { activity as activityTable, activityJoinRequest, activityMember } from "@/db/schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
@@ -311,6 +311,36 @@ describe("activityMembership router", () => {
       expect(result.activityId).toBe(inviteActivityId)
       expect(result.userId).toBe(memberUser.id)
       expect(result.status).toBe("active")
+    })
+
+    it("admin add reactivates an existing rejected activity membership", async () => {
+      await createTestActivityMember({
+        activityId: inviteActivityId,
+        userId: memberUser.id,
+        status: "rejected",
+      })
+
+      const adminCaller = buildCaller(owner, organizationId)
+      const result = await adminCaller.activityMembership.adminAdd({
+        activityId: inviteActivityId,
+        userId: memberUser.id,
+      })
+
+      expect(result.activityId).toBe(inviteActivityId)
+      expect(result.userId).toBe(memberUser.id)
+      expect(result.status).toBe("active")
+
+      const [stored] = await db
+        .select({
+          status: activityMember.status,
+        })
+        .from(activityMember)
+        .where(
+          eq(activityMember.id, result.id)
+        )
+        .limit(1)
+
+      expect(stored?.status).toBe("active")
     })
 
     it("admin cannot add a user who is not an org member", async () => {

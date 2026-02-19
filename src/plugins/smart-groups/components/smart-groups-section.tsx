@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LayoutGrid } from "lucide-react"
+import { GenerateGroupsDialog } from "./generate-groups-dialog"
+import type { Criteria } from "../schemas"
 
 const sourceLabels: Record<string, string> = {
   org: "Org Fields",
@@ -20,6 +22,31 @@ type SmartGroupsSectionProps = {
     enabledPlugins: unknown
     name: string
   }
+}
+
+function toValidCriteria(value: unknown): Criteria | null {
+  if (!value || typeof value !== "object") return null
+  const raw = value as Record<string, unknown>
+  const mode = raw.mode
+
+  if (mode === "split") {
+    if (!Array.isArray(raw.fields) || raw.fields.length === 0) return null
+    return raw as Criteria
+  }
+
+  if (mode === "similarity" || mode === "diversity") {
+    if (!Array.isArray(raw.fields) || raw.fields.length === 0) return null
+    if (typeof raw.groupCount !== "number") return null
+    return raw as Criteria
+  }
+
+  if (mode === "balanced") {
+    if (!Array.isArray(raw.balanceFields) || raw.balanceFields.length === 0) return null
+    if (typeof raw.teamCount !== "number") return null
+    return raw as Criteria
+  }
+
+  return null
 }
 
 export function SmartGroupsSection({ activityId, activity }: SmartGroupsSectionProps) {
@@ -83,11 +110,91 @@ function SmartGroupsContent({
         </div>
       </div>
 
+      <DefaultCriteriaSettings
+        activityId={activityId}
+        configId={config.id}
+        visibleFields={config.visibleFields as string[] | null}
+        defaultCriteria={config.defaultCriteria as Criteria | null}
+      />
+
       <FieldVisibilitySettings activityId={activityId} configId={config.id} visibleFields={config.visibleFields as string[] | null} />
 
       <p className="text-sm text-muted-foreground">
         Generate groups from session detail pages or the per-activity groups page.
       </p>
+    </div>
+  )
+}
+
+// =============================================================================
+// Default Criteria Settings
+// =============================================================================
+
+function describeCriteria(criteria: Criteria): string {
+  if (criteria.mode === "split") {
+    return `Split by ${criteria.fields.length} field${criteria.fields.length === 1 ? "" : "s"}`
+  }
+  if (criteria.mode === "similarity") {
+    return `Similarity mode, ${criteria.fields.length} weighted field${criteria.fields.length === 1 ? "" : "s"}, ${criteria.groupCount} groups`
+  }
+  if (criteria.mode === "diversity") {
+    return `Diversity mode, ${criteria.fields.length} weighted field${criteria.fields.length === 1 ? "" : "s"}, ${criteria.groupCount} groups`
+  }
+  return `Balanced mode, ${criteria.balanceFields.length} weighted stat${criteria.balanceFields.length === 1 ? "" : "s"}, ${criteria.teamCount} teams`
+}
+
+function DefaultCriteriaSettings({
+  activityId,
+  configId,
+  visibleFields,
+  defaultCriteria,
+}: {
+  activityId: string
+  configId: string
+  visibleFields: string[] | null
+  defaultCriteria: Criteria | null
+}) {
+  const [showDefaultsDialog, setShowDefaultsDialog] = useState(false)
+  const safeDefaultCriteria = toValidCriteria(defaultCriteria)
+  const { data: members } = trpc.activityMembership.members.useQuery(
+    { activityId, limit: 1000, offset: 0 },
+    { enabled: showDefaultsDialog }
+  )
+  const participantCount = Math.max(2, members?.length ?? 20)
+
+  return (
+    <div className="space-y-3 rounded-lg border border-border/50 bg-background/50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium">Default Grouping Criteria</p>
+          <p className="text-xs text-muted-foreground">
+            {safeDefaultCriteria
+              ? describeCriteria(safeDefaultCriteria)
+              : "No default set. Configure one to prefill Generate Groups."}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowDefaultsDialog(true)}
+        >
+          {safeDefaultCriteria ? "Edit Defaults" : "Set Defaults"}
+        </Button>
+      </div>
+
+      {showDefaultsDialog && (
+        <GenerateGroupsDialog
+          configId={configId}
+          activityId={activityId}
+          scope="activity"
+          participantCount={participantCount}
+          open={showDefaultsDialog}
+          onOpenChange={setShowDefaultsDialog}
+          visibleFields={visibleFields}
+          defaultCriteria={safeDefaultCriteria}
+          defaultsOnly
+        />
+      )}
     </div>
   )
 }

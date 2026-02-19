@@ -21,6 +21,7 @@ import {
   generateGroupsSchema,
   updateProposalSchema,
   confirmRunSchema,
+  deleteRunSchema,
   getConfigByActivitySchema,
   getRunBySessionSchema,
   getRunsByActivitySchema,
@@ -39,6 +40,7 @@ import {
   getRunDetails,
   createRunWithEntries,
   confirmRun,
+  deleteDraftRun,
 } from "./data-access/runs"
 import {
   createProposals,
@@ -544,5 +546,13 @@ export const smartGroupsRouter = router({
         ctx.user.id,
         input.expectedVersion
       )
+    }),
+
+  deleteRun: orgProcedure
+    .input(deleteRunSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      await deleteDraftRun(input.runId, ctx.activeOrganization.id)
     }),
 })

@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import { ActivitySwitcher } from "@/components/dashboard/activity-switcher"
+import { SmartGroupsNavItem } from "@/components/dashboard/smart-groups-nav-item"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -216,6 +217,7 @@ export function NavMain() {
                 </SidebarMenuItem>
               )
             })}
+            <SmartGroupsNavItem />
           </SidebarMenu>
         </SidebarGroup>
       )}

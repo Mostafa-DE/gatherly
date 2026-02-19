@@ -118,6 +118,14 @@ export const confirmRunSchema = z.object({
 export type ConfirmRunInput = z.infer<typeof confirmRunSchema>
 
 // =============================================================================
+// Delete Run Schema
+// =============================================================================
+
+export const deleteRunSchema = z.object({
+  runId: z.string().min(1),
+})
+
+// =============================================================================
 // Query Schemas
 // =============================================================================
 

@@ -32,10 +32,11 @@ type GenerateGroupsDialogProps = {
   participantCount: number
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  onSuccess?: (runId: string) => void
   onWarnings?: (warnings: string[]) => void
   visibleFields?: string[] | null
   defaultCriteria?: Criteria | null
+  defaultsOnly?: boolean
 }
 
 type Mode = "split" | "similarity" | "diversity" | "balanced"
@@ -43,6 +44,16 @@ type Mode = "split" | "similarity" | "diversity" | "balanced"
 type WeightedFieldState = {
   sourceId: string
   weight: number
+}
+
+const WEIGHT_STEP = 0.05
+
+function normalizeWeight(value: number): number {
+  return Math.round(value / WEIGHT_STEP) * WEIGHT_STEP
+}
+
+function formatWeight(value: number): string {
+  return normalizeWeight(value).toFixed(2)
 }
 
 const modeConfig = [
@@ -91,10 +102,12 @@ export function GenerateGroupsDialog({
   onWarnings,
   visibleFields,
   defaultCriteria,
+  defaultsOnly = false,
 }: GenerateGroupsDialogProps) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [error, setError] = useState("")
   const initializedRef = useRef(false)
+  const utils = trpc.useUtils()
 
   // Split mode state
   const [splitFields, setSplitFields] = useState<string[]>([])
@@ -187,13 +200,21 @@ export function GenerateGroupsDialog({
     onSuccess: (data) => {
       onWarnings?.(data?.warnings ?? [])
       resetState()
-      onSuccess()
+      if (data?.run?.id) onSuccess?.(data.run.id)
       onOpenChange(false)
     },
     onError: (err) => setError(err.message),
   })
 
   const updateConfig = trpc.plugin.smartGroups.updateConfig.useMutation({
+    onSuccess: () => {
+      utils.plugin.smartGroups.getConfigByActivity.invalidate({ activityId })
+      setError("")
+      if (defaultsOnly) {
+        resetState()
+        onOpenChange(false)
+      }
+    },
     onError: (err) => setError(err.message),
   })
 
@@ -248,7 +269,7 @@ export function GenerateGroupsDialog({
 
   function setFieldWeight(sourceId: string, weight: number) {
     setClusterFields((prev) =>
-      prev.map((f) => (f.sourceId === sourceId ? { ...f, weight } : f))
+      prev.map((f) => (f.sourceId === sourceId ? { ...f, weight: normalizeWeight(weight) } : f))
     )
   }
 
@@ -265,7 +286,7 @@ export function GenerateGroupsDialog({
 
   function setBalanceFieldWeight(sourceId: string, weight: number) {
     setBalanceFields((prev) =>
-      prev.map((f) => (f.sourceId === sourceId ? { ...f, weight } : f))
+      prev.map((f) => (f.sourceId === sourceId ? { ...f, weight: normalizeWeight(weight) } : f))
     )
   }
 
@@ -363,10 +384,12 @@ export function GenerateGroupsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5" />
-            Generate Groups
+            {defaultsOnly ? "Default Grouping Criteria" : "Generate Groups"}
           </DialogTitle>
           <DialogDescription>
-            Choose a grouping strategy for {participantCount} {memberLabel}.
+            {defaultsOnly
+              ? "Choose the default grouping strategy used when opening Generate Groups."
+              : `Choose a grouping strategy for ${participantCount} ${memberLabel}.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -487,7 +510,7 @@ export function GenerateGroupsDialog({
                 onClick={handleSaveAsDefault}
                 disabled={updateConfig.isPending}
               >
-                {updateConfig.isPending ? "Saving..." : "Save as Default"}
+                {updateConfig.isPending ? "Saving..." : defaultsOnly ? "Save Default" : "Save as Default"}
               </Button>
             )}
             {domainConfig?.groupingPreset && fields && (
@@ -509,14 +532,16 @@ export function GenerateGroupsDialog({
             )}
           </div>
           <Button variant="outline" onClick={() => { resetState(); onOpenChange(false) }}>
-            Cancel
+            {defaultsOnly ? "Close" : "Cancel"}
           </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={!canGenerate || generateGroups.isPending}
-          >
-            {generateGroups.isPending ? "Generating..." : "Generate"}
-          </Button>
+          {!defaultsOnly && (
+            <Button
+              onClick={handleGenerate}
+              disabled={!canGenerate || generateGroups.isPending}
+            >
+              {generateGroups.isPending ? "Generating..." : "Generate"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -658,11 +683,11 @@ function ClusterConfig({
                         onValueChange={([v]) => onWeightChange(field.sourceId, v)}
                         min={0}
                         max={1}
-                        step={0.1}
+                        step={WEIGHT_STEP}
                         className="flex-1"
                       />
-                      <span className="text-xs tabular-nums text-muted-foreground w-8 text-right">
-                        {weightState.weight.toFixed(1)}
+                      <span className="text-xs tabular-nums text-muted-foreground w-12 text-right">
+                        {formatWeight(weightState.weight)}
                       </span>
                     </div>
                   )}
@@ -787,11 +812,11 @@ function BalancedConfig({
                         onValueChange={([v]) => onBalanceFieldWeightChange(field.sourceId, v)}
                         min={0}
                         max={1}
-                        step={0.1}
+                        step={WEIGHT_STEP}
                         className="flex-1"
                       />
-                      <span className="text-xs tabular-nums text-muted-foreground w-8 text-right">
-                        {weightState.weight.toFixed(1)}
+                      <span className="text-xs tabular-nums text-muted-foreground w-12 text-right">
+                        {formatWeight(weightState.weight)}
                       </span>
                     </div>
                   )}

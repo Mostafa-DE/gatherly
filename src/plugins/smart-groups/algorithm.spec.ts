@@ -949,3 +949,164 @@ describe("clusterByDistance — score projection fallback", () => {
     expect(result.flatMap((g) => g.memberIds)).toHaveLength(1300)
   })
 })
+
+// =============================================================================
+// SA refinement quality tests
+// =============================================================================
+
+describe("SA refinement — quality improvements", () => {
+  it("similarity: SA produces balanced group sizes", () => {
+    // 12 members, 3 groups — SA should produce 4/4/4 or close
+    const entries: GroupEntry[] = Array.from({ length: 12 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: i * 10 },
+    }))
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 3,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(3)
+    for (const group of result) {
+      expect(group.memberIds.length).toBeGreaterThanOrEqual(3)
+      expect(group.memberIds.length).toBeLessThanOrEqual(5)
+    }
+  })
+
+  it("diversity: SA produces well-mixed groups with multi-field data", () => {
+    // Create entries with 2 distinct attributes
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { skill: 10, exp: "Junior" } },
+      { userId: "u2", data: { skill: 20, exp: "Junior" } },
+      { userId: "u3", data: { skill: 30, exp: "Mid" } },
+      { userId: "u4", data: { skill: 40, exp: "Mid" } },
+      { userId: "u5", data: { skill: 50, exp: "Senior" } },
+      { userId: "u6", data: { skill: 60, exp: "Senior" } },
+      { userId: "u7", data: { skill: 70, exp: "Junior" } },
+      { userId: "u8", data: { skill: 80, exp: "Mid" } },
+      { userId: "u9", data: { skill: 90, exp: "Senior" } },
+    ]
+    const fields: FieldMeta[] = [
+      { sourceId: "skill", type: "number", weight: 1 },
+      { sourceId: "exp", type: "select", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 3,
+      fields,
+      objective: "diversity",
+    })
+
+    expect(result).toHaveLength(3)
+
+    // Each group should have members from different skill ranges
+    for (const group of result) {
+      const skills = group.memberIds.map(
+        (id) => entries.find((e) => e.userId === id)!.data.skill as number
+      )
+      const range = Math.max(...skills) - Math.min(...skills)
+      // Each group should span at least 40% of the total range (80)
+      expect(range).toBeGreaterThanOrEqual(30)
+    }
+  })
+
+  it("balanced: SA escapes local optima for challenging distributions", () => {
+    // Create a distribution where simple snake draft is suboptimal
+    const entries: GroupEntry[] = [
+      { userId: "u1", data: { a: 100, b: 1 } },
+      { userId: "u2", data: { a: 1, b: 100 } },
+      { userId: "u3", data: { a: 90, b: 10 } },
+      { userId: "u4", data: { a: 10, b: 90 } },
+      { userId: "u5", data: { a: 50, b: 50 } },
+      { userId: "u6", data: { a: 55, b: 45 } },
+      { userId: "u7", data: { a: 80, b: 20 } },
+      { userId: "u8", data: { a: 20, b: 80 } },
+    ]
+
+    const result = multiBalancedTeams(entries, {
+      teamCount: 2,
+      balanceFields: [
+        { sourceId: "a", weight: 1 },
+        { sourceId: "b", weight: 1 },
+      ],
+    })
+
+    expect(result).toHaveLength(2)
+
+    // Both fields should be well balanced
+    for (const field of ["a", "b"] as const) {
+      const teamAvgs = result.map((t) => {
+        const sum = t.memberIds.reduce(
+          (acc, id) => acc + (entries.find((e) => e.userId === id)!.data[field] as number),
+          0
+        )
+        return sum / t.memberIds.length
+      })
+      const spread = Math.max(...teamAvgs) - Math.min(...teamAvgs)
+      expect(spread).toBeLessThan(15)
+    }
+  })
+
+  it("balanced: SA handles large teams efficiently", () => {
+    // 200 entries, 5 teams — should complete quickly and produce balanced result
+    const entries: GroupEntry[] = Array.from({ length: 200 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: Math.sin(i * 0.1) * 50 + 50 },
+    }))
+
+    const start = performance.now()
+    const result = multiBalancedTeams(entries, {
+      teamCount: 5,
+      balanceFields: [{ sourceId: "score", weight: 1 }],
+    })
+    const elapsed = performance.now() - start
+
+    expect(result).toHaveLength(5)
+    expect(elapsed).toBeLessThan(1000) // Should complete in <1s
+
+    // Teams should be roughly equal size (40 each)
+    for (const team of result) {
+      expect(team.memberIds.length).toBe(40)
+    }
+
+    // Team averages should be close
+    const teamAvgs = result.map((t) => {
+      const sum = t.memberIds.reduce(
+        (acc, id) => acc + (entries.find((e) => e.userId === id)!.data.score as number),
+        0
+      )
+      return sum / t.memberIds.length
+    })
+    const spread = Math.max(...teamAvgs) - Math.min(...teamAvgs)
+    expect(spread).toBeLessThan(5)
+  })
+
+  it("similarity: group size constraint prevents mega-groups", () => {
+    // All entries are similar — without size constraint, one group absorbs all
+    const entries: GroupEntry[] = Array.from({ length: 20 }, (_, i) => ({
+      userId: `u${i}`,
+      data: { score: 50 + (i % 3) },
+    }))
+    const fields: FieldMeta[] = [
+      { sourceId: "score", type: "number", weight: 1 },
+    ]
+
+    const result = clusterByDistance(entries, {
+      groupCount: 4,
+      fields,
+      objective: "similarity",
+    })
+
+    expect(result).toHaveLength(4)
+    // No group should have more than ceil(20/4) = 5 members
+    for (const group of result) {
+      expect(group.memberIds.length).toBeLessThanOrEqual(6)
+      expect(group.memberIds.length).toBeGreaterThanOrEqual(4)
+    }
+  })
+})

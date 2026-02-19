@@ -8,7 +8,7 @@ import {
 } from "@/plugins/smart-groups/schema"
 import { recordHistoryFromProposals } from "./history"
 import type { SmartGroupRun, SmartGroupEntry, SmartGroupProposal } from "@/db/types"
-import { ConflictError, NotFoundError, ValidationError } from "@/exceptions"
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/exceptions"
 import type { Database } from "@/db"
 
 const CHUNK_SIZE = 500
@@ -308,4 +308,35 @@ export async function confirmRun(
 
     return confirmed
   })
+}
+
+// =============================================================================
+// Delete Draft Run
+// =============================================================================
+
+export async function deleteDraftRun(
+  runId: string,
+  organizationId: string
+): Promise<void> {
+  const [run] = await db
+    .select({ id: smartGroupRun.id, status: smartGroupRun.status })
+    .from(smartGroupRun)
+    .where(
+      and(
+        eq(smartGroupRun.id, runId),
+        eq(smartGroupRun.organizationId, organizationId)
+      )
+    )
+    .limit(1)
+
+  if (!run) {
+    throw new NotFoundError("Run not found")
+  }
+
+  if (run.status === "confirmed") {
+    throw new ForbiddenError("Cannot delete a confirmed run")
+  }
+
+  // Cascade deletes entries, proposals, and history
+  await db.delete(smartGroupRun).where(eq(smartGroupRun.id, runId))
 }

@@ -1539,10 +1539,7 @@ async function createSmartGroupConfigs(
       organizationId: orgId,
       activityId: act.id,
       name: `${act.name} Groups`,
-      defaultCriteria: {
-        fields: [],
-        maxFields: 2,
-      },
+      defaultCriteria: null,
       createdBy: ownerId,
     })
     count++

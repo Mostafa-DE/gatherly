@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   ArrowLeft,
   FileText,
+  LayoutGrid,
   Plus,
   Save,
   Settings,
@@ -109,21 +110,37 @@ function ActivitySettingsPage() {
     )
   }
 
+  const enabledPlugins = (activityData.enabledPlugins ?? {}) as Record<string, boolean>
+  const smartGroupsEnabled = enabledPlugins["smart-groups"] === true
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-8 px-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-          <Link to="/dashboard/org/$orgId/activities" params={{ orgId }}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">{activityData.name}</h1>
-          <Badge variant={activityData.isActive ? "default" : "outline"} className="text-xs">
-            {activityData.isActive ? "Active" : "Inactive"}
-          </Badge>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+            <Link to="/dashboard/org/$orgId/activities" params={{ orgId }}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{activityData.name}</h1>
+            <Badge variant={activityData.isActive ? "default" : "outline"} className="text-xs">
+              {activityData.isActive ? "Active" : "Inactive"}
+            </Badge>
+          </div>
         </div>
+        {smartGroupsEnabled && (
+          <Button variant="outline" size="sm" asChild>
+            <Link
+              to="/dashboard/org/$orgId/activities/$activityId/smart-groups"
+              params={{ orgId, activityId }}
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Smart Groups
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* General Settings Section */}
@@ -521,7 +538,7 @@ function MembersSection({ activityId }: { activityId: string }) {
   const [addError, setAddError] = useState("")
 
   const { data: members, isLoading: membersLoading } = trpc.activityMembership.members.useQuery(
-    { activityId }
+    { activityId, limit: 1000, offset: 0 }
   )
 
   const { data: orgMembers } = trpc.organization.listMembers.useQuery(

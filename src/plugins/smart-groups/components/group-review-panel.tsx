@@ -4,8 +4,14 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   DndContext,
-  DragOverlay,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -15,7 +21,14 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core"
-import { AlertTriangle, Check, ChevronDown, GripVertical, RefreshCw } from "lucide-react"
+import { CSS } from "@dnd-kit/utilities"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { AlertTriangle, ArrowRightLeft, Check, ChevronDown, GripVertical, RefreshCw } from "lucide-react"
 import type { SmartGroupProposal, SmartGroupEntry, SmartGroupRun } from "@/db/types"
 import type { Criteria } from "../schemas"
 import type { GroupEntry } from "../algorithm"
@@ -199,6 +212,7 @@ export function GroupReviewPanel({
   // =========================================================================
 
   const [activeDragUserId, setActiveDragUserId] = useState<string | null>(null)
+  const [inspectedUserId, setInspectedUserId] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -271,16 +285,55 @@ export function GroupReviewPanel({
     setActiveDragUserId(null)
   }
 
+  const handleMoveMember = useCallback(
+    (userId: string, sourceProposalId: string, targetProposalId: string) => {
+      if (sourceProposalId === targetProposalId) return
+
+      const sourceMembers = memberAssignments.get(sourceProposalId)
+      if (!sourceMembers || sourceMembers.length <= 1) return
+
+      const targetMembers = memberAssignments.get(targetProposalId)
+      if (!targetMembers) return
+
+      const newSource = sourceMembers.filter((id) => id !== userId)
+      const newTarget = [...targetMembers, userId]
+
+      setMemberAssignments((prev) => {
+        const next = new Map(prev)
+        next.set(sourceProposalId, newSource)
+        next.set(targetProposalId, newTarget)
+        return next
+      })
+
+      const sourceProposal = proposalMap.get(sourceProposalId)
+      const targetProposal = proposalMap.get(targetProposalId)
+      if (sourceProposal && targetProposal) {
+        updateProposal.mutate({
+          proposalId: sourceProposalId,
+          modifiedMemberIds: newSource,
+          expectedVersion: sourceProposal.version,
+        })
+        updateProposal.mutate({
+          proposalId: targetProposalId,
+          modifiedMemberIds: newTarget,
+          expectedVersion: targetProposal.version,
+        })
+      }
+    },
+    [memberAssignments, proposalMap, updateProposal]
+  )
+
   // =========================================================================
   // Render
   // =========================================================================
 
-  const activeDragInfo = activeDragUserId ? userInfoMap.get(activeDragUserId) : null
+  const inspectedUserInfo = inspectedUserId ? userInfoMap.get(inspectedUserId) : null
+  const inspectedUserData = inspectedUserId ? userDataMap.get(inspectedUserId) ?? null : null
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header + Actions */}
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">
             {run.groupCount} groups from {run.entryCount} members
@@ -292,6 +345,26 @@ export function GroupReviewPanel({
             {isConfirmed ? "Confirmed" : "Draft"}
           </Badge>
         </div>
+        {isAdmin && !isConfirmed && (
+          <div className="flex items-center gap-2">
+            {onRegenerate && (
+              <Button variant="outline" size="sm" onClick={onRegenerate}>
+                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                Regenerate
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() =>
+                confirmRun.mutate({ runId: run.id, expectedVersion: run.version })
+              }
+              disabled={confirmRun.isPending}
+            >
+              <Check className="h-3.5 w-3.5 mr-1.5" />
+              {confirmRun.isPending ? "Confirming..." : "Confirm Groups"}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Skipped field warnings */}
@@ -344,49 +417,14 @@ export function GroupReviewPanel({
                 perGroupMetric={perGroupMetricMap?.get(proposal.groupName) ?? null}
                 criteriaFieldIds={criteriaFieldIds}
                 userDataMap={userDataMap}
+                onInspectMember={setInspectedUserId}
+                allProposals={proposals}
+                onMoveMember={handleMoveMember}
               />
             )
           })}
         </div>
-
-        <DragOverlay>
-          {activeDragInfo && (
-            <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-background p-3 shadow-lg ring-2 ring-primary/20">
-              <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarImage src={activeDragInfo.userImage ?? undefined} />
-                <AvatarFallback className="text-xs">
-                  {(activeDragInfo.userName ?? "?").charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="truncate text-sm font-medium">
-                {activeDragInfo.userName ?? activeDragInfo.userId.slice(0, 8)}
-              </span>
-            </div>
-          )}
-        </DragOverlay>
       </DndContext>
-
-      {/* Actions */}
-      {isAdmin && !isConfirmed && (
-        <div className="flex items-center gap-2 border-t border-border/50 pt-4">
-          <Button
-            onClick={() =>
-              confirmRun.mutate({ runId: run.id, expectedVersion: run.version })
-            }
-            disabled={confirmRun.isPending}
-          >
-            <Check className="h-4 w-4 mr-2" />
-            {confirmRun.isPending ? "Confirming..." : "Confirm Groups"}
-          </Button>
-          {onRegenerate && (
-            <Button variant="outline" onClick={onRegenerate}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Regenerate
-            </Button>
-          )}
-        </div>
-      )}
 
       {confirmRun.error && (
         <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
@@ -399,6 +437,13 @@ export function GroupReviewPanel({
           {updateProposal.error.message}
         </div>
       )}
+
+      <MemberInspectDialog
+        userId={inspectedUserId}
+        userName={inspectedUserInfo?.userName ?? null}
+        data={inspectedUserData}
+        onClose={() => setInspectedUserId(null)}
+      />
     </div>
   )
 }
@@ -420,6 +465,11 @@ function MetricsSummaryBar({ metrics }: { metrics: GroupMetrics }) {
     : metrics.mode === "similarity"
       ? "Cohesion"
       : "Diversity"
+  const explanation = isBalance
+    ? "Balance shows how evenly key stats are distributed across groups."
+    : metrics.mode === "similarity"
+      ? "Cohesion shows how similar members are within each group. Higher means more similar."
+      : "Diversity shows how different members are within each group. Higher means more mixed perspectives."
 
   const colorClass =
     percent >= 80
@@ -436,6 +486,7 @@ function MetricsSummaryBar({ metrics }: { metrics: GroupMetrics }) {
           {percent}%
         </Badge>
       </div>
+      <p className="mt-1 text-xs text-muted-foreground">{explanation}</p>
 
       {isBalance && Object.keys((metrics as BalanceMetrics).perFieldBalance).length > 0 && (
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
@@ -525,6 +576,9 @@ function DroppableProposalCard({
   perGroupMetric,
   criteriaFieldIds,
   userDataMap,
+  onInspectMember,
+  allProposals,
+  onMoveMember,
 }: {
   proposalId: string
   groupName: string
@@ -537,6 +591,9 @@ function DroppableProposalCard({
   perGroupMetric: BalanceMetrics["perGroup"][number] | ClusterMetrics["perGroup"][number] | null
   criteriaFieldIds: string[]
   userDataMap: Map<string, Record<string, unknown>>
+  onInspectMember: (userId: string) => void
+  allProposals: SmartGroupProposal[]
+  onMoveMember: (userId: string, sourceProposalId: string, targetProposalId: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `group-${proposalId}`,
@@ -581,6 +638,10 @@ function DroppableProposalCard({
             isDragging={activeDragUserId === userId}
             criteriaFieldIds={criteriaFieldIds}
             userDataMap={userDataMap}
+            onInspect={onInspectMember}
+            allProposals={allProposals}
+            onMoveMember={onMoveMember}
+            memberCount={memberIds.length}
           />
         ))}
       </div>
@@ -631,7 +692,7 @@ function PerGroupBadge({
   return (
     <div className="mt-1.5">
       <span className="text-sm tabular-nums text-muted-foreground">
-        {label}:{" "}
+        Group {label}:{" "}
         <span className="font-medium text-foreground">{percent}%</span>
       </span>
     </div>
@@ -650,6 +711,10 @@ function DraggableMemberCard({
   isDragging,
   criteriaFieldIds,
   userDataMap,
+  onInspect,
+  allProposals,
+  onMoveMember,
+  memberCount,
 }: {
   userId: string
   proposalId: string
@@ -658,8 +723,12 @@ function DraggableMemberCard({
   isDragging: boolean
   criteriaFieldIds: string[]
   userDataMap: Map<string, Record<string, unknown>>
+  onInspect: (userId: string) => void
+  allProposals: SmartGroupProposal[]
+  onMoveMember: (userId: string, sourceProposalId: string, targetProposalId: string) => void
+  memberCount: number
 }) {
-  const { attributes, listeners, setNodeRef } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: `member-${userId}`,
     data: { userId, sourceProposalId: proposalId },
     disabled: !canDrag,
@@ -667,6 +736,14 @@ function DraggableMemberCard({
 
   const info = userInfoMap.get(userId)
   const data = userDataMap.get(userId)
+
+  const style: React.CSSProperties | undefined = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+        zIndex: 50,
+        position: "relative",
+      }
+    : undefined
 
   // Build stat pills from criteria fields + always include ranking:level if present
   const statPills = useMemo(() => {
@@ -687,11 +764,19 @@ function DraggableMemberCard({
     return pills
   }, [data, criteriaFieldIds])
 
+  // Other groups this member can be moved to (hide if only 1 member left)
+  const canMove = canDrag && memberCount > 1
+  const otherGroups = useMemo(
+    () => allProposals.filter((p) => p.id !== proposalId),
+    [allProposals, proposalId]
+  )
+
   return (
     <div
       ref={setNodeRef}
-      className={`flex items-center gap-3 rounded-lg border border-border/40 bg-muted/30 p-3 ${
-        isDragging ? "opacity-30" : ""
+      style={style}
+      className={`flex items-center gap-3 rounded-lg border bg-muted/30 p-3 ${
+        isDragging ? "border-primary shadow-lg ring-2 ring-primary bg-background" : "border-border/40"
       } ${canDrag ? "cursor-grab touch-none hover:bg-muted/60 active:cursor-grabbing" : ""}`}
       {...attributes}
       {...(canDrag ? listeners : {})}
@@ -720,7 +805,104 @@ function DraggableMemberCard({
           </span>
         )}
       </div>
+      <div className="flex items-center gap-1 shrink-0">
+        {canMove && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-60 overflow-y-auto">
+              {otherGroups.map((target) => (
+                <DropdownMenuItem
+                  key={target.id}
+                  onClick={() => onMoveMember(userId, proposalId, target.id)}
+                >
+                  Move to {target.groupName}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onInspect(userId)
+          }}
+        >
+          Inspect
+        </Button>
+      </div>
     </div>
+  )
+}
+
+// =============================================================================
+// Member Inspect Dialog
+// =============================================================================
+
+function MemberInspectDialog({
+  userId,
+  userName,
+  data,
+  onClose,
+}: {
+  userId: string | null
+  userName: string | null
+  data: Record<string, unknown> | null
+  onClose: () => void
+}) {
+  const open = userId !== null
+  const rows = useMemo(
+    () =>
+      Object.entries(data ?? {})
+        .filter(([sourceId]) => !sourceId.startsWith("_"))
+        .sort(([a], [b]) => a.localeCompare(b)),
+    [data]
+  )
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
+      <DialogContent className="w-[min(96vw,72rem)] max-w-[72rem] max-h-[90vh] overflow-hidden p-0">
+        <div className="flex max-h-[90vh] flex-col">
+          <DialogHeader className="border-b border-border/50 px-6 py-4">
+            <DialogTitle>{userName ?? userId?.slice(0, 8) ?? "Member"}</DialogTitle>
+            <DialogDescription>
+              Full profile snapshot used for grouping.
+            </DialogDescription>
+          </DialogHeader>
+          {rows.length === 0 ? (
+            <p className="px-6 py-4 text-sm text-muted-foreground">No profile data available.</p>
+          ) : (
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {rows.map(([sourceId, value]) => (
+                  <div key={sourceId} className="rounded-md border border-border/50 bg-muted/30 p-4">
+                    <p className="text-sm text-muted-foreground">{humanizeSourceId(sourceId)}</p>
+                    <p className="text-base break-words">{formatStatValue(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -772,5 +954,6 @@ function formatStatValue(val: unknown): string {
   if (typeof val === "number") return String(val)
   if (typeof val === "string") return val
   if (Array.isArray(val)) return val.join(", ")
+  if (val && typeof val === "object") return JSON.stringify(val)
   return String(val)
 }

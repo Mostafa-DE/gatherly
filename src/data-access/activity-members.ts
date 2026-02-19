@@ -2,11 +2,6 @@ import { and, eq, count, desc, inArray } from "drizzle-orm"
 import { db } from "@/db"
 import { activityMember, activity, user } from "@/db/schema"
 import type { ActivityMember } from "@/db/types"
-import { ConflictError } from "@/exceptions"
-
-function isUniqueConstraintError(error: unknown): boolean {
-  return (error as { code?: string })?.code === "23505"
-}
 
 export async function getActivityMember(
   activityId: string,
@@ -68,22 +63,23 @@ export async function createActivityMember(
   userId: string,
   status: "pending" | "active" = "active"
 ): Promise<ActivityMember> {
-  try {
-    const [created] = await db
-      .insert(activityMember)
-      .values({
-        activityId,
-        userId,
+  const [membership] = await db
+    .insert(activityMember)
+    .values({
+      activityId,
+      userId,
+      status,
+    })
+    .onConflictDoUpdate({
+      target: [activityMember.activityId, activityMember.userId],
+      set: {
         status,
-      })
-      .returning()
-    return created
-  } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      throw new ConflictError("User is already a member of this activity")
-    }
-    throw error
-  }
+        updatedAt: new Date(),
+      },
+    })
+    .returning()
+
+  return membership
 }
 
 export async function updateActivityMemberStatus(
