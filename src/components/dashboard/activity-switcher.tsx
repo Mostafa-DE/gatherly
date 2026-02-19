@@ -40,7 +40,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { JoinFormField } from "@/components/join-form-field"
+import type { FormField } from "@/types/form"
 import { cn } from "@/lib/utils"
 
 function useActivitySwitcherState(orgId: string) {
@@ -269,16 +280,106 @@ function ActivityList({
 function JoinConfirmDialog({
   confirmJoinActivityId,
   setConfirmJoinActivityId,
+  activities,
   requestJoinActivity,
 }: {
   confirmJoinActivityId: string | null
   setConfirmJoinActivityId: (id: string | null) => void
-  requestJoinActivity: { mutate: (args: { activityId: string }) => void }
+  activities: ReturnType<typeof useActivityContext>["activities"]
+  requestJoinActivity: { mutate: (args: { activityId: string; formAnswers?: Record<string, unknown> }) => void; isPending: boolean }
 }) {
+  const [formAnswers, setFormAnswers] = useState<Record<string, unknown>>({})
+  const [formError, setFormError] = useState("")
+
+  const confirmActivity = activities.find((a) => a.id === confirmJoinActivityId)
+  const formFields = (confirmActivity?.joinFormSchema as { fields?: FormField[] } | null)?.fields || []
+  const hasForm = formFields.length > 0
+
+  const handleClose = () => {
+    setConfirmJoinActivityId(null)
+    setFormAnswers({})
+    setFormError("")
+  }
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!confirmJoinActivityId) return
+
+    // Validate required fields
+    for (const field of formFields) {
+      if (!field.required) continue
+      const value = formAnswers[field.id]
+      if (
+        value === undefined ||
+        value === null ||
+        (typeof value === "string" && value.trim().length === 0) ||
+        (Array.isArray(value) && value.length === 0)
+      ) {
+        setFormError(`"${field.label}" is required`)
+        return
+      }
+    }
+
+    const answers = Object.keys(formAnswers).length > 0 ? formAnswers : undefined
+    requestJoinActivity.mutate({ activityId: confirmJoinActivityId, formAnswers: answers })
+    handleClose()
+  }
+
+  if (hasForm) {
+    return (
+      <Dialog
+        open={confirmJoinActivityId !== null}
+        onOpenChange={(nextOpen) => { if (!nextOpen) handleClose() }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>Request to Join {confirmActivity?.name}</DialogTitle>
+              <DialogDescription>
+                Please fill out the form below. Your request will be reviewed by an administrator.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {formError && (
+                <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                  {formError}
+                </div>
+              )}
+
+              {formFields.map((field) => (
+                <JoinFormField
+                  key={field.id}
+                  field={field}
+                  value={formAnswers[field.id]}
+                  onChange={(value) => setFormAnswers((prev) => ({ ...prev, [field.id]: value }))}
+                />
+              ))}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={requestJoinActivity.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={requestJoinActivity.isPending}>
+                {requestJoinActivity.isPending ? "Sending..." : "Send Request"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <AlertDialog
       open={confirmJoinActivityId !== null}
-      onOpenChange={(nextOpen) => { if (!nextOpen) setConfirmJoinActivityId(null) }}
+      onOpenChange={(nextOpen) => { if (!nextOpen) handleClose() }}
     >
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -291,12 +392,7 @@ function JoinConfirmDialog({
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => {
-              if (confirmJoinActivityId) {
-                requestJoinActivity.mutate({ activityId: confirmJoinActivityId })
-                setConfirmJoinActivityId(null)
-              }
-            }}
+            onClick={() => handleSubmit()}
           >
             Send Request
           </AlertDialogAction>
@@ -369,6 +465,7 @@ export function ActivitySwitcher() {
       <JoinConfirmDialog
         confirmJoinActivityId={state.confirmJoinActivityId}
         setConfirmJoinActivityId={state.setConfirmJoinActivityId}
+        activities={state.activities}
         requestJoinActivity={state.requestJoinActivity}
       />
     </>
@@ -439,6 +536,7 @@ export function MobileActivitySwitcher() {
       <JoinConfirmDialog
         confirmJoinActivityId={state.confirmJoinActivityId}
         setConfirmJoinActivityId={state.setConfirmJoinActivityId}
+        activities={state.activities}
         requestJoinActivity={state.requestJoinActivity}
       />
     </>
