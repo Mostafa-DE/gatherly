@@ -88,6 +88,7 @@ export const listUpcomingSessionsSchema = z.object({
   limit: z.number().int().positive().max(100).default(20),
   offset: z.number().int().nonnegative().default(0),
   activityId: z.string().optional(),
+  search: z.string().max(100).optional(),
 })
 
 /** List past sessions */
@@ -95,6 +96,7 @@ export const listPastSessionsSchema = z.object({
   limit: z.number().int().positive().max(100).default(20),
   offset: z.number().int().nonnegative().default(0),
   activityId: z.string().optional(),
+  search: z.string().max(100).optional(),
 })
 
 // =============================================================================

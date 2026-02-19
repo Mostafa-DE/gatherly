@@ -127,11 +127,16 @@ export async function buildMemberProfiles(opts: {
   // Batch query 5: Ranking data (when ranking plugin enabled)
   const rankingMap = new Map<
     string,
-    { levelName: string | null; levelOrder: number | null; stats: Record<string, unknown> }
+    {
+      levelName: string | null
+      levelOrder: number | null
+      stats: Record<string, unknown>
+      attributes: Record<string, unknown>
+    }
   >()
 
   const [rankDef] = await db
-    .select({ id: rankingDefinition.id })
+    .select({ id: rankingDefinition.id, domainId: rankingDefinition.domainId })
     .from(rankingDefinition)
     .where(
       and(
@@ -146,6 +151,7 @@ export async function buildMemberProfiles(opts: {
       .select({
         userId: memberRank.userId,
         stats: memberRank.stats,
+        attributes: memberRank.attributes,
         levelName: rankingLevel.name,
         levelOrder: rankingLevel.order,
       })
@@ -163,7 +169,33 @@ export async function buildMemberProfiles(opts: {
         levelName: r.levelName,
         levelOrder: r.levelOrder,
         stats: r.stats as Record<string, unknown>,
+        attributes: (r.attributes as Record<string, unknown>) ?? {},
       })
+    }
+  }
+
+  // Batch query 6: Participation attribute overrides (when session provided)
+  const attrOverridesMap = new Map<string, Record<string, unknown> | null>()
+  if (sessionId) {
+    const overrides = await db
+      .select({
+        userId: participation.userId,
+        attributeOverrides: participation.attributeOverrides,
+      })
+      .from(participation)
+      .where(
+        and(
+          eq(participation.sessionId, sessionId),
+          eq(participation.status, "joined"),
+          inArray(participation.userId, userIds)
+        )
+      )
+
+    for (const o of overrides) {
+      attrOverridesMap.set(
+        o.userId,
+        o.attributeOverrides as Record<string, unknown> | null
+      )
     }
   }
 
@@ -201,9 +233,30 @@ export async function buildMemberProfiles(opts: {
     // Namespace ranking fields
     if (rankingData) {
       merged["ranking:level"] = rankingData.levelName
+      if (rankingData.levelOrder !== null && rankingData.levelOrder !== undefined) {
+        merged["ranking:levelOrder"] = rankingData.levelOrder
+      }
       if (rankingData.stats && typeof rankingData.stats === "object") {
         for (const [key, value] of Object.entries(rankingData.stats)) {
           merged[`ranking:stat:${key}`] = value
+        }
+      }
+
+      // Effective attributes: session override ?? default
+      const defaultAttrs = rankingData.attributes ?? {}
+      const sessionOverrides = attrOverridesMap.get(uid) ?? null
+      if (typeof defaultAttrs === "object") {
+        for (const [key, value] of Object.entries(defaultAttrs)) {
+          const effective = sessionOverrides?.[key] ?? value
+          merged[`ranking:attr:${key}`] = effective
+        }
+      }
+      // Also include any override keys not in defaults
+      if (sessionOverrides && typeof sessionOverrides === "object") {
+        for (const [key, value] of Object.entries(sessionOverrides)) {
+          if (value !== null && merged[`ranking:attr:${key}`] === undefined) {
+            merged[`ranking:attr:${key}`] = value
+          }
         }
       }
     }
@@ -320,7 +373,20 @@ export async function getAvailableFields(opts: {
           label: stat.label,
           source: "ranking",
           type: "ranking_stat",
-            })
+        })
+      }
+
+      // Attribute fields from domain definition
+      if (domain.attributeFields) {
+        for (const attr of domain.attributeFields) {
+          fields.push({
+            sourceId: `ranking:attr:${attr.id}`,
+            label: attr.label,
+            source: "ranking",
+            type: "ranking_attribute",
+            options: attr.options,
+          })
+        }
       }
     }
   }

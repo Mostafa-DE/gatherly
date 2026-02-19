@@ -281,6 +281,7 @@ export const smartGroupsRouter = router({
       let groups: GroupResult[]
       let effectiveEntries: GroupEntry[]
       let excludedCount = 0
+      const skippedPartitionFields: Array<{ sourceId: string; reason: string }> = []
 
       if (criteria.mode === "split") {
         effectiveEntries = allEntries
@@ -323,20 +324,72 @@ export const smartGroupsRouter = router({
 
       } else {
         // balanced mode
-        effectiveEntries = allEntries.filter((e) =>
-          criteria.balanceFields.every((bf) => {
-            const val = e.data[bf.sourceId]
-            return val !== null && val !== undefined && typeof val === "number"
-          })
-        )
+        // Default missing numeric balance fields to 0 so members without
+        // ranking data aren't excluded — they simply count as having zero stats.
+        for (const entry of allEntries) {
+          for (const bf of criteria.balanceFields) {
+            const val = entry.data[bf.sourceId]
+            if (val === null || val === undefined || typeof val !== "number") {
+              entry.data[bf.sourceId] = 0
+            }
+          }
+        }
 
-        if (criteria.partitionFields && criteria.partitionFields.length > 0) {
-          effectiveEntries = effectiveEntries.filter((e) =>
-            criteria.partitionFields!.every((pf) => {
-              const val = e.data[pf]
-              return val !== null && val !== undefined && val !== ""
-            })
-          )
+        effectiveEntries = [...allEntries]
+
+        // Promote ranking:level from partition to balance — level is ordinal
+        // so balancing by levelOrder (numeric) pairs strong with weak players.
+        const effectiveBalanceFields = [...criteria.balanceFields]
+        let rawPartitionFields = criteria.partitionFields ?? []
+        if (rawPartitionFields.includes("ranking:level")) {
+          rawPartitionFields = rawPartitionFields.filter((pf) => pf !== "ranking:level")
+          // Add levelOrder as a balance field (weight 2 = high priority)
+          effectiveBalanceFields.push({ sourceId: "ranking:levelOrder", weight: 2 })
+          // Default missing levelOrder to 0
+          for (const entry of effectiveEntries) {
+            const val = entry.data["ranking:levelOrder"]
+            if (val === null || val === undefined || typeof val !== "number") {
+              entry.data["ranking:levelOrder"] = 0
+            }
+          }
+        }
+
+        // Filter partition fields to only those with meaningful variety.
+        // Drop a field if: most members lack data, or all members share
+        // the same value (partitioning would be pointless).
+        let effectivePartitionFields = rawPartitionFields
+        if (effectivePartitionFields.length > 0) {
+          effectivePartitionFields = effectivePartitionFields.filter((pf) => {
+            const values = effectiveEntries
+              .map((e) => e.data[pf])
+              .filter((v) => v !== null && v !== undefined && v !== "")
+            if (values.length < 2) {
+              skippedPartitionFields.push({
+                sourceId: pf,
+                reason: "not enough members have this data",
+              })
+              return false
+            }
+            const distinct = new Set(values)
+            if (distinct.size < 2) {
+              const sharedValue = String([...distinct][0])
+              skippedPartitionFields.push({
+                sourceId: pf,
+                reason: `all members share the same value (${sharedValue})`,
+              })
+              return false
+            }
+            // Skip if too many unique values — partitioning needs at least
+            // 2 members per bucket on average to be meaningful
+            if (values.length / distinct.size < 2) {
+              skippedPartitionFields.push({
+                sourceId: pf,
+                reason: `too many unique values (${distinct.size}) for ${values.length} members`,
+              })
+              return false
+            }
+            return true
+          })
         }
 
         excludedCount = allEntries.length - effectiveEntries.length
@@ -350,8 +403,8 @@ export const smartGroupsRouter = router({
 
         groups = multiBalancedTeams(effectiveEntries, {
           teamCount: criteria.teamCount,
-          balanceFields: criteria.balanceFields,
-          partitionFields: criteria.partitionFields,
+          balanceFields: effectiveBalanceFields,
+          partitionFields: effectivePartitionFields,
           varietyPenalty,
           varietyWeight,
         })
@@ -403,8 +456,23 @@ export const smartGroupsRouter = router({
         return run
       })
 
+      // Build warnings for skipped partition fields
+      const warnings: string[] = []
+      if (skippedPartitionFields.length > 0) {
+        for (const { sourceId, reason } of skippedPartitionFields) {
+          // Extract readable name from sourceId (e.g. "ranking:attr:dominant_side" → "Dominant Side")
+          const fieldLabel = sourceId
+            .split(":")
+            .pop()
+            ?.replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase()) ?? sourceId
+          warnings.push(`"${fieldLabel}" partition was skipped: ${reason}`)
+        }
+      }
+
       // Return the full run with proposals
-      return getRunDetails(result.id, orgId)
+      const details = await getRunDetails(result.id, orgId)
+      return { ...details, warnings }
     }),
 
   updateProposal: orgProcedure

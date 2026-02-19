@@ -102,6 +102,23 @@ export const flagFootballDomain: RankingDomain = {
     { name: "Intermediate", color: "#3B82F6" },
     { name: "Competitive", color: "#10B981" },
   ],
+  attributeFields: [
+    {
+      id: "position",
+      label: "Position",
+      options: ["QB", "WR", "RB", "Lineman", "DB"],
+    },
+  ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "wins", weight: 1 },
+      { statId: "points_scored", weight: 0.5 },
+    ],
+    partitionByLevel: true,
+    partitionByAttribute: "position",
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["5v5", "7v7"],
     defaultFormat: "5v5",

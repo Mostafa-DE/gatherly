@@ -651,6 +651,33 @@ describe("ranking data-access", () => {
         code: "NOT_FOUND",
       })
     })
+
+    it("uses domain tie-break rules for non-wins stat models (padel match_wins/set diff)", async () => {
+      const definition = await createDefinition({
+        domainId: "padel",
+        levels: [{ name: "Open", order: 0 }],
+      })
+
+      await createTestActivityMember({ activityId, userId: alphaId, status: "active" })
+      await createTestActivityMember({ activityId, userId: betaId, status: "active" })
+      await createTestActivityMember({ activityId, userId: charlieId, status: "active" })
+
+      // Same level for everyone; order should follow domain tie-break:
+      // 1) match_wins desc
+      // 2) (set_wins - set_losses) desc
+      await recordStats(organizationId, definition.id, alphaId, ownerId, {
+        stats: { match_wins: 2, set_wins: 8, set_losses: 4 }, // diff: 4
+      })
+      await recordStats(organizationId, definition.id, betaId, ownerId, {
+        stats: { match_wins: 2, set_wins: 7, set_losses: 4 }, // diff: 3
+      })
+      await recordStats(organizationId, definition.id, charlieId, ownerId, {
+        stats: { match_wins: 1, set_wins: 9, set_losses: 1 }, // lower primary tie-break
+      })
+
+      const leaderboard = await getLeaderboard(definition.id, false)
+      expect(leaderboard.map((row) => row.userId)).toEqual([alphaId, betaId, charlieId])
+    })
   })
 
   describe("match records", () => {

@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { eq } from "drizzle-orm"
 import { db } from "@/db"
-import { eventSession, participation, groupMemberProfile } from "@/db/schema"
+import {
+  activity as activityTable,
+  eventSession,
+  participation,
+  groupMemberProfile,
+  organizationSettings,
+} from "@/db/schema"
 import {
   cleanupTestData,
   createTestActivity,
@@ -13,7 +20,8 @@ import { createConfig, getConfigByActivity } from "./data-access/configs"
 import { createRunWithEntries, getRunDetails, confirmRun } from "./data-access/runs"
 import { createProposals, getProposalsByRun, updateProposalMembers } from "./data-access/proposals"
 import { splitByAttributes } from "./algorithm"
-import { buildMemberProfiles } from "@/data-access/member-profiles"
+import { buildMemberProfiles, getAvailableFields } from "@/data-access/member-profiles"
+import { memberRank, rankingDefinition } from "@/plugins/ranking/schema"
 
 describe("smart-groups data-access", () => {
   let organizationId = ""
@@ -612,6 +620,149 @@ describe("smart-groups data-access", () => {
       expect(details).not.toBeNull()
       const snapshot = details!.entries[0].dataSnapshot as Record<string, unknown>
       expect(snapshot["org:field_gender"]).toBe("Female")
+    })
+  })
+
+  describe("ranking profile integration", () => {
+    it("applies participation attribute overrides over ranking defaults", async () => {
+      const [session] = await db
+        .insert(eventSession)
+        .values({
+          organizationId,
+          activityId,
+          title: "Override Session",
+          dateTime: new Date(),
+          maxCapacity: 10,
+          status: "published",
+          createdBy: ownerId,
+        })
+        .returning()
+
+      const [definition] = await db
+        .insert(rankingDefinition)
+        .values({
+          organizationId,
+          activityId,
+          name: "Padel Ranking",
+          domainId: "padel",
+          createdBy: ownerId,
+        })
+        .returning()
+
+      await db.insert(memberRank).values([
+        {
+          organizationId,
+          rankingDefinitionId: definition.id,
+          userId: user1Id,
+          stats: { match_wins: 3, set_wins: 8, set_losses: 4 },
+          attributes: { dominant_side: "Right" },
+        },
+        {
+          organizationId,
+          rankingDefinitionId: definition.id,
+          userId: user2Id,
+          stats: { match_wins: 1, set_wins: 2, set_losses: 5 },
+          attributes: { dominant_side: "Right" },
+        },
+      ])
+
+      await db.insert(participation).values([
+        {
+          sessionId: session.id,
+          userId: user1Id,
+          status: "joined",
+          attributeOverrides: { dominant_side: "Left" },
+        },
+        {
+          sessionId: session.id,
+          userId: user2Id,
+          status: "joined",
+        },
+      ])
+
+      const profiles = await buildMemberProfiles({
+        organizationId,
+        activityId,
+        sessionId: session.id,
+        userIds: [user1Id, user2Id],
+      })
+
+      const byUser = new Map(profiles.map((profile) => [profile.userId, profile]))
+      expect(byUser.get(user1Id)?.merged["ranking:attr:dominant_side"]).toBe("Left")
+      expect(byUser.get(user2Id)?.merged["ranking:attr:dominant_side"]).toBe("Right")
+      expect(byUser.get(user1Id)?.merged["ranking:stat:match_wins"]).toBe(3)
+    })
+
+    it("returns ranking fields and disambiguated duplicated labels", async () => {
+      await db.insert(organizationSettings).values({
+        organizationId,
+        joinFormSchema: {
+          fields: [
+            { id: "skill", type: "text", label: "Skill", required: true },
+          ],
+        },
+        joinFormVersion: 1,
+      })
+
+      await db
+        .update(activityTable)
+        .set({
+          joinFormSchema: {
+            fields: [
+              { id: "skill", type: "text", label: "Skill", required: true },
+            ],
+          },
+        })
+        .where(eq(activityTable.id, activityId))
+
+      const [session] = await db
+        .insert(eventSession)
+        .values({
+          organizationId,
+          activityId,
+          title: "Field Session",
+          dateTime: new Date(),
+          maxCapacity: 10,
+          status: "published",
+          createdBy: ownerId,
+          joinFormSchema: {
+            fields: [
+              { id: "skill", type: "text", label: "Skill", required: true },
+            ],
+          },
+        })
+        .returning()
+
+      await db.insert(rankingDefinition).values({
+        organizationId,
+        activityId,
+        name: "Padel Ranking",
+        domainId: "padel",
+        createdBy: ownerId,
+      })
+
+      const fields = await getAvailableFields({
+        organizationId,
+        activityId,
+        sessionId: session.id,
+      })
+
+      expect(fields.some((field) => field.sourceId === "ranking:level")).toBe(true)
+      expect(
+        fields.some((field) => field.sourceId === "ranking:stat:match_wins")
+      ).toBe(true)
+      expect(
+        fields.some((field) => field.sourceId === "ranking:attr:dominant_side")
+      ).toBe(true)
+
+      const skillLabels = fields
+        .filter((field) => field.sourceId.endsWith(":skill"))
+        .map((field) => field.label)
+      expect(skillLabels.sort()).toEqual([
+        "Activity: Skill",
+        "Org: Skill",
+        "Session: Skill",
+      ])
     })
   })
 })

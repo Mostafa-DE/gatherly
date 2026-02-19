@@ -9,6 +9,7 @@ export type FieldType =
   | "text"
   | "ranking_level"
   | "ranking_stat"
+  | "ranking_attribute"
 
 export type FieldMeta = {
   sourceId: string
@@ -51,6 +52,7 @@ export function fieldDistance(
   switch (meta.type) {
     case "select":
     case "text":
+    case "ranking_attribute":
       return String(a).toLowerCase() === String(b).toLowerCase() ? 0 : 1
 
     case "checkbox":

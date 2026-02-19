@@ -1,4 +1,4 @@
-import { and, count, eq, gt, inArray, isNull, lt, or, sql, desc, asc, type SQL } from "drizzle-orm"
+import { and, count, eq, gt, ilike, inArray, isNull, lt, or, sql, desc, asc, type SQL } from "drizzle-orm"
 import { db } from "@/db"
 import { eventSession, participation, activity } from "@/db/schema"
 import type { EventSession } from "@/db/types"
@@ -117,7 +117,7 @@ export async function listUpcomingSessions(
 
 export async function listUpcomingSessionsWithCounts(
   organizationId: string,
-  options: { limit: number; offset: number; activityId?: string; activityIds?: string[] }
+  options: { limit: number; offset: number; activityId?: string; activityIds?: string[]; search?: string }
 ) {
   if (options.activityIds?.length === 0) return []
 
@@ -135,12 +135,19 @@ export async function listUpcomingSessionsWithCounts(
     conditions.push(inArray(eventSession.activityId, options.activityIds))
   }
 
+  if (options.search) {
+    const pattern = `%${options.search}%`
+    conditions.push(
+      or(ilike(eventSession.title, pattern), ilike(eventSession.location, pattern))!
+    )
+  }
+
   return selectSessionsWithCounts(conditions, asc(eventSession.dateTime), options.limit, options.offset)
 }
 
 export async function listDraftSessionsWithCounts(
   organizationId: string,
-  options: { limit: number; offset: number; activityId?: string; activityIds?: string[] }
+  options: { limit: number; offset: number; activityId?: string; activityIds?: string[]; search?: string }
 ) {
   if (options.activityIds?.length === 0) return []
 
@@ -154,6 +161,13 @@ export async function listDraftSessionsWithCounts(
     conditions.push(eq(eventSession.activityId, options.activityId))
   } else if (options.activityIds) {
     conditions.push(inArray(eventSession.activityId, options.activityIds))
+  }
+
+  if (options.search) {
+    const pattern = `%${options.search}%`
+    conditions.push(
+      or(ilike(eventSession.title, pattern), ilike(eventSession.location, pattern))!
+    )
   }
 
   return selectSessionsWithCounts(conditions, desc(eventSession.dateTime), options.limit, options.offset)
@@ -189,7 +203,7 @@ export async function listPastSessions(
 
 export async function listPastSessionsWithCounts(
   organizationId: string,
-  options: { limit: number; offset: number; activityId?: string; activityIds?: string[] }
+  options: { limit: number; offset: number; activityId?: string; activityIds?: string[]; search?: string }
 ) {
   if (options.activityIds?.length === 0) return []
 
@@ -208,6 +222,13 @@ export async function listPastSessionsWithCounts(
     conditions.push(eq(eventSession.activityId, options.activityId))
   } else if (options.activityIds) {
     conditions.push(inArray(eventSession.activityId, options.activityIds))
+  }
+
+  if (options.search) {
+    const pattern = `%${options.search}%`
+    conditions.push(
+      or(ilike(eventSession.title, pattern), ilike(eventSession.location, pattern))!
+    )
   }
 
   return selectSessionsWithCounts(conditions, desc(eventSession.dateTime), options.limit, options.offset)

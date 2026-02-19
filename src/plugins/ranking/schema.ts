@@ -104,6 +104,7 @@ export const memberRank = pgTable(
       onDelete: "restrict",
     }),
     stats: jsonb("stats").default({}).notNull(),
+    attributes: jsonb("attributes").default({}).notNull(), // Domain-specific: { position: "midfielder" }
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

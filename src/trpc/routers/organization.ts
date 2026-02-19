@@ -12,6 +12,7 @@ import {
   getPendingInvitationByEmail,
   updateOrganizationById,
   getUserByEmail,
+  searchOrgMembers,
 } from "@/data-access/organizations"
 import { getSessionWithCounts } from "@/data-access/sessions"
 import {
@@ -209,6 +210,27 @@ export const organizationRouter = router({
       .innerJoin(user, eq(member.userId, user.id))
       .where(eq(member.organizationId, ctx.activeOrganization.id))
   }),
+
+  /**
+   * Search organization members by name or email (Admin only)
+   */
+  searchMembers: orgProcedure
+    .input(
+      z.object({
+        search: z.string().min(3).max(100),
+        excludeUserIds: z.array(z.string()).default([]),
+        limit: z.number().int().positive().max(20).default(10),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      assertOwnerOrAdmin(ctx.membership.role)
+      return searchOrgMembers(
+        ctx.activeOrganization.id,
+        input.search,
+        input.excludeUserIds,
+        input.limit
+      )
+    }),
 
   /**
    * Invite a member by email (Admin only)

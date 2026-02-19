@@ -680,6 +680,30 @@ export async function cancelParticipation(
 }
 
 /**
+ * Update attribute overrides on a participation (admin or self)
+ */
+export async function updateAttributeOverrides(
+  participationId: string,
+  overrides: Record<string, string | null> | null
+): Promise<Participation> {
+  const current = await getParticipationById(participationId)
+  if (!current) {
+    throw new NotFoundError("Participation not found")
+  }
+
+  const [updated] = await db
+    .update(participation)
+    .set({
+      attributeOverrides: overrides,
+      updatedAt: new Date(),
+    })
+    .where(eq(participation.id, participationId))
+    .returning()
+
+  return updated
+}
+
+/**
  * Update participation (admin)
  */
 export async function updateParticipation(

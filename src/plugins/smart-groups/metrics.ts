@@ -18,6 +18,7 @@ export type BalanceMetrics = {
   perGroup: PerGroupBalanceMetric[]
   balancePercent: number // 0-100
   perFieldGap: Record<string, number> // sourceId → maxGroupAvg - minGroupAvg
+  perFieldBalance: Record<string, number> // sourceId → balance percentage 0-100
 }
 
 export type PerGroupClusterMetric = {
@@ -68,6 +69,7 @@ export function computeBalanceMetrics(
 
   // Per-field gap: maxGroupAvg - minGroupAvg across all groups
   const perFieldGap: Record<string, number> = {}
+  const perFieldBalance: Record<string, number> = {}
   let weightedCost = 0
 
   for (const bf of balanceFields) {
@@ -87,11 +89,12 @@ export function computeBalanceMetrics(
     }
     const range = max > min ? max - min : 1
     weightedCost += (bf.weight / totalWeight) * (gap / range)
+    perFieldBalance[bf.sourceId] = Math.round(100 * (1 - gap / range))
   }
 
   const balancePercent = Math.round(Math.max(0, Math.min(100, 100 * (1 - weightedCost))))
 
-  return { mode: "balanced", perGroup, balancePercent, perFieldGap }
+  return { mode: "balanced", perGroup, balancePercent, perFieldGap, perFieldBalance }
 }
 
 // =============================================================================

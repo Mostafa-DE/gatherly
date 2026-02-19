@@ -109,6 +109,19 @@ describe("fieldDistance", () => {
     expect(fieldDistance(5, 15, meta)).toBeCloseTo(0.5)
   })
 
+  it("ranking_attribute: 0 if equal, 1 if different (case-insensitive)", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "ranking_attribute", weight: 1 }
+    expect(fieldDistance("GK", "GK", meta)).toBe(0)
+    expect(fieldDistance("GK", "gk", meta)).toBe(0)
+    expect(fieldDistance("Defender", "Attacker", meta)).toBe(1)
+  })
+
+  it("ranking_attribute: returns 1 for null/undefined values", () => {
+    const meta: FieldMeta = { sourceId: "x", type: "ranking_attribute", weight: 1 }
+    expect(fieldDistance(null, "GK", meta)).toBe(1)
+    expect(fieldDistance("GK", undefined, meta)).toBe(1)
+  })
+
   it("ranking_level: ordinal distance via levelOrderMap", () => {
     const meta: FieldMeta = {
       sourceId: "x",

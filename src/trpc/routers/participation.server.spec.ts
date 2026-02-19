@@ -439,6 +439,48 @@ describe("participation router", () => {
     })
   })
 
+  it("supports adminAddByUserId with membership and org-scope guards", async () => {
+    const session = await createPublishedSession({ activityId: openActivityId })
+    const adminCaller = buildCaller(admin, organizationId)
+
+    const added = await adminCaller.participation.adminAddByUserId({
+      sessionId: session.id,
+      userId: secondMemberUser.id,
+    })
+    expect(added.sessionId).toBe(session.id)
+    expect(added.userId).toBe(secondMemberUser.id)
+    expect(added.status).toBe("joined")
+
+    const outsider = await createTestUser("AdminAddById Outsider")
+    userIds.push(outsider.id)
+
+    await expect(
+      adminCaller.participation.adminAddByUserId({
+        sessionId: session.id,
+        userId: outsider.id,
+      })
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "User is not a member of this organization",
+    })
+
+    const otherOrgSession = await createPublishedSession({
+      organizationId: otherOrganizationId,
+      activityId: otherOrgActivityId,
+      title: "Other Org Session",
+    })
+
+    await expect(
+      adminCaller.participation.adminAddByUserId({
+        sessionId: otherOrgSession.id,
+        userId: secondMemberUser.id,
+      })
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "Session not found",
+    })
+  })
+
   it("enforces move cross-organization and same-session guards", async () => {
     const sourceSession = await createPublishedSession({
       organizationId,

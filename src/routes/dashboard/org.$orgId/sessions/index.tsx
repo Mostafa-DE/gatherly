@@ -1,8 +1,10 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
+import { useState, useRef, useCallback } from "react"
+import { keepPreviousData } from "@tanstack/react-query"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Plus,
@@ -11,13 +13,21 @@ import {
   ChevronDown,
   Tag,
   AlertCircle,
+  Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { formatPrice, hasPrice } from "@/lib/format-price"
 import { useActivityContext } from "@/hooks/use-activity-context"
 
+type SessionsSearchParams = {
+  search?: string
+}
+
 export const Route = createFileRoute("/dashboard/org/$orgId/sessions/")({
   component: SessionsPage,
+  validateSearch: (raw: Record<string, unknown>): SessionsSearchParams => ({
+    search: typeof raw.search === "string" ? raw.search : undefined,
+  }),
 })
 
 /* ─────────────────────────── helpers ─────────────────────────── */
@@ -46,6 +56,32 @@ function SessionsPage() {
   const { selectedActivityId } = useActivityContext(orgId)
   const activityId = selectedActivityId ?? undefined
 
+  const { search: searchParam } = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const [localSearch, setLocalSearch] = useState(searchParam ?? "")
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setLocalSearch(value)
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        const trimmed = value.trim()
+        navigate({
+          search: (prev) => ({
+            ...prev,
+            search: trimmed.length >= 3 ? trimmed : undefined,
+          }),
+          replace: true,
+        })
+      }, 300)
+    },
+    [navigate]
+  )
+
+  // Only pass search to queries when it meets the minimum length
+  const search = searchParam && searchParam.length >= 3 ? searchParam : undefined
+
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin =
     whoami?.membership?.role === "owner" ||
@@ -63,17 +99,35 @@ function SessionsPage() {
       {/* ── Header ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Sessions</h1>
-        {isAdmin && (
-          <Button asChild>
-            <Link
-              to="/dashboard/org/$orgId/sessions/create"
-              params={{ orgId }}
-            >
-              <Plus className="mr-1.5 h-4 w-4" />
-              New Session
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search sessions..."
+                value={localSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-9 w-56"
+              />
+            </div>
+            {localSearch.trim().length > 0 && localSearch.trim().length < 3 && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Type {3 - localSearch.trim().length} more character{3 - localSearch.trim().length !== 1 ? "s" : ""} to search
+              </p>
+            )}
+          </div>
+          {isAdmin && (
+            <Button asChild>
+              <Link
+                to="/dashboard/org/$orgId/sessions/create"
+                params={{ orgId }}
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                New Session
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {isAdmin && pendingApprovals && pendingApprovals.totalPending > 0 && (
@@ -81,13 +135,13 @@ function SessionsPage() {
       )}
 
       {/* Draft Sessions */}
-      <DraftSessions orgId={orgId} isAdmin={isAdmin} currency={orgCurrency} activityId={activityId} showActivity={!activityId} />
+      <DraftSessions orgId={orgId} isAdmin={isAdmin} currency={orgCurrency} activityId={activityId} showActivity={!activityId} search={search} />
 
       {/* Upcoming Sessions */}
-      <UpcomingSessions orgId={orgId} currency={orgCurrency} activityId={activityId} showActivity={!activityId} />
+      <UpcomingSessions orgId={orgId} currency={orgCurrency} activityId={activityId} showActivity={!activityId} search={search} />
 
       {/* Past Sessions */}
-      <PastSessions orgId={orgId} currency={orgCurrency} activityId={activityId} showActivity={!activityId} />
+      <PastSessions orgId={orgId} currency={orgCurrency} activityId={activityId} showActivity={!activityId} search={search} />
     </div>
   )
 }
@@ -157,12 +211,14 @@ function DraftSessions({
   currency,
   activityId,
   showActivity,
+  search,
 }: {
   orgId: string
   isAdmin: boolean
   currency: string | null
   activityId?: string
   showActivity: boolean
+  search?: string
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
@@ -172,15 +228,15 @@ function DraftSessions({
     error,
     isFetching,
   } = trpc.session.listDraftsWithCounts.useQuery(
-    { limit, activityId },
-    { enabled: isAdmin }
+    { limit, activityId, search },
+    { enabled: isAdmin, placeholderData: keepPreviousData }
   )
 
   if (!isAdmin) return null
 
-  const hasMore = sessions && sessions.length === limit
+  const hasMore = !!sessions && (isFetching || sessions.length === limit)
 
-  if (isLoading) {
+  if (isLoading && !sessions) {
     return (
       <SessionSection title="Drafts">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -230,11 +286,13 @@ function UpcomingSessions({
   currency,
   activityId,
   showActivity,
+  search,
 }: {
   orgId: string
   currency: string | null
   activityId?: string
   showActivity: boolean
+  search?: string
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
@@ -243,11 +301,14 @@ function UpcomingSessions({
     isLoading,
     error,
     isFetching,
-  } = trpc.session.listUpcomingWithCounts.useQuery({ limit, activityId })
+  } = trpc.session.listUpcomingWithCounts.useQuery(
+    { limit, activityId, search },
+    { placeholderData: keepPreviousData }
+  )
 
-  const hasMore = sessions && sessions.length === limit
+  const hasMore = !!sessions && (isFetching || sessions.length === limit)
 
-  if (isLoading) {
+  if (isLoading && !sessions) {
     return (
       <SessionSection title="Upcoming">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -311,11 +372,13 @@ function PastSessions({
   currency,
   activityId,
   showActivity,
+  search,
 }: {
   orgId: string
   currency: string | null
   activityId?: string
   showActivity: boolean
+  search?: string
 }) {
   const [limit, setLimit] = useState(PAGE_SIZE)
 
@@ -324,11 +387,14 @@ function PastSessions({
     isLoading,
     error,
     isFetching,
-  } = trpc.session.listPastWithCounts.useQuery({ limit, activityId })
+  } = trpc.session.listPastWithCounts.useQuery(
+    { limit, activityId, search },
+    { placeholderData: keepPreviousData }
+  )
 
-  const hasMore = sessions && sessions.length === limit
+  const hasMore = !!sessions && (isFetching || sessions.length === limit)
 
-  if (isLoading) {
+  if (isLoading && !sessions) {
     return (
       <SessionSection title="Past">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

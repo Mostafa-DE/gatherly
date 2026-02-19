@@ -89,6 +89,25 @@ export const getMemberRanksByUserSchema = z.object({
 })
 
 // =============================================================================
+// Attribute Schemas
+// =============================================================================
+
+export const getDomainConfigSchema = z.object({
+  activityId: z.string(),
+})
+
+export const updateMemberAttributesSchema = z.object({
+  rankingDefinitionId: z.string(),
+  userId: z.string(),
+  attributes: z.record(z.string(), z.string().nullable()),
+})
+
+export const updateSessionAttributesSchema = z.object({
+  participationId: z.string(),
+  attributeOverrides: z.record(z.string(), z.string().nullable()).nullable(),
+})
+
+// =============================================================================
 // Match Schemas
 // =============================================================================
 
@@ -144,3 +163,6 @@ export type RecordMatchInput = z.infer<typeof recordMatchSchema>
 export type CorrectMatchInput = z.infer<typeof correctMatchSchema>
 export type ListMatchesBySessionInput = z.infer<typeof listMatchesBySessionSchema>
 export type ListMatchesByDefinitionInput = z.infer<typeof listMatchesByDefinitionSchema>
+export type GetDomainConfigInput = z.infer<typeof getDomainConfigSchema>
+export type UpdateMemberAttributesInput = z.infer<typeof updateMemberAttributesSchema>
+export type UpdateSessionAttributesInput = z.infer<typeof updateSessionAttributesSchema>

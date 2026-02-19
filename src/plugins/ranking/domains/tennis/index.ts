@@ -122,6 +122,14 @@ export const tennisDomain: RankingDomain = {
     { field: "wins", direction: "desc" },
     { field: "(sets_won - sets_lost)", direction: "desc" },
   ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "wins", weight: 1 },
+    ],
+    partitionByLevel: true,
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "singles",

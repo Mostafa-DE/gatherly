@@ -8,6 +8,7 @@ export type ParticipantData = {
     payment: string
     notes: string | null
     formAnswers: unknown
+    attributeOverrides: unknown
     joinedAt: Date
   }
   user: {

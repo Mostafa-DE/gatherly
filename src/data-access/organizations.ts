@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, or, ilike, notInArray } from "drizzle-orm"
 import { db } from "@/db"
 import { invitation, member, organization, user } from "@/db/schema"
 
@@ -77,6 +77,36 @@ export async function getMemberById(memberId: string) {
     .limit(1)
 
   return result[0] ?? null
+}
+
+export async function searchOrgMembers(
+  orgId: string,
+  search: string,
+  excludeUserIds: string[],
+  limit: number
+) {
+  const pattern = `%${search}%`
+
+  const conditions = [
+    eq(member.organizationId, orgId),
+    or(ilike(user.name, pattern), ilike(user.email, pattern)),
+  ]
+
+  if (excludeUserIds.length > 0) {
+    conditions.push(notInArray(user.id, excludeUserIds))
+  }
+
+  return db
+    .select({
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+    })
+    .from(member)
+    .innerJoin(user, eq(member.userId, user.id))
+    .where(and(...conditions))
+    .limit(limit)
 }
 
 export async function updateOrganizationById(

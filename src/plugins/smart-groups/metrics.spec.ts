@@ -43,6 +43,7 @@ describe("computeBalanceMetrics", () => {
     expect(result.mode).toBe("balanced")
     expect(result.balancePercent).toBe(100)
     expect(result.perFieldGap["skill"]).toBe(0)
+    expect(result.perFieldBalance["skill"]).toBe(100)
     expect(result.perGroup).toHaveLength(2)
     expect(result.perGroup[0].fieldAverages["skill"]).toBe(5)
   })
@@ -63,6 +64,7 @@ describe("computeBalanceMetrics", () => {
 
     expect(result.balancePercent).toBeLessThan(100)
     expect(result.perFieldGap["skill"]).toBe(9) // 10 - 1
+    expect(result.perFieldBalance["skill"]).toBe(0) // gap equals range → 0% balance
     expect(result.perGroup[0].fieldAverages["skill"]).toBe(10)
     expect(result.perGroup[1].fieldAverages["skill"]).toBe(1)
   })
@@ -94,6 +96,8 @@ describe("computeBalanceMetrics", () => {
     expect(result.balancePercent).toBe(100)
     expect(result.perFieldGap["skill"]).toBe(0)
     expect(result.perFieldGap["experience"]).toBe(0)
+    expect(result.perFieldBalance["skill"]).toBe(100)
+    expect(result.perFieldBalance["experience"]).toBe(100)
   })
 
   it("handles missing entry data gracefully", () => {
@@ -125,6 +129,7 @@ describe("computeBalanceMetrics", () => {
 
     expect(result.balancePercent).toBe(100) // single group → gap is 0
     expect(result.perFieldGap["skill"]).toBe(0)
+    expect(result.perFieldBalance["skill"]).toBe(100)
   })
 })
 

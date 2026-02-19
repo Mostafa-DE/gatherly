@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { db } from "@/db"
+import { eventSession, participation as participationTable } from "@/db/schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
@@ -298,6 +300,86 @@ describe("ranking router", () => {
     ).rejects.toMatchObject({
       code: "BAD_REQUEST",
       message: "Team 1 must have 1-13 player(s) for team",
+    })
+  })
+
+  it("scopes updateSessionAttributes to the active organization", async () => {
+    const memberCaller = buildCaller(memberUser, organizationId)
+
+    const [localSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId,
+        activityId,
+        title: "Local Ranking Session",
+        dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        maxCapacity: 20,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: owner.id,
+      })
+      .returning()
+
+    const [localParticipation] = await db
+      .insert(participationTable)
+      .values({
+        sessionId: localSession.id,
+        userId: memberUser.id,
+        status: "joined",
+      })
+      .returning()
+
+    const updated = await memberCaller.plugin.ranking.updateSessionAttributes({
+      participationId: localParticipation.id,
+      attributeOverrides: { dominant_side: "Left" },
+    })
+
+    expect(updated.id).toBe(localParticipation.id)
+    expect(updated.attributeOverrides).toEqual({ dominant_side: "Left" })
+
+    const otherOrg = await createTestOrganization("ranking-foreign-org")
+    organizationIds.push(otherOrg.id)
+
+    const otherActivity = await createTestActivity({
+      organizationId: otherOrg.id,
+      createdBy: owner.id,
+      name: "Foreign Ranking Activity",
+      slug: `foreign-ranking-${randomUUID().slice(0, 8)}`,
+    })
+
+    const [foreignSession] = await db
+      .insert(eventSession)
+      .values({
+        organizationId: otherOrg.id,
+        activityId: otherActivity.id,
+        title: "Foreign Ranking Session",
+        dateTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        maxCapacity: 20,
+        maxWaitlist: 0,
+        joinMode: "open",
+        status: "published",
+        createdBy: owner.id,
+      })
+      .returning()
+
+    const [foreignParticipation] = await db
+      .insert(participationTable)
+      .values({
+        sessionId: foreignSession.id,
+        userId: memberUser.id,
+        status: "joined",
+      })
+      .returning()
+
+    await expect(
+      memberCaller.plugin.ranking.updateSessionAttributes({
+        participationId: foreignParticipation.id,
+        attributeOverrides: { dominant_side: "Right" },
+      })
+    ).rejects.toMatchObject({
+      code: "NOT_FOUND",
+      message: "Participation not found",
     })
   })
 })

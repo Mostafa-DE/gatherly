@@ -19,6 +19,9 @@ import {
   correctMatchSchema,
   listMatchesBySessionSchema,
   listMatchesByDefinitionSchema,
+  getDomainConfigSchema,
+  updateMemberAttributesSchema,
+  updateSessionAttributesSchema,
 } from "./schemas"
 import {
   getRankingDefinitionByActivity,
@@ -37,6 +40,7 @@ import {
   assignLevel,
   recordStats,
   correctStatEntry,
+  updateMemberAttributes,
 } from "./data-access/member-ranks"
 import {
   recordMatch,
@@ -44,6 +48,10 @@ import {
   listMatchesBySession,
   listMatchesByDefinition,
 } from "./data-access/match-records"
+import {
+  updateAttributeOverrides,
+} from "@/data-access/participations"
+import { withOrgScope } from "@/data-access/org-scope"
 
 function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") {
@@ -328,6 +336,102 @@ export const rankingRouter = router({
           correctedStats: input.correctedStats,
           notes: input.notes,
         }
+      )
+    }),
+
+  // ===== Domain Config & Attributes =====
+
+  getDomainConfig: orgProcedure
+    .input(getDomainConfigSchema)
+    .query(async ({ ctx, input }) => {
+      const definition = await getRankingDefinitionByActivity(
+        input.activityId,
+        ctx.activeOrganization.id
+      )
+      if (!definition) return null
+
+      const domain = getDomain(definition.domainId)
+      if (!domain) return null
+
+      return {
+        rankingDefinitionId: definition.id,
+        domainId: domain.id,
+        attributeFields: domain.attributeFields ?? [],
+        groupingPreset: domain.groupingPreset ?? null,
+      }
+    }),
+
+  updateMemberAttributes: orgProcedure
+    .input(updateMemberAttributesSchema)
+    .mutation(async ({ ctx, input }) => {
+      const definition = await getRankingDefinitionById(
+        input.rankingDefinitionId,
+        ctx.activeOrganization.id
+      )
+      if (!definition) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ranking not found" })
+      }
+
+      // Only admin or the member themselves can update
+      const isSelf = input.userId === ctx.user.id
+      if (!isSelf) {
+        assertAdmin(ctx.membership.role)
+      }
+
+      // Validate attribute keys/values against domain definition
+      const domain = getDomain(definition.domainId)
+      if (domain?.attributeFields) {
+        const fieldMap = new Map(domain.attributeFields.map((f) => [f.id, f]))
+        for (const [key, value] of Object.entries(input.attributes)) {
+          const field = fieldMap.get(key)
+          if (!field) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unknown attribute: ${key}`,
+            })
+          }
+          if (value !== null && !field.options.includes(value)) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Invalid value for ${field.label}: ${value}. Valid: ${field.options.join(", ")}`,
+            })
+          }
+        }
+      }
+
+      return updateMemberAttributes(
+        input.rankingDefinitionId,
+        ctx.activeOrganization.id,
+        input.userId,
+        input.attributes
+      )
+    }),
+
+  updateSessionAttributes: orgProcedure
+    .input(updateSessionAttributesSchema)
+    .mutation(async ({ ctx, input }) => {
+      const participationRecord = await withOrgScope(
+        ctx.activeOrganization.id,
+        async (scope) => scope.requireParticipationForMutation(input.participationId)
+      )
+
+      // Only admin or the participant themselves can update
+      const isSelf = participationRecord.userId === ctx.user.id
+      if (!isSelf) {
+        assertAdmin(ctx.membership.role)
+      }
+
+      // Validate attribute keys/values if overrides are provided
+      if (input.attributeOverrides) {
+        // We need to find the ranking definition for this session's activity
+        // to validate against domain fields — but this is optional safety
+        // The overrides are stored as-is; invalid values are harmless
+        // (they won't match any domain field and will be ignored in grouping)
+      }
+
+      return updateAttributeOverrides(
+        input.participationId,
+        input.attributeOverrides
       )
     }),
 

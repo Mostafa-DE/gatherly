@@ -33,6 +33,7 @@ type GroupReviewPanelProps = {
   entries: SmartGroupEntry[]
   isAdmin: boolean
   onRegenerate?: () => void
+  warnings?: string[]
 }
 
 type UserInfo = {
@@ -47,6 +48,7 @@ export function GroupReviewPanel({
   entries,
   isAdmin,
   onRegenerate,
+  warnings,
 }: GroupReviewPanelProps) {
   const utils = trpc.useUtils()
   const isConfirmed = run.status === "confirmed"
@@ -292,6 +294,21 @@ export function GroupReviewPanel({
         </div>
       </div>
 
+      {/* Skipped field warnings */}
+      {warnings && warnings.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {warnings.map((warning) => (
+            <div
+              key={warning}
+              className="flex items-center gap-1.5 rounded-md bg-[var(--color-badge-warning-bg)] px-2.5 py-1"
+            >
+              <AlertTriangle className="h-3 w-3 text-[var(--color-status-warning)] shrink-0" />
+              <span className="text-xs text-[var(--color-status-warning)]">{warning}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Excluded members section */}
       {excludedMembers.length > 0 && (
         <ExcludedMembersSection members={excludedMembers} />
@@ -420,18 +437,25 @@ function MetricsSummaryBar({ metrics }: { metrics: GroupMetrics }) {
         </Badge>
       </div>
 
-      {isBalance && Object.keys((metrics as BalanceMetrics).perFieldGap).length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-          {Object.entries((metrics as BalanceMetrics).perFieldGap).map(
-            ([sourceId, gap]) => (
-              <div key={sourceId} className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <span>{humanizeSourceId(sourceId)}</span>
-                <span className="tabular-nums font-medium text-foreground">
-                  {gap.toFixed(1)}
-                </span>
-                <span className="text-xs">gap</span>
-              </div>
-            )
+      {isBalance && Object.keys((metrics as BalanceMetrics).perFieldBalance).length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+          {Object.entries((metrics as BalanceMetrics).perFieldBalance).map(
+            ([sourceId, fieldPercent]) => {
+              const fieldColorClass =
+                fieldPercent >= 80
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : fieldPercent >= 50
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              return (
+                <div key={sourceId} className="flex items-center gap-1.5 text-sm">
+                  <span className="text-muted-foreground">{humanizeSourceId(sourceId)}</span>
+                  <Badge className={`tabular-nums text-xs ${fieldColorClass}`}>
+                    {fieldPercent}%
+                  </Badge>
+                </div>
+              )
+            }
           )}
         </div>
       )}
@@ -587,8 +611,10 @@ function PerGroupBadge({
             key={sourceId}
             className="text-sm tabular-nums text-muted-foreground"
           >
-            {humanizeSourceId(sourceId)}:{" "}
-            <span className="font-medium text-foreground">{avg.toFixed(1)}</span>
+            Avg {humanizeSourceId(sourceId)}:{" "}
+            <span className="font-medium text-foreground">
+              {Number.isInteger(avg) ? avg : avg.toFixed(1)}
+            </span>
           </span>
         ))}
       </div>
@@ -721,6 +747,10 @@ function humanizeSourceId(sourceId: string): string {
 /** Abbreviate common stat labels for compact display on member cards. */
 const ABBREVIATIONS: Record<string, string> = {
   "Matches Played": "MP",
+  "Match Wins": "MW",
+  "Match Losses": "ML",
+  "Set Wins": "SW",
+  "Set Losses": "SL",
   "Wins": "W",
   "Losses": "L",
   "Draws": "D",

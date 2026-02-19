@@ -4,6 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -18,12 +25,20 @@ import {
   Save,
   ArrowRightLeft,
 } from "lucide-react"
+import { trpc } from "@/lib/trpc"
+import { toast } from "sonner"
 import type { ParticipantData, UpdateParticipationData, TargetSession } from "./types"
 import type { AttendanceStatus } from "@/lib/sessions/state-machine"
 import type { FormField } from "@/types/form"
 import { AINotesSection } from "./ai-notes-section"
 
 type MemberLevel = { levelName: string | null; levelColor: string | null }
+
+type AttributeFieldConfig = {
+  id: string
+  label: string
+  options: string[]
+}
 
 type ParticipantsTableProps = {
   participants: ParticipantData[] | undefined
@@ -41,6 +56,7 @@ type ParticipantsTableProps = {
   onMove: (participationId: string, targetSessionId: string) => void
   isMoving: boolean
   memberLevelMap?: Map<string, MemberLevel>
+  attributeFields?: AttributeFieldConfig[]
 }
 
 // Payment toggles: unpaid ↔ paid
@@ -180,18 +196,22 @@ function EmptyState({ tab }: { tab: string }) {
 // Expanded Row Detail Panel
 // ============================================================================
 
+const OVERRIDE_NOT_SET = "__not_set__"
+
 function ExpandedRowPanel({
   item,
   sessionId,
   formFields,
   onUpdate,
   isUpdating,
+  attributeFields,
 }: {
   item: ParticipantData
   sessionId: string
   formFields: FormField[]
   onUpdate: (data: UpdateParticipationData) => void
   isUpdating: boolean
+  attributeFields?: AttributeFieldConfig[]
 }) {
   const [notesValue, setNotesValue] = useState(item.participation.notes ?? "")
   const [notesDirty, setNotesDirty] = useState(false)
@@ -211,9 +231,68 @@ function ExpandedRowPanel({
   }
 
   const answers = item.participation.formAnswers as Record<string, unknown> | null
+  const overrides = (item.participation.attributeOverrides as Record<string, string>) ?? {}
+
+  const utils = trpc.useUtils()
+  const updateSessionAttrs = trpc.plugin.ranking.updateSessionAttributes.useMutation({
+    onSuccess: () => {
+      utils.participation.participants.invalidate({ sessionId })
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  function handleOverrideChange(fieldId: string, value: string) {
+    const newOverrides = { ...overrides }
+    if (value === OVERRIDE_NOT_SET) {
+      delete newOverrides[fieldId]
+    } else {
+      newOverrides[fieldId] = value
+    }
+    updateSessionAttrs.mutate({
+      participationId: item.participation.id,
+      attributeOverrides: Object.keys(newOverrides).length > 0 ? newOverrides : null,
+    })
+  }
 
   return (
     <div className="border-t bg-muted/50 px-4 py-4 space-y-4 sm:pl-12">
+      {/* Session Attribute Overrides */}
+      {attributeFields && attributeFields.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Session Attributes
+          </label>
+          <div className="flex flex-wrap gap-3">
+            {attributeFields.map((field) => (
+              <div key={field.id} className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {field.label}:
+                </span>
+                <Select
+                  value={overrides[field.id] ?? OVERRIDE_NOT_SET}
+                  onValueChange={(v) => handleOverrideChange(field.id, v)}
+                  disabled={updateSessionAttrs.isPending}
+                >
+                  <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
+                    <SelectValue placeholder="Not set" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={OVERRIDE_NOT_SET}>
+                      <span className="text-muted-foreground italic">Not set</span>
+                    </SelectItem>
+                    {field.options.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Notes */}
       <div className="space-y-2">
         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -299,6 +378,7 @@ export function ParticipantsTable({
   onMove,
   isMoving,
   memberLevelMap,
+  attributeFields,
 }: ParticipantsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -542,6 +622,7 @@ export function ParticipantsTable({
                   formFields={formFields}
                   onUpdate={onUpdate}
                   isUpdating={isUpdating}
+                  attributeFields={attributeFields}
                 />
               )}
             </div>

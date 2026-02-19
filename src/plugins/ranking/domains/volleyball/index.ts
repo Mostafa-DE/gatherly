@@ -128,6 +128,22 @@ export const volleyballDomain: RankingDomain = {
     { field: "wins", direction: "desc" },
     { field: "(sets_won - sets_lost)", direction: "desc" },
   ],
+  attributeFields: [
+    {
+      id: "position",
+      label: "Position",
+      options: ["Setter", "Libero", "OH", "MB", "Opposite"],
+    },
+  ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "wins", weight: 1 },
+    ],
+    partitionByLevel: true,
+    partitionByAttribute: "position",
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["2v2", "3v3", "4v4", "6v6"],
     defaultFormat: "6v6",

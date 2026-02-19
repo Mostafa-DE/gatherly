@@ -112,6 +112,12 @@ export const adminAddParticipantSchema = z.object({
   identifier: z.string().min(1, "Email or phone required"),
 })
 
+/** Admin add participant by user ID */
+export const adminAddByUserIdSchema = z.object({
+  sessionId: z.string(),
+  userId: z.string().min(1),
+})
+
 /** Move participant between sessions (admin) */
 export const moveParticipantSchema = z.object({
   participationId: z.string(),
@@ -149,6 +155,7 @@ export type BulkUpdateAttendanceInput = z.infer<typeof bulkUpdateAttendanceSchem
 export type BulkUpdatePaymentInput = z.infer<typeof bulkUpdatePaymentSchema>
 export type GetUserHistoryInput = z.infer<typeof getUserHistorySchema>
 export type AdminAddParticipantInput = z.infer<typeof adminAddParticipantSchema>
+export type AdminAddByUserIdInput = z.infer<typeof adminAddByUserIdSchema>
 export type MoveParticipantInput = z.infer<typeof moveParticipantSchema>
 export type ApprovePendingParticipationInput = z.infer<
   typeof approvePendingParticipationSchema

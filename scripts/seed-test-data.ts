@@ -16,7 +16,7 @@
  *     - Sport-specific join forms (e.g. Padel: preferred side, dominant hand,
  *       weight/height range, own racket; Football: position, preferred foot, etc.)
  *     - Smart Groups plugin enabled + config
- *   - ~25 sessions across all activities (some with session join forms)
+ *   - Historical + upcoming published sessions across all activities (some with session join forms)
  *   - Match records with realistic scores per domain
  *   - Member ranks with accumulated stats and levels
  *   - Activity join requests with sport-specific form answers
@@ -82,6 +82,7 @@ const OWNER_EMAIL = "seed-admin@gatherly.test"
 const OWNER_USERNAME = "seedadmin"
 const ORG_SLUG = `${OWNER_USERNAME}-seed-community-test`
 const PASSWORD = "password123"
+const UPCOMING_SESSIONS_PER_ACTIVITY = 3
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,12 @@ function seedId(suffix: string) {
 function daysAgo(n: number): Date {
   const d = new Date()
   d.setDate(d.getDate() - n)
+  return d
+}
+
+function daysFromNow(n: number): Date {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
   return d
 }
 
@@ -1091,11 +1098,12 @@ async function createActivitiesAndRankings(
   orgId: string,
   ownerId: string,
   memberUserIds: string[]
-): Promise<{ activityIds: string[]; sessionIds: string[] }> {
+): Promise<{ activityIds: string[]; sessionIds: string[]; upcomingSessionIds: string[] }> {
   console.log("Creating activities with rankings...")
 
   const allActivityIds: string[] = []
   const allSessionIds: string[] = []
+  const allUpcomingSessionIds: string[] = []
 
   for (let d = 0; d < DOMAIN_CONFIGS.length; d++) {
     const cfg = DOMAIN_CONFIGS[d]
@@ -1253,7 +1261,38 @@ async function createActivitiesAndRankings(
       }
     }
 
-    console.log(`    ${cfg.sessionsCount} sessions, ${totalMatches} matches`)
+    // 5b. Add upcoming sessions for Smart Groups/session flow testing
+    for (let u = 0; u < UPCOMING_SESSIONS_PER_ACTIVITY; u++) {
+      const template = cfg.sessionTemplates[(cfg.sessionsCount + u) % cfg.sessionTemplates.length]
+      const sessionId = seedId(`session_upcoming_${cfg.domainId}_${u}`)
+      const daysAhead = 2 + u * 3 + randomInt(0, 2)
+      const hasSessionForm = u % 2 === 0
+
+      activitySessionIds.push(sessionId)
+      allSessionIds.push(sessionId)
+      allUpcomingSessionIds.push(sessionId)
+
+      await db.insert(eventSession).values({
+        id: sessionId,
+        organizationId: orgId,
+        activityId,
+        title: `Upcoming: ${template.title}`,
+        description: `${cfg.activityName} upcoming session for planning and group generation.`,
+        dateTime: daysFromNow(daysAhead),
+        location: template.location,
+        maxCapacity: fmtInfo.maxCapacity,
+        maxWaitlist: pick([3, 5, 8]),
+        price: template.price,
+        joinMode: "open",
+        status: "published",
+        ...(hasSessionForm ? { joinFormSchema: SESSION_JOIN_FORM, joinFormVersion: 1 } : {}),
+        createdBy: ownerId,
+      })
+    }
+
+    console.log(
+      `    ${cfg.sessionsCount} historical sessions, ${UPCOMING_SESSIONS_PER_ACTIVITY} upcoming sessions, ${totalMatches} matches`
+    )
 
     // 6. Create member ranks from accumulated stats
     const rankedUserIds = Object.keys(userStats)
@@ -1290,7 +1329,11 @@ async function createActivitiesAndRankings(
     console.log(`    ${rankedUserIds.length} member ranks`)
   }
 
-  return { activityIds: allActivityIds, sessionIds: allSessionIds }
+  return {
+    activityIds: allActivityIds,
+    sessionIds: allSessionIds,
+    upcomingSessionIds: allUpcomingSessionIds,
+  }
 }
 
 async function createParticipations(
@@ -1315,6 +1358,8 @@ async function createParticipations(
       .where(eq(eventSession.id, sessionId))
 
     if (!sess) continue
+    const now = new Date()
+    const isFutureSession = sess.dateTime.getTime() > now.getTime()
 
     // Get match players for this session (they MUST have participation records)
     const matchRows = await db
@@ -1339,10 +1384,14 @@ async function createParticipations(
     const shuffledNonMatch = [...nonMatchMembers].sort(() => Math.random() - 0.5)
 
     // Join count: at least match players + some extras (up to capacity + a few waitlist)
-    const extraCount = randomInt(
-      0,
-      Math.min(shuffledNonMatch.length, Math.max(0, sess.maxCapacity + 3 - matchPlayerIds.size))
+    const maxExtraCount = Math.min(
+      shuffledNonMatch.length,
+      Math.max(0, sess.maxCapacity + 3 - matchPlayerIds.size)
     )
+    const minExtraCount = isFutureSession && matchPlayerIds.size === 0
+      ? Math.min(maxExtraCount, Math.max(2, Math.min(sess.maxCapacity, 12)))
+      : 0
+    const extraCount = randomInt(minExtraCount, maxExtraCount)
     const joiners = [...Array.from(matchPlayerIds), ...shuffledNonMatch.slice(0, extraCount)]
 
     for (let j = 0; j < joiners.length; j++) {
@@ -1355,10 +1404,15 @@ async function createParticipations(
         ? "joined" // match players are always joined
         : isOverCapacity
           ? "waitlisted"
-          : weighted([
-              ["joined", 85],
-              ["cancelled", 15],
-            ])
+          : isFutureSession
+            ? weighted([
+                ["joined", 95],
+                ["cancelled", 5],
+              ])
+            : weighted([
+                ["joined", 85],
+                ["cancelled", 15],
+              ])
 
       let attendance: "pending" | "show" | "no_show" = "pending"
       if (isCompleted && status === "joined") {
@@ -1385,6 +1439,13 @@ async function createParticipations(
         field_session_note: j % 5 === 0 ? "Might arrive 10 min late" : "",
       } : undefined
 
+      const joinedAtCandidate = new Date(
+        sess.dateTime.getTime() - randomInt(1, 72) * 60 * 60 * 1000
+      )
+      const joinedAt = joinedAtCandidate.getTime() > now.getTime()
+        ? new Date(now.getTime() - randomInt(5, 120) * 60 * 1000)
+        : joinedAtCandidate
+
       await db.insert(participation).values({
         id: seedId(`part_${sessionId.replace(SEED_PREFIX, "")}_${j}`),
         sessionId,
@@ -1393,9 +1454,7 @@ async function createParticipations(
         attendance,
         payment,
         formAnswers: sessionFormAnswers ?? null,
-        joinedAt: new Date(
-          sess.dateTime.getTime() - randomInt(1, 72) * 60 * 60 * 1000
-        ),
+        joinedAt,
         cancelledAt: status === "cancelled" ? daysAgo(randomInt(1, 5)) : null,
       })
       total++
@@ -1622,7 +1681,7 @@ async function seed() {
   const [ownerId, ...memberUserIds] = await createUsers()
   const orgId = await createOrganization(ownerId)
   await addMembers(orgId, memberUserIds)
-  const { sessionIds } = await createActivitiesAndRankings(
+  const { sessionIds, upcomingSessionIds } = await createActivitiesAndRankings(
     orgId,
     ownerId,
     memberUserIds
@@ -1638,7 +1697,7 @@ async function seed() {
   console.log(`\n  Login:    ${OWNER_EMAIL} / ${PASSWORD}`)
   console.log(`  Org:      Seed Community TEST`)
   console.log(`  Members:  ${memberUserIds.length + 1}`)
-  console.log(`  Sessions: ${sessionIds.length}`)
+  console.log(`  Sessions: ${sessionIds.length} (${upcomingSessionIds.length} upcoming)`)
   console.log(`  Activities: ${DOMAIN_CONFIGS.length} (${DOMAIN_CONFIGS.map((c) => c.activityName).join(", ")})`)
   console.log(`  URL:      /${OWNER_USERNAME}/seed-community-test\n`)
 }

@@ -64,6 +64,13 @@
       "when": 1771414205268,
       "tag": "0008_wakeful_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771504151460,
+      "tag": "0009_silent_kitty_pryde",
+      "breakpoints": true
     }
   ]
 }

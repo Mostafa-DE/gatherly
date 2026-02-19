@@ -104,6 +104,23 @@ export const footballDomain: RankingDomain = {
     { name: "Advanced", color: "#F59E0B" },
     { name: "Pro", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "position",
+      label: "Position",
+      options: ["GK", "Defender", "Midfielder", "Attacker"],
+    },
+  ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "wins", weight: 1 },
+      { statId: "goals_scored", weight: 0.5 },
+    ],
+    partitionByLevel: true,
+    partitionByAttribute: "position",
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["5v5", "6v6", "7v7", "11v11"],
     defaultFormat: "5v5",

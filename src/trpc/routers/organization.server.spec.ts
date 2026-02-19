@@ -141,6 +141,62 @@ describe("organization router", () => {
     expect(members).toHaveLength(3)
   })
 
+  it("enforces admin-only member search and respects org scope + exclude + limit", async () => {
+    const memberCaller = buildCaller(memberUser, orgId)
+    const adminCaller = buildCaller(adminUser, orgId)
+
+    await expect(
+      memberCaller.organization.searchMembers({
+        search: "owner",
+        excludeUserIds: [],
+        limit: 10,
+      })
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Only organization admins can perform this action",
+    })
+
+    const alpha = await createTestUser("Search Alpha")
+    const beta = await createTestUser("Search Beta")
+    const gamma = await createTestUser("Search Gamma")
+    userIds.push(alpha.id, beta.id, gamma.id)
+
+    await createTestMembership({
+      organizationId: orgId,
+      userId: alpha.id,
+      role: "member",
+    })
+    await createTestMembership({
+      organizationId: orgId,
+      userId: beta.id,
+      role: "member",
+    })
+    await createTestMembership({
+      organizationId: orgId,
+      userId: gamma.id,
+      role: "member",
+    })
+
+    const scopedToOrg = await adminCaller.organization.searchMembers({
+      search: "external",
+      excludeUserIds: [],
+      limit: 10,
+    })
+    expect(scopedToOrg).toHaveLength(0)
+
+    const excludesAndLimit = await adminCaller.organization.searchMembers({
+      search: "Search",
+      excludeUserIds: [beta.id],
+      limit: 2,
+    })
+
+    expect(excludesAndLimit).toHaveLength(2)
+    expect(excludesAndLimit.some((entry) => entry.userId === beta.id)).toBe(false)
+    expect(excludesAndLimit.every((entry) => entry.name?.includes("Search"))).toBe(
+      true
+    )
+  })
+
   it("returns null join form schema by default", async () => {
     const publicCaller = appRouter.createCaller(createTRPCContext({}))
 

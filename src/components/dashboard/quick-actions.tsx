@@ -1,5 +1,5 @@
 import { Link, useParams, useRouterState } from "@tanstack/react-router"
-import { Plus, Users, MoreVertical, Settings, ClipboardList } from "lucide-react"
+import { Users, MoreVertical, Settings, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -34,14 +34,6 @@ export function QuickActions() {
     <div className="ml-auto flex items-center gap-1 sm:gap-2">
       {/* Desktop/Tablet: Show buttons inline */}
       <div className="hidden sm:flex items-center gap-2">
-        {isAdmin && (
-          <Button variant="default" size="sm" asChild className="shadow-sm">
-            <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
-              <Plus className="size-4 mr-1.5" />
-              Create Session
-            </Link>
-          </Button>
-        )}
         {isAdmin && (
           <Button variant="outline" size="sm" asChild className="border-border/50 hover:border-primary/50 hover:text-primary transition-colors">
             <Link to="/dashboard/org/$orgId/members" params={{ orgId }}>
@@ -81,12 +73,6 @@ export function QuickActions() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48 rounded-xl border-border/50">
-            <DropdownMenuItem asChild className="cursor-pointer">
-              <Link to="/dashboard/org/$orgId/sessions/create" params={{ orgId }}>
-                <Plus className="mr-2 size-4 text-primary" />
-                Create Session
-              </Link>
-            </DropdownMenuItem>
             {pendingSessionApprovalsCount > 0 && (
               <DropdownMenuItem asChild className="cursor-pointer">
                 <Link to="/dashboard/org/$orgId/sessions" params={{ orgId }}>

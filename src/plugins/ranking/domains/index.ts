@@ -33,9 +33,11 @@ export type {
   MatchDisplayProps,
   MatchConfig,
   SessionConfig,
+  AttributeField,
+  GroupingPreset,
 } from "./types"
 
-import type { MatchFormat, FormatRule } from "./types"
+import type { MatchFormat, FormatRule, AttributeField } from "./types"
 
 const domainRegistry = new Map<string, RankingDomain>([
   [padelDomain.id, padelDomain],
@@ -70,6 +72,12 @@ export function listDomains(): RankingDomain[] {
 
 export function isDomainValid(domainId: string): boolean {
   return domainRegistry.has(domainId)
+}
+
+/** Get attribute fields for a domain (returns empty array if none) */
+export function getDomainAttributeFields(domainId: string): AttributeField[] {
+  const domain = domainRegistry.get(domainId)
+  return domain?.attributeFields ?? []
 }
 
 /** Get valid match formats for a domain (returns null if not match-mode) */

@@ -38,6 +38,7 @@ export function buildFieldMeta(
 function mapFieldType(type: string): FieldType {
   if (type === "ranking_level") return "ranking_level"
   if (type === "ranking_stat") return "ranking_stat"
+  if (type === "ranking_attribute") return "ranking_attribute"
   if (type === "select" || type === "radio") return "select"
   if (type === "multiselect") return "multiselect"
   if (type === "checkbox") return "checkbox"

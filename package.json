@@ -22,6 +22,8 @@
     "db:seed:interests": "pnpm exec tsx --env-file=.env ./scripts/seed-interests.ts",
     "db:seed:test": "pnpm exec tsx --env-file=.env ./scripts/seed-test-data.ts",
     "db:seed:test:clean": "pnpm exec tsx --env-file=.env ./scripts/seed-test-data.ts --clean",
+    "db:seed:large-group": "pnpm exec tsx --env-file=.env ./scripts/seed-large-group-data.ts seed",
+    "db:seed:large-group:clean": "pnpm exec tsx --env-file=.env ./scripts/seed-large-group-data.ts cleanup",
     "auth:generate": "npx @better-auth/cli generate --output ./src/db/auth-schema.ts",
     "ollama:up": "docker compose up -d ollama && echo 'Waiting for Ollama...' && sleep 5 && docker exec gatherly-ollama ollama pull mistral:7b",
     "ollama:stop": "docker compose stop ollama",

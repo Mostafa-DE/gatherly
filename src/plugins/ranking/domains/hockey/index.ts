@@ -103,6 +103,23 @@ export const hockeyDomain: RankingDomain = {
     { name: "Advanced", color: "#10B981" },
     { name: "Competitive", color: "#F59E0B" },
   ],
+  attributeFields: [
+    {
+      id: "position",
+      label: "Position",
+      options: ["Goalie", "Defender", "Forward"],
+    },
+  ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "wins", weight: 1 },
+      { statId: "goals_scored", weight: 0.5 },
+    ],
+    partitionByLevel: true,
+    partitionByAttribute: "position",
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["3v3", "5v5", "6v6"],
     defaultFormat: "5v5",

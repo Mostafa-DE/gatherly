@@ -151,6 +151,7 @@ export const participation = pgTable(
     checkInRef: text("check_in_ref"),
     notes: text("notes"),
     formAnswers: jsonb("form_answers"), // Answers to session join form
+    attributeOverrides: jsonb("attribute_overrides"), // Per-session overrides: { position: "goalkeeper" }
     joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

@@ -79,27 +79,27 @@ export function resolvePadelMatch(scores: unknown): MatchResult {
 
   const baseStats = {
     matches_played: 1,
-    sets_won: 0,
-    sets_lost: 0,
-    wins: 0,
-    losses: 0,
+    set_wins: 0,
+    set_losses: 0,
+    match_wins: 0,
+    match_losses: 0,
   }
 
   return {
     winner,
     team1Stats: {
       ...baseStats,
-      sets_won: team1Sets,
-      sets_lost: team2Sets,
-      wins: winner === "team1" ? 1 : 0,
-      losses: winner === "team2" ? 1 : 0,
+      set_wins: team1Sets,
+      set_losses: team2Sets,
+      match_wins: winner === "team1" ? 1 : 0,
+      match_losses: winner === "team2" ? 1 : 0,
     },
     team2Stats: {
       ...baseStats,
-      sets_won: team2Sets,
-      sets_lost: team1Sets,
-      wins: winner === "team2" ? 1 : 0,
-      losses: winner === "team1" ? 1 : 0,
+      set_wins: team2Sets,
+      set_losses: team1Sets,
+      match_wins: winner === "team2" ? 1 : 0,
+      match_losses: winner === "team1" ? 1 : 0,
     },
   }
 }
@@ -113,14 +113,14 @@ export const padelDomain: RankingDomain = {
   name: "Padel",
   statFields: [
     { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "losses", label: "Losses" },
-    { id: "sets_won", label: "Sets Won" },
-    { id: "sets_lost", label: "Sets Lost" },
+    { id: "match_wins", label: "Match Wins" },
+    { id: "match_losses", label: "Match Losses" },
+    { id: "set_wins", label: "Set Wins" },
+    { id: "set_losses", label: "Set Losses" },
   ],
   tieBreak: [
-    { field: "wins", direction: "desc" },
-    { field: "(sets_won - sets_lost)", direction: "desc" },
+    { field: "match_wins", direction: "desc" },
+    { field: "(set_wins - set_losses)", direction: "desc" },
   ],
   defaultLevels: [
     { name: "D-", color: "#9CA3AF" },
@@ -136,6 +136,23 @@ export const padelDomain: RankingDomain = {
     { name: "A", color: "#F59E0B" },
     { name: "A+", color: "#D97706" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_side",
+      label: "Dominant Side",
+      options: ["Right", "Left"],
+    },
+  ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "match_wins", weight: 1 },
+      { statId: "set_wins", weight: 0.5 },
+    ],
+    partitionByLevel: true,
+    partitionByAttribute: "dominant_side",
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "doubles",

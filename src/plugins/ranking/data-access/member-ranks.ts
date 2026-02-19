@@ -6,6 +6,7 @@ import {
   rankingLevel,
   rankStatEntry,
 } from "@/plugins/ranking/schema"
+import { getDomain, type TieBreakRule } from "@/plugins/ranking/domains"
 import { activityMember } from "@/db/schema"
 import { user } from "@/db/auth-schema"
 import type { MemberRank, RankStatEntry } from "@/db/types"
@@ -71,6 +72,7 @@ export async function getMemberRanksByUser(
       levelName: rankingLevel.name,
       levelColor: rankingLevel.color,
       levelOrder: rankingLevel.order,
+      attributes: memberRank.attributes,
       definitionName: rankingDefinition.name,
       domainId: rankingDefinition.domainId,
       activityId: rankingDefinition.activityId,
@@ -95,7 +97,10 @@ export async function getLeaderboard(
 ) {
   // Get the definition to find its activity
   const [definition] = await db
-    .select({ activityId: rankingDefinition.activityId })
+    .select({
+      activityId: rankingDefinition.activityId,
+      domainId: rankingDefinition.domainId,
+    })
     .from(rankingDefinition)
     .where(eq(rankingDefinition.id, rankingDefinitionId))
     .limit(1)
@@ -104,11 +109,38 @@ export async function getLeaderboard(
     throw new NotFoundError("Ranking definition not found")
   }
 
+  const domain = getDomain(definition.domainId)
+  const tieBreak = domain?.tieBreak ?? []
+
+  const getStatValueExpr = (field: string) =>
+    sql<number>`coalesce((${memberRank.stats}->>${field})::int, 0)`
+
+  const parseDifferenceExpr = (field: string): [string, string] | null => {
+    const match = field.match(/^\(\s*([a-zA-Z0-9_]+)\s*-\s*([a-zA-Z0-9_]+)\s*\)$/)
+    if (!match) return null
+    return [match[1], match[2]]
+  }
+
+  const buildTieBreakExpr = (rule: TieBreakRule) => {
+    const diff = parseDifferenceExpr(rule.field)
+    if (!diff) {
+      return getStatValueExpr(rule.field)
+    }
+    const [left, right] = diff
+    return sql<number>`(${getStatValueExpr(left)} - ${getStatValueExpr(right)})`
+  }
+
+  const tieBreakOrder = tieBreak.map((rule) => {
+    const expr = buildTieBreakExpr(rule)
+    return rule.direction === "asc" ? asc(expr) : desc(expr)
+  })
+
   const query = db
     .select({
       id: memberRank.id,
       userId: memberRank.userId,
       stats: memberRank.stats,
+      attributes: memberRank.attributes,
       lastActivityAt: memberRank.lastActivityAt,
       currentLevelId: memberRank.currentLevelId,
       levelName: rankingLevel.name,
@@ -134,7 +166,7 @@ export async function getLeaderboard(
       .where(eq(memberRank.rankingDefinitionId, rankingDefinitionId))
       .orderBy(
         asc(sql`coalesce(${rankingLevel.order}, 999999)`),
-        desc(sql`(${memberRank.stats}->>'wins')::int`),
+        ...tieBreakOrder,
         asc(user.name)
       )
   }
@@ -143,7 +175,7 @@ export async function getLeaderboard(
     .where(eq(memberRank.rankingDefinitionId, rankingDefinitionId))
     .orderBy(
       asc(sql`coalesce(${rankingLevel.order}, 999999)`),
-      desc(sql`(${memberRank.stats}->>'wins')::int`),
+      ...tieBreakOrder,
       asc(user.name)
     )
 }
@@ -260,6 +292,85 @@ export async function recordStats(
 
     return { entry, memberRank: updatedMemberRank }
   })
+}
+
+// =============================================================================
+// Member Attributes
+// =============================================================================
+
+export async function updateMemberAttributes(
+  rankingDefinitionId: string,
+  organizationId: string,
+  userId: string,
+  attributes: Record<string, string | null>
+): Promise<MemberRank> {
+  // Upsert: create member_rank if it doesn't exist, otherwise update attributes
+  const [existing] = await db
+    .select()
+    .from(memberRank)
+    .where(
+      and(
+        eq(memberRank.rankingDefinitionId, rankingDefinitionId),
+        eq(memberRank.userId, userId)
+      )
+    )
+    .limit(1)
+
+  if (existing) {
+    // Merge new attributes with existing ones, null values remove keys
+    const currentAttrs = (existing.attributes as Record<string, string>) ?? {}
+    const merged: Record<string, string> = { ...currentAttrs }
+    for (const [key, value] of Object.entries(attributes)) {
+      if (value === null) {
+        delete merged[key]
+      } else {
+        merged[key] = value
+      }
+    }
+
+    const [updated] = await db
+      .update(memberRank)
+      .set({ attributes: merged })
+      .where(eq(memberRank.id, existing.id))
+      .returning()
+    return updated
+  }
+
+  // Create new member_rank with attributes (filter out null values)
+  const attrs: Record<string, string> = {}
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value !== null) {
+      attrs[key] = value
+    }
+  }
+
+  const [created] = await db
+    .insert(memberRank)
+    .values({
+      organizationId,
+      rankingDefinitionId,
+      userId,
+      attributes: attrs,
+    })
+    .returning()
+  return created
+}
+
+export async function getMemberAttributes(
+  rankingDefinitionId: string,
+  userId: string
+): Promise<Record<string, unknown>> {
+  const [result] = await db
+    .select({ attributes: memberRank.attributes })
+    .from(memberRank)
+    .where(
+      and(
+        eq(memberRank.rankingDefinitionId, rankingDefinitionId),
+        eq(memberRank.userId, userId)
+      )
+    )
+    .limit(1)
+  return (result?.attributes as Record<string, unknown>) ?? {}
 }
 
 export async function correctStatEntry(

@@ -84,7 +84,7 @@ export function BreadcrumbNav() {
           return (
             <React.Fragment key={index}>
               {index > 0 && <BreadcrumbSeparator className={isFirst ? "" : "hidden sm:block text-muted-foreground/50"} />}
-              <BreadcrumbItem className={isFirst && segments.length > 1 ? "hidden sm:block" : ""}>
+              <BreadcrumbItem className={isFirst ? "hidden sm:block" : ""}>
                 {segment.href ? (
                   <BreadcrumbLink asChild>
                     <Link

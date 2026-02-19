@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   getDomain,
+  getDomainAttributeFields,
   getFormatFromCapacity,
   getMatchModeFormats,
   isDomainValid,
@@ -167,17 +168,17 @@ describe("ranking domain utilities", () => {
         winner: "team1",
         team1Stats: {
           matches_played: 1,
-          sets_won: 2,
-          sets_lost: 1,
-          wins: 1,
-          losses: 0,
+          set_wins: 2,
+          set_losses: 1,
+          match_wins: 1,
+          match_losses: 0,
         },
         team2Stats: {
           matches_played: 1,
-          sets_won: 1,
-          sets_lost: 2,
-          wins: 0,
-          losses: 1,
+          set_wins: 1,
+          set_losses: 2,
+          match_wins: 0,
+          match_losses: 1,
         },
       })
 
@@ -291,6 +292,94 @@ describe("ranking domain utilities", () => {
         [21, 10],
         [10, 21],
       ]).winner).toBe("draw")
+    })
+  })
+
+  describe("attribute fields", () => {
+    it("returns attribute fields for domains that define them", () => {
+      const football = getDomain("football")
+      expect(football?.attributeFields).toHaveLength(1)
+      expect(football?.attributeFields?.[0]).toEqual({
+        id: "position",
+        label: "Position",
+        options: ["GK", "Defender", "Midfielder", "Attacker"],
+      })
+    })
+
+    it("returns undefined attributeFields for domains without them", () => {
+      const chess = getDomain("chess")
+      expect(chess?.attributeFields).toBeUndefined()
+    })
+
+    it("getDomainAttributeFields returns fields for valid domains", () => {
+      const fields = getDomainAttributeFields("padel")
+      expect(fields).toHaveLength(1)
+      expect(fields[0].id).toBe("dominant_side")
+      expect(fields[0].options).toEqual(["Right", "Left"])
+    })
+
+    it("getDomainAttributeFields returns empty array for domains without attributes", () => {
+      expect(getDomainAttributeFields("chess")).toEqual([])
+      expect(getDomainAttributeFields("tennis")).toEqual([])
+    })
+
+    it("getDomainAttributeFields returns empty array for unknown domains", () => {
+      expect(getDomainAttributeFields("nonexistent")).toEqual([])
+    })
+
+    it("all domains with positions have valid non-empty options", () => {
+      const domainsWithAttrs = listDomains().filter((d) => d.attributeFields)
+      expect(domainsWithAttrs.length).toBeGreaterThan(0)
+
+      for (const domain of domainsWithAttrs) {
+        for (const attr of domain.attributeFields!) {
+          expect(attr.id).toBeTruthy()
+          expect(attr.label).toBeTruthy()
+          expect(attr.options.length).toBeGreaterThan(0)
+        }
+      }
+    })
+  })
+
+  describe("grouping presets", () => {
+    it("returns grouping preset for domains that define them", () => {
+      const football = getDomain("football")
+      expect(football?.groupingPreset).toBeDefined()
+      expect(football?.groupingPreset?.mode).toBe("balanced")
+      expect(football?.groupingPreset?.teamCount).toBe(2)
+      expect(football?.groupingPreset?.partitionByAttribute).toBe("position")
+      expect(football?.groupingPreset?.balanceStatIds).toEqual([
+        { statId: "wins", weight: 1 },
+        { statId: "goals_scored", weight: 0.5 },
+      ])
+    })
+
+    it("preset references valid stat fields", () => {
+      const domainsWithPresets = listDomains().filter((d) => d.groupingPreset)
+
+      for (const domain of domainsWithPresets) {
+        const validStatIds = new Set(domain.statFields.map((f) => f.id))
+        for (const entry of domain.groupingPreset!.balanceStatIds) {
+          expect(validStatIds.has(entry.statId)).toBe(true)
+        }
+      }
+    })
+
+    it("preset partitionByAttribute references valid attribute field", () => {
+      const domainsWithPartition = listDomains().filter(
+        (d) => d.groupingPreset?.partitionByAttribute
+      )
+
+      for (const domain of domainsWithPartition) {
+        const attrIds = new Set((domain.attributeFields ?? []).map((f) => f.id))
+        expect(attrIds.has(domain.groupingPreset!.partitionByAttribute!)).toBe(true)
+      }
+    })
+
+    it("domains without attributes have no partitionByAttribute in preset", () => {
+      const chess = getDomain("chess")
+      expect(chess?.groupingPreset).toBeDefined()
+      expect(chess?.groupingPreset?.partitionByAttribute).toBeUndefined()
     })
   })
 })

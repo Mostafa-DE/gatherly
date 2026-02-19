@@ -1,8 +1,16 @@
 import { trpc } from "@/lib/trpc"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Trophy, BarChart3 } from "lucide-react"
 import { getDomain } from "@/plugins/ranking/domains"
+import { toast } from "sonner"
 
 type MemberRankCardsProps = {
   userId: string
@@ -49,7 +57,7 @@ export function MemberRankCards({ userId }: MemberRankCardsProps) {
 
       <div className="space-y-3">
         {ranks.map((rank) => (
-          <RankCard key={rank.id} rank={rank} />
+          <RankCard key={rank.id} rank={rank} userId={userId} />
         ))}
       </div>
     </div>
@@ -58,20 +66,42 @@ export function MemberRankCards({ userId }: MemberRankCardsProps) {
 
 type RankData = {
   id: string
+  rankingDefinitionId: string
   definitionName: string
   domainId: string
   activityId: string
   stats: unknown
+  attributes: unknown
   levelName: string | null
   levelColor: string | null
   levelOrder: number | null
   lastActivityAt: Date | null
 }
 
-function RankCard({ rank }: { rank: RankData }) {
+const NOT_SET_VALUE = "__not_set__"
+
+function RankCard({ rank, userId }: { rank: RankData; userId: string }) {
   const domain = getDomain(rank.domainId)
   const stats = (rank.stats as Record<string, number>) ?? {}
+  const attributes = (rank.attributes as Record<string, string>) ?? {}
   const statFields = domain?.statFields ?? []
+  const attributeFields = domain?.attributeFields ?? []
+
+  const utils = trpc.useUtils()
+  const updateAttributes = trpc.plugin.ranking.updateMemberAttributes.useMutation({
+    onSuccess: () => {
+      utils.plugin.ranking.getMemberRanksByUser.invalidate({ userId })
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  function handleAttributeChange(fieldId: string, value: string) {
+    updateAttributes.mutate({
+      rankingDefinitionId: rank.rankingDefinitionId,
+      userId,
+      attributes: { [fieldId]: value === NOT_SET_VALUE ? null : value },
+    })
+  }
 
   return (
     <div className="rounded-lg border border-border/50 bg-background/50 p-4">
@@ -115,6 +145,37 @@ function RankCard({ rank }: { rank: RankData }) {
               <span className="text-xs font-medium font-mono">
                 {stats[field.id] ?? 0}
               </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {attributeFields.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {attributeFields.map((field) => (
+            <div key={field.id} className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {field.label}:
+              </span>
+              <Select
+                value={attributes[field.id] ?? NOT_SET_VALUE}
+                onValueChange={(v) => handleAttributeChange(field.id, v)}
+                disabled={updateAttributes.isPending}
+              >
+                <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs">
+                  <SelectValue placeholder="Not set" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NOT_SET_VALUE}>
+                    <span className="text-muted-foreground italic">Not set</span>
+                  </SelectItem>
+                  {field.options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ))}
         </div>

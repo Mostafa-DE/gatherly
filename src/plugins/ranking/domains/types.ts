@@ -65,6 +65,24 @@ export type SessionConfig = {
 }
 
 // =============================================================================
+// Domain Attributes & Grouping Presets
+// =============================================================================
+
+export type AttributeField = {
+  id: string          // e.g. "position", "dominant_side"
+  label: string       // e.g. "Position", "Dominant Side"
+  options: string[]   // e.g. ["GK", "Defender", "Midfielder", "Attacker"]
+}
+
+export type GroupingPreset = {
+  mode: "balanced"
+  balanceStatIds: Array<{ statId: string; weight: number }>
+  partitionByLevel?: boolean      // partition teams by ranking level
+  partitionByAttribute?: string   // attributeField id
+  teamCount: number
+}
+
+// =============================================================================
 // Domain Type
 // =============================================================================
 
@@ -81,4 +99,6 @@ export type RankingDomain = {
   defaultLevels?: DefaultLevel[]
   matchConfig?: MatchConfig
   sessionConfig?: SessionConfig
+  attributeFields?: AttributeField[]
+  groupingPreset?: GroupingPreset
 }

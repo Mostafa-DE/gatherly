@@ -30,6 +30,36 @@ This guide consolidates coding conventions from `~/code/spank/AGENTS.md`, `~/cod
 - Use TanStack Query for server state; do not mirror server data into Jotai atoms.
 - **No `"use client"` or `"use server"` directives.** This project uses TanStack Start + Nitro, not Next.js. There are no React Server Components — all components are client components by default.
 
+### 3.1 `useEffect` Rules (High Priority)
+
+Use `useEffect` only for syncing React with **external systems**. If there is no external system, do not use it.
+
+Allowed `useEffect` cases:
+- Subscribing/unsubscribing to external event sources.
+- Managing timers/intervals with cleanup.
+- Syncing to browser APIs (`localStorage`, `document`, `window`, URL APIs) when needed.
+- Integrating imperative third-party libraries that require lifecycle hooks.
+
+Not allowed `useEffect` cases:
+- Deriving state from props/state (compute inline, use memoization, or reducers).
+- Handling user actions (`onClick`, `onChange`, form submit) that should be handled directly in event handlers.
+- Fetching server data manually (use TanStack Query).
+- Mirroring server data into local/Jotai state without a hard requirement.
+- Triggering business logic chains that should live in explicit actions/use-cases.
+
+Required standards when `useEffect` is used:
+- Include all real dependencies (do not silence `exhaustive-deps` without strong justification).
+- Make effects idempotent and safe on re-run.
+- Always return cleanup for subscriptions, listeners, timers, and imperative integrations.
+- For async work, handle cancellation/race conditions (for example with `AbortController` or stale guards).
+- Add a one-line comment for non-obvious effects explaining the external system being synchronized.
+
+Quick decision check before adding `useEffect`:
+1. Is this syncing with an external system?
+2. Can this be done in render, an event handler, TanStack Query, or a derived value instead?
+3. Do I have correct dependencies and cleanup?
+If any answer is "no", do not add the effect.
+
 ## 4. TypeScript, Naming, and Formatting
 
 - Language: TypeScript (strict).
@@ -40,14 +70,38 @@ This guide consolidates coding conventions from `~/code/spank/AGENTS.md`, `~/cod
 
 ## 5. Testing Standards
 
-- Ship tests with every feature (before or alongside implementation, never after release).
-- Prefer integration/E2E tests over unit tests.
-- Unit tests are for complex pure logic only.
-- Avoid UI tests except for critical business behavior.
-- Prefer real integrations and shared fixtures over mocks/fake harnesses.
+Testing is required for behavior changes. If code changes behavior and no test is added/updated, explain why.
+
+Mandatory rules:
+- Ship tests with every feature or bug fix (before or alongside implementation, never after release).
+- Prefer integration/E2E tests for user-facing and API behavior.
+- Use unit tests only for complex pure logic that is hard to validate via integration tests.
+- Test observable behavior, not internal implementation details.
 - Use Arrange -> Act -> Assert structure.
-- Keep tests focused on observable behavior.
-- For server/data paths, test with real DB infrastructure (e.g., Testcontainers).
+- Keep tests deterministic and isolated (no timing races, no hidden cross-test state).
+
+Test type guidance:
+- Integration tests: default choice for routes, tRPC procedures, DB behavior, permissions, and workflows.
+- E2E tests: use for critical user journeys and release-critical flows.
+- Unit tests: use for pure domain logic, parsers, transformers, and utilities with meaningful branching.
+- UI component tests: only for critical business behavior that cannot be covered effectively elsewhere.
+
+Data and infra requirements:
+- For server/data paths, use real DB-backed testing infrastructure (for example Testcontainers) where feasible.
+- Prefer shared fixtures/builders over ad-hoc mocks.
+- Mock only true external boundaries (third-party APIs, email/SMS providers, payment gateways).
+- Do not mock your own domain logic or repository behavior unless explicitly justified.
+
+What every test PR should include:
+- Happy-path coverage for the changed behavior.
+- At least one failure/edge case for the changed behavior.
+- Authorization/validation checks when relevant.
+- Regression coverage for bug fixes (test fails before fix, passes after fix).
+
+When tests are skipped:
+- State the reason explicitly in the PR/summary.
+- State risk introduced by missing coverage.
+- Provide a concrete follow-up test task.
 
 ## 6. Generated Files
 
@@ -85,3 +139,18 @@ This guide consolidates coding conventions from `~/code/spank/AGENTS.md`, `~/cod
 - Make small, safe, incremental changes.
 - Avoid unrelated refactoring.
 - Keep terminology and naming consistent.
+
+## 11. Reuse Existing Code First (Mandatory)
+
+Before introducing any new component, hook, utility, schema, query, or pattern:
+
+- Search the existing codebase for similar behavior and reuse it when possible.
+- Extend or compose existing implementations before creating new ones.
+- Do not add near-duplicate logic with different names.
+- Keep existing terminology and naming patterns consistent.
+- If you must introduce something new, document why existing code could not be reused.
+
+Quick check before writing code:
+1. Did I search for an existing implementation?
+2. Can I reuse or extend it safely?
+3. If not, is the reason explicit and justified?

@@ -1,6 +1,5 @@
 export { ParticipantsToolbar } from "./participants-toolbar"
 export { ParticipantsTable } from "./participants-table"
 export { BulkActionBar } from "./bulk-action-bar"
-export { AddParticipantDialog } from "./add-participant-dialog"
 export { AINotesSection } from "./ai-notes-section"
 export type { ParticipantData, UpdateParticipationData, TargetSession } from "./types"

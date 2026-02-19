@@ -100,6 +100,14 @@ export const chessDomain: RankingDomain = {
     { name: "Expert", color: "#F59E0B" },
     { name: "Master", color: "#EF4444" },
   ],
+  groupingPreset: {
+    mode: "balanced",
+    balanceStatIds: [
+      { statId: "wins", weight: 1 },
+    ],
+    partitionByLevel: true,
+    teamCount: 2,
+  },
   matchConfig: {
     supportedFormats: ["singles"],
     defaultFormat: "singles",

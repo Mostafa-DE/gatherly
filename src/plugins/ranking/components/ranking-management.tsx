@@ -14,17 +14,28 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import {
   Trophy,
   MoreVertical,
   Medal,
   ClipboardList,
   UserPlus,
+  Settings2,
 } from "lucide-react"
 import { getDomain } from "@/plugins/ranking/domains"
+import type { AttributeField } from "@/plugins/ranking/domains/types"
 import { StatRecordingDialog } from "./stat-recording-dialog"
 import { AssignLevelDialog } from "./assign-level-dialog"
 import { MatchHistory } from "./match-history"
@@ -129,9 +140,16 @@ function LeaderboardSection({
     currentLevelId: string | null
   } | null>(null)
 
+  const [attributeDialog, setAttributeDialog] = useState<{
+    userId: string
+    userName: string
+    currentAttributes: Record<string, string>
+  } | null>(null)
+
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false)
 
   const hasMatchConfig = !!domain?.matchConfig
+  const attributeFields = domain?.attributeFields ?? []
 
   if (isLoading) {
     return (
@@ -259,6 +277,20 @@ function LeaderboardSection({
                         Record Stats
                       </DropdownMenuItem>
                     )}
+                    {attributeFields.length > 0 && (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          setAttributeDialog({
+                            userId: entry.userId,
+                            userName: entry.userName,
+                            currentAttributes: (entry.attributes as Record<string, string>) ?? {},
+                          })
+                        }
+                      >
+                        <Settings2 className="mr-2 h-3.5 w-3.5" />
+                        Set Attributes
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -290,6 +322,18 @@ function LeaderboardSection({
         />
       )}
 
+      {attributeDialog && attributeFields.length > 0 && (
+        <SetAttributesDialog
+          rankingDefinitionId={rankingDefinitionId}
+          userId={attributeDialog.userId}
+          userName={attributeDialog.userName}
+          currentAttributes={attributeDialog.currentAttributes}
+          attributeFields={attributeFields}
+          open={!!attributeDialog}
+          onOpenChange={(open) => !open && setAttributeDialog(null)}
+        />
+      )}
+
       {/* Match History */}
       {hasMatchConfig && (
         <div className="space-y-2 pt-2">
@@ -316,6 +360,123 @@ function LeaderboardSection({
       )}
 
     </>
+  )
+}
+
+const ATTR_NOT_SET = "__not_set__"
+
+function SetAttributesDialog({
+  rankingDefinitionId,
+  userId,
+  userName,
+  currentAttributes,
+  attributeFields,
+  open,
+  onOpenChange,
+}: {
+  rankingDefinitionId: string
+  userId: string
+  userName: string
+  currentAttributes: Record<string, string>
+  attributeFields: AttributeField[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const utils = trpc.useUtils()
+  const [values, setValues] = useState<Record<string, string>>({ ...currentAttributes })
+  const [error, setError] = useState("")
+
+  const updateMutation = trpc.plugin.ranking.updateMemberAttributes.useMutation({
+    onSuccess: () => {
+      utils.plugin.ranking.getLeaderboard.invalidate({ rankingDefinitionId })
+      utils.plugin.ranking.getMemberRanksByUser.invalidate({ userId })
+      onOpenChange(false)
+    },
+    onError: (err) => setError(err.message),
+  })
+
+  function handleSubmit() {
+    setError("")
+    const attributes: Record<string, string | null> = {}
+    for (const field of attributeFields) {
+      const val = values[field.id]
+      if (!val || val === ATTR_NOT_SET) {
+        // Only send null if there was a previous value to clear
+        if (currentAttributes[field.id]) {
+          attributes[field.id] = null
+        }
+      } else {
+        attributes[field.id] = val
+      }
+    }
+    if (Object.keys(attributes).length === 0) {
+      onOpenChange(false)
+      return
+    }
+    updateMutation.mutate({
+      rankingDefinitionId,
+      userId,
+      attributes,
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Set Attributes</DialogTitle>
+          <DialogDescription>
+            Set attributes for {userName}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          {attributeFields.map((field) => (
+            <div key={field.id} className="space-y-2">
+              <Label>{field.label}</Label>
+              <Select
+                value={values[field.id] ?? ATTR_NOT_SET}
+                onValueChange={(v) =>
+                  setValues((prev) => ({ ...prev, [field.id]: v }))
+                }
+              >
+                <SelectTrigger className="bg-white dark:bg-input/30">
+                  <SelectValue placeholder="Not set" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ATTR_NOT_SET}>
+                    <span className="text-muted-foreground italic">Not set</span>
+                  </SelectItem>
+                  {field.options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={updateMutation.isPending}
+          >
+            {updateMutation.isPending ? "Saving..." : "Save Attributes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

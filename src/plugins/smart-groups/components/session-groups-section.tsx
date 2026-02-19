@@ -21,6 +21,7 @@ export function SessionGroupsSection({
   participantCount,
 }: SessionGroupsSectionProps) {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false)
+  const [groupWarnings, setGroupWarnings] = useState<string[]>([])
 
   const { data: config, isLoading: configLoading } =
     trpc.plugin.smartGroups.getConfigByActivity.useQuery({ activityId })
@@ -89,6 +90,7 @@ export function SessionGroupsSection({
           entries={runDetails.entries}
           isAdmin={isAdmin}
           onRegenerate={() => setShowGenerateDialog(true)}
+          warnings={groupWarnings}
         />
       ) : (
         <p className="text-sm text-muted-foreground py-2">
@@ -108,6 +110,7 @@ export function SessionGroupsSection({
           onSuccess={() => {
             utils.plugin.smartGroups.getRunBySession.invalidate({ sessionId })
           }}
+          onWarnings={setGroupWarnings}
           visibleFields={config.visibleFields as string[] | null}
           defaultCriteria={config.defaultCriteria as import("@/plugins/smart-groups/schemas").Criteria | null}
         />

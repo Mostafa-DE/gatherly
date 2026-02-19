@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import {
@@ -19,7 +19,6 @@ import {
   ParticipantsToolbar,
   ParticipantsTable,
   BulkActionBar,
-  AddParticipantDialog,
 } from "@/components/participants"
 import type { ParticipantData, UpdateParticipationData } from "@/components/participants"
 
@@ -39,8 +38,6 @@ function SessionParticipantsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkAttendanceAction, setBulkAttendanceAction] = useState<AttendanceStatus>("show")
   const [bulkPaymentAction, setBulkPaymentAction] = useState<PaymentStatus>("paid")
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [addError, setAddError] = useState<string | null>(null)
 
   // Auth
   const { data: whoami, isLoading: whoamiLoading } = trpc.user.whoami.useQuery()
@@ -96,6 +93,13 @@ function SessionParticipantsPage() {
       { enabled: !!rankingDefinition?.id }
     )
 
+  // Domain attribute fields for session overrides
+  const { data: domainConfig } =
+    trpc.plugin.ranking.getDomainConfig.useQuery(
+      { activityId: sessionData?.activityId ?? "" },
+      { enabled: !!sessionData?.activityId }
+    )
+
   // Build a lookup map: userId -> { levelName, levelColor }
   const memberLevelMap = new Map<
     string,
@@ -144,16 +148,6 @@ function SessionParticipantsPage() {
       toast.success(`Payment updated for ${data.count} participants`)
     },
     onError: (err) => toast.error(err.message),
-  })
-
-  const adminAdd = trpc.participation.adminAdd.useMutation({
-    onSuccess: () => {
-      invalidateAll()
-      setAddDialogOpen(false)
-      setAddError(null)
-      toast.success("Participant added")
-    },
-    onError: (err) => setAddError(err.message),
   })
 
   const moveParticipant = trpc.participation.move.useMutation({
@@ -231,14 +225,6 @@ function SessionParticipantsPage() {
     [updateParticipation]
   )
 
-  const handleAddParticipant = useCallback(
-    (identifier: string) => {
-      setAddError(null)
-      adminAdd.mutate({ sessionId, identifier })
-    },
-    [adminAdd, sessionId]
-  )
-
   const handleMove = useCallback(
     (participationId: string, targetSessionId: string) => {
       moveParticipant.mutate({ participationId, targetSessionId })
@@ -261,6 +247,15 @@ function SessionParticipantsPage() {
   const joinedCount = joinedParticipants?.length ?? 0
   const waitlistedCount = waitlistedParticipants?.length ?? 0
   const pendingCount = pendingParticipants?.length ?? 0
+
+  // Collect all participating user IDs to exclude from add-member search
+  const excludeUserIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const p of joinedParticipants ?? []) ids.add(p.user.id)
+    for (const p of waitlistedParticipants ?? []) ids.add(p.user.id)
+    for (const p of pendingParticipants ?? []) ids.add(p.user.id)
+    return Array.from(ids)
+  }, [joinedParticipants, waitlistedParticipants, pendingParticipants])
 
   // Loading state
   if (whoamiLoading) {
@@ -324,10 +319,9 @@ function SessionParticipantsPage() {
       <ParticipantsToolbar
         search={search}
         onSearchChange={setSearch}
-        onAddClick={() => {
-          setAddError(null)
-          setAddDialogOpen(true)
-        }}
+        sessionId={sessionId}
+        excludeUserIds={excludeUserIds}
+        onParticipantAdded={invalidateAll}
       />
 
       {/* Tabs */}
@@ -380,6 +374,7 @@ function SessionParticipantsPage() {
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
             memberLevelMap={memberLevelMap}
+            attributeFields={domainConfig?.attributeFields}
           />
         </TabsContent>
 
@@ -398,6 +393,7 @@ function SessionParticipantsPage() {
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
             memberLevelMap={memberLevelMap}
+            attributeFields={domainConfig?.attributeFields}
           />
         </TabsContent>
 
@@ -418,18 +414,11 @@ function SessionParticipantsPage() {
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
             memberLevelMap={memberLevelMap}
+            attributeFields={domainConfig?.attributeFields}
           />
         </TabsContent>
       </Tabs>
 
-      {/* Add Participant Dialog */}
-      <AddParticipantDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        onAdd={handleAddParticipant}
-        isPending={adminAdd.isPending}
-        error={addError}
-      />
     </div>
   )
 }

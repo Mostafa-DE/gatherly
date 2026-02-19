@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useRef } from "react"
 import { trpc } from "@/lib/trpc"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +20,7 @@ import {
   Shuffle,
   Scale,
   AlertTriangle,
+  Wand2,
 } from "lucide-react"
 import type { Criteria } from "../schemas"
 
@@ -32,6 +33,7 @@ type GenerateGroupsDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
+  onWarnings?: (warnings: string[]) => void
   visibleFields?: string[] | null
   defaultCriteria?: Criteria | null
 }
@@ -86,12 +88,13 @@ export function GenerateGroupsDialog({
   open,
   onOpenChange,
   onSuccess,
+  onWarnings,
   visibleFields,
   defaultCriteria,
 }: GenerateGroupsDialogProps) {
   const [mode, setMode] = useState<Mode | null>(null)
   const [error, setError] = useState("")
-  const [initialized, setInitialized] = useState(false)
+  const initializedRef = useRef(false)
 
   // Split mode state
   const [splitFields, setSplitFields] = useState<string[]>([])
@@ -117,6 +120,11 @@ export function GenerateGroupsDialog({
     { enabled: open }
   )
 
+  const { data: domainConfig } = trpc.plugin.ranking.getDomainConfig.useQuery(
+    { activityId },
+    { enabled: open }
+  )
+
   // Filter fields by visibility config
   const fields = rawFields
     ? visibleFields && visibleFields.length > 0
@@ -124,16 +132,60 @@ export function GenerateGroupsDialog({
       : rawFields
     : undefined
 
-  // Initialize from defaultCriteria on first open
-  useEffect(() => {
-    if (!initialized && open && defaultCriteria && fields) {
-      initializeFromCriteria(defaultCriteria)
-      setInitialized(true)
+  // Resolve domain preset to Criteria
+  function resolvePresetToCriteria(
+    availableFields: NonNullable<typeof fields>
+  ): Criteria | null {
+    const preset = domainConfig?.groupingPreset
+    if (!preset) return null
+
+    const presetBalanceFields: Array<{ sourceId: string; weight: number }> = []
+    for (const entry of preset.balanceStatIds) {
+      const sourceId = `ranking:stat:${entry.statId}`
+      if (availableFields.some((f) => f.sourceId === sourceId)) {
+        presetBalanceFields.push({ sourceId, weight: entry.weight })
+      }
     }
-  }, [initialized, open, defaultCriteria, fields])
+    if (presetBalanceFields.length === 0) return null
+
+    const presetPartitionFields: string[] = []
+    if (preset.partitionByLevel) {
+      if (availableFields.some((f) => f.sourceId === "ranking:level")) {
+        presetPartitionFields.push("ranking:level")
+      }
+    }
+    if (preset.partitionByAttribute) {
+      const sourceId = `ranking:attr:${preset.partitionByAttribute}`
+      if (availableFields.some((f) => f.sourceId === sourceId)) {
+        presetPartitionFields.push(sourceId)
+      }
+    }
+
+    return {
+      mode: "balanced",
+      balanceFields: presetBalanceFields,
+      ...(presetPartitionFields.length > 0 ? { partitionFields: presetPartitionFields } : {}),
+      teamCount: preset.teamCount,
+    }
+  }
+
+  // Initialize form from defaultCriteria or domain preset on first data load
+  // Uses ref to avoid re-initialization across renders without useEffect
+  if (open && fields && !initializedRef.current) {
+    if (defaultCriteria) {
+      initializeFromCriteria(defaultCriteria)
+    } else {
+      const presetCriteria = resolvePresetToCriteria(fields)
+      if (presetCriteria) {
+        initializeFromCriteria(presetCriteria)
+      }
+    }
+    initializedRef.current = true
+  }
 
   const generateGroups = trpc.plugin.smartGroups.generateGroups.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      onWarnings?.(data?.warnings ?? [])
       resetState()
       onSuccess()
       onOpenChange(false)
@@ -155,7 +207,7 @@ export function GenerateGroupsDialog({
     setPartitionFields([])
     setTeamCount(Math.max(2, Math.ceil(participantCount / 4)))
     setVarietyWeight(0)
-    setInitialized(false)
+    initializedRef.current = false
   }
 
   function initializeFromCriteria(criteria: Criteria) {
@@ -285,7 +337,7 @@ export function GenerateGroupsDialog({
 
   // Categorical fields (for balanced mode partition field)
   const categoricalFields = fields?.filter(
-    (f) => f.type === "select" || f.type === "radio" || f.type === "ranking_level"
+    (f) => f.type === "select" || f.type === "radio" || f.type === "ranking_level" || f.type === "ranking_attribute"
   ) ?? []
 
   // Numeric fields grouped by source (for balanced multi-field UI)
@@ -427,17 +479,35 @@ export function GenerateGroupsDialog({
         )}
 
         <DialogFooter className="gap-2 sm:gap-0">
-          {canGenerate && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveAsDefault}
-              disabled={updateConfig.isPending}
-              className="mr-auto"
-            >
-              {updateConfig.isPending ? "Saving..." : "Save as Default"}
-            </Button>
-          )}
+          <div className="mr-auto flex gap-2">
+            {canGenerate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSaveAsDefault}
+                disabled={updateConfig.isPending}
+              >
+                {updateConfig.isPending ? "Saving..." : "Save as Default"}
+              </Button>
+            )}
+            {domainConfig?.groupingPreset && fields && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const presetCriteria = resolvePresetToCriteria(fields)
+                  if (presetCriteria) {
+                    resetState()
+                    initializeFromCriteria(presetCriteria)
+                    initializedRef.current = true
+                  }
+                }}
+              >
+                <Wand2 className="mr-1 h-3.5 w-3.5" />
+                Use Preset
+              </Button>
+            )}
+          </div>
           <Button variant="outline" onClick={() => { resetState(); onOpenChange(false) }}>
             Cancel
           </Button>
@@ -759,7 +829,7 @@ function BalancedConfig({
                   {field.label}
                 </Label>
                 <Badge variant="outline" className="text-xs">
-                  {field.type === "ranking_level" ? "level" : field.type}
+                  {field.type === "ranking_level" ? "level" : field.type === "ranking_attribute" ? "attribute" : field.type}
                 </Badge>
               </div>
             ))}

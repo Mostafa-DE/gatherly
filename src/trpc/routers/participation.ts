@@ -30,6 +30,7 @@ import {
   bulkUpdatePaymentSchema,
   getUserHistorySchema,
   adminAddParticipantSchema,
+  adminAddByUserIdSchema,
   moveParticipantSchema,
   approvePendingParticipationSchema,
   rejectPendingParticipationSchema,
@@ -262,6 +263,32 @@ export const participationRouter = router({
       })
 
       return adminAddParticipant(input.sessionId, targetUser.id)
+    }),
+
+  /**
+   * Admin add participant by user ID (Admin)
+   * Bypasses join_mode restrictions. User must be an org member.
+   */
+  adminAddByUserId: orgProcedure
+    .input(adminAddByUserIdSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      // Verify user is an org member
+      const membership = await getOrganizationMemberByUserId(
+        ctx.activeOrganization.id,
+        input.userId
+      )
+      if (!membership) {
+        throw new ForbiddenError("User is not a member of this organization")
+      }
+
+      // Verify session is in this org
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireSession(input.sessionId)
+      })
+
+      return adminAddParticipant(input.sessionId, input.userId)
     }),
 
   /**
