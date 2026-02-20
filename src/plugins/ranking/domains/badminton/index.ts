@@ -124,6 +124,13 @@ export const badmintonDomain: RankingDomain = {
     { field: "wins", direction: "desc" },
     { field: "(games_won - games_lost)", direction: "desc" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_hand",
+      label: "Dominant Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "singles",

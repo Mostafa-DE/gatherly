@@ -109,6 +109,11 @@ export const hockeyDomain: RankingDomain = {
       label: "Position",
       options: ["Goalie", "Defender", "Forward"],
     },
+    {
+      id: "stick_hand",
+      label: "Stick Hand",
+      options: ["Left", "Right"],
+    },
   ],
   groupingPreset: {
     mode: "balanced",

@@ -74,6 +74,8 @@ import {
   smartGroupConfig,
 } from "../src/plugins/smart-groups/schema"
 import { getDomain } from "../src/plugins/ranking/domains"
+import { injectRankingAttributeFields } from "../src/plugins/ranking/utils/join-form-attributes"
+import type { JoinFormSchema } from "../src/types/form"
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -931,6 +933,15 @@ function generateActivityFormAnswers(domainId: string): Record<string, unknown> 
       }
     }
   }
+
+  // Also generate answers for domain ranking attribute fields (ranking_attr_*)
+  const domain = getDomain(domainId)
+  if (domain?.attributeFields) {
+    for (const attr of domain.attributeFields) {
+      answers[`ranking_attr_${attr.id}`] = pick(attr.options)
+    }
+  }
+
   return answers
 }
 
@@ -1158,6 +1169,19 @@ async function createActivitiesAndRankings(
       createdBy: ownerId,
       createdAt: daysAgo(110 - d * 5),
     })
+
+    // 3b. Inject domain attribute fields into join form (e.g. position, dominant side)
+    const domain = getDomain(cfg.domainId)
+    if (domain?.attributeFields && domain.attributeFields.length > 0) {
+      const updatedSchema = injectRankingAttributeFields(
+        actJoinForm as JoinFormSchema,
+        domain.attributeFields
+      )
+      await db
+        .update(activity)
+        .set({ joinFormSchema: updatedSchema })
+        .where(eq(activity.id, activityId))
+    }
 
     // 4. Create levels (if any)
     const levelIds: string[] = []

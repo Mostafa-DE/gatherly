@@ -104,6 +104,13 @@ export const bowlingDomain: RankingDomain = {
     { name: "Advanced", color: "#F59E0B" },
     { name: "Pro", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_hand",
+      label: "Dominant Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "singles",

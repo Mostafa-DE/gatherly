@@ -100,12 +100,20 @@ export const chessDomain: RankingDomain = {
     { name: "Expert", color: "#F59E0B" },
     { name: "Master", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "time_preference",
+      label: "Time Control Preference",
+      options: ["Classical", "Rapid", "Blitz", "Bullet"],
+    },
+  ],
   groupingPreset: {
     mode: "balanced",
     balanceStatIds: [
       { statId: "wins", weight: 1 },
     ],
     partitionByLevel: true,
+    partitionByAttribute: "time_preference",
     teamCount: 2,
   },
   matchConfig: {

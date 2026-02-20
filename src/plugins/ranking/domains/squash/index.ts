@@ -127,6 +127,13 @@ export const squashDomain: RankingDomain = {
     { name: "A", color: "#F59E0B" },
     { name: "AA", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_hand",
+      label: "Dominant Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles"],
     defaultFormat: "singles",

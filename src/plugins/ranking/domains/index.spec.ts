@@ -298,29 +298,34 @@ describe("ranking domain utilities", () => {
   describe("attribute fields", () => {
     it("returns attribute fields for domains that define them", () => {
       const football = getDomain("football")
-      expect(football?.attributeFields).toHaveLength(1)
+      expect(football?.attributeFields).toHaveLength(2)
       expect(football?.attributeFields?.[0]).toEqual({
         id: "position",
         label: "Position",
         options: ["GK", "Defender", "Midfielder", "Attacker"],
       })
+      expect(football?.attributeFields?.[1]).toEqual({
+        id: "dominant_foot",
+        label: "Dominant Foot",
+        options: ["Right", "Left", "Both"],
+      })
     })
 
     it("returns undefined attributeFields for domains without them", () => {
-      const chess = getDomain("chess")
-      expect(chess?.attributeFields).toBeUndefined()
+      const laserTag = getDomain("laser-tag")
+      expect(laserTag?.attributeFields).toBeUndefined()
     })
 
     it("getDomainAttributeFields returns fields for valid domains", () => {
       const fields = getDomainAttributeFields("padel")
-      expect(fields).toHaveLength(1)
+      expect(fields).toHaveLength(2)
       expect(fields[0].id).toBe("dominant_side")
       expect(fields[0].options).toEqual(["Right", "Left"])
+      expect(fields[1].id).toBe("court_side")
     })
 
     it("getDomainAttributeFields returns empty array for domains without attributes", () => {
-      expect(getDomainAttributeFields("chess")).toEqual([])
-      expect(getDomainAttributeFields("tennis")).toEqual([])
+      expect(getDomainAttributeFields("laser-tag")).toEqual([])
     })
 
     it("getDomainAttributeFields returns empty array for unknown domains", () => {
@@ -377,9 +382,12 @@ describe("ranking domain utilities", () => {
     })
 
     it("domains without attributes have no partitionByAttribute in preset", () => {
-      const chess = getDomain("chess")
-      expect(chess?.groupingPreset).toBeDefined()
-      expect(chess?.groupingPreset?.partitionByAttribute).toBeUndefined()
+      // Only laser-tag and reading lack attributeFields; neither has a groupingPreset.
+      // All domains with groupingPreset now also define attributeFields.
+      const domainsWithPresetNoAttr = listDomains().filter(
+        (d) => d.groupingPreset && !d.attributeFields
+      )
+      expect(domainsWithPresetNoAttr).toHaveLength(0)
     })
   })
 })

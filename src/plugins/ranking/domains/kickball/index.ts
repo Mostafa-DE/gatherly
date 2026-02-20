@@ -102,6 +102,13 @@ export const kickballDomain: RankingDomain = {
     { name: "Intermediate", color: "#3B82F6" },
     { name: "Competitive", color: "#10B981" },
   ],
+  attributeFields: [
+    {
+      id: "throw_hand",
+      label: "Throwing Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["5v5", "7v7", "9v9"],
     defaultFormat: "7v7",

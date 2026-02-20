@@ -134,6 +134,11 @@ export const rejectPendingParticipationSchema = z.object({
   participationId: z.string(),
 })
 
+/** Admin promote waitlisted participant to joined */
+export const adminPromoteParticipationSchema = z.object({
+  participationId: z.string(),
+})
+
 /** Get summary of pending session approvals (admin) */
 export const pendingApprovalsSummarySchema = z.object({
   limit: z.number().int().positive().max(20).default(5),
@@ -162,6 +167,9 @@ export type ApprovePendingParticipationInput = z.infer<
 >
 export type RejectPendingParticipationInput = z.infer<
   typeof rejectPendingParticipationSchema
+>
+export type AdminPromoteParticipationInput = z.infer<
+  typeof adminPromoteParticipationSchema
 >
 export type PendingApprovalsSummaryInput = z.infer<
   typeof pendingApprovalsSummarySchema

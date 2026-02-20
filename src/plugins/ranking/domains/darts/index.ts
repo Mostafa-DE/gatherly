@@ -103,6 +103,13 @@ export const dartsDomain: RankingDomain = {
     { name: "B", color: "#10B981" },
     { name: "A", color: "#F59E0B" },
   ],
+  attributeFields: [
+    {
+      id: "preferred_format",
+      label: "Preferred Format",
+      options: ["501", "Cricket"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "singles",

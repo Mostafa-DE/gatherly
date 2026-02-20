@@ -24,6 +24,7 @@ import {
   ChevronUp,
   Save,
   ArrowRightLeft,
+  ArrowUpCircle,
 } from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import { toast } from "sonner"
@@ -40,6 +41,13 @@ type AttributeFieldConfig = {
   options: string[]
 }
 
+type RankingLevelOption = {
+  id: string
+  name: string
+  color: string | null
+  order: number
+}
+
 type ParticipantsTableProps = {
   participants: ParticipantData[] | undefined
   isLoading: boolean
@@ -49,6 +57,8 @@ type ParticipantsTableProps = {
   onUpdate: (data: UpdateParticipationData) => void
   onApprove?: (participationId: string) => void
   onReject?: (participationId: string) => void
+  onPromote?: (participationId: string) => void
+  isPromoting?: boolean
   isUpdating: boolean
   sessionId: string
   formFields: FormField[]
@@ -56,7 +66,11 @@ type ParticipantsTableProps = {
   onMove: (participationId: string, targetSessionId: string) => void
   isMoving: boolean
   memberLevelMap?: Map<string, MemberLevel>
+  memberAttributeMap?: Map<string, Record<string, string>>
   attributeFields?: AttributeFieldConfig[]
+  rankingLevels?: RankingLevelOption[]
+  memberCurrentLevelMap?: Map<string, string | null>
+  rankingDefinitionId?: string
 }
 
 // Payment toggles: unpaid ↔ paid
@@ -205,6 +219,10 @@ function ExpandedRowPanel({
   onUpdate,
   isUpdating,
   attributeFields,
+  memberAttributes,
+  rankingLevels,
+  memberCurrentLevelId,
+  rankingDefinitionId,
 }: {
   item: ParticipantData
   sessionId: string
@@ -212,6 +230,10 @@ function ExpandedRowPanel({
   onUpdate: (data: UpdateParticipationData) => void
   isUpdating: boolean
   attributeFields?: AttributeFieldConfig[]
+  memberAttributes?: Record<string, string>
+  rankingLevels?: RankingLevelOption[]
+  memberCurrentLevelId?: string | null
+  rankingDefinitionId?: string
 }) {
   const [notesValue, setNotesValue] = useState(item.participation.notes ?? "")
   const [notesDirty, setNotesDirty] = useState(false)
@@ -232,6 +254,13 @@ function ExpandedRowPanel({
 
   const answers = item.participation.formAnswers as Record<string, unknown> | null
   const overrides = (item.participation.attributeOverrides as Record<string, string>) ?? {}
+
+  // Resolve effective attribute value: session override > member ranking attribute > not set
+  function getEffectiveAttributeValue(fieldId: string): string {
+    if (overrides[fieldId]) return overrides[fieldId]
+    if (memberAttributes?.[fieldId]) return memberAttributes[fieldId]
+    return OVERRIDE_NOT_SET
+  }
 
   const utils = trpc.useUtils()
   const updateSessionAttrs = trpc.plugin.ranking.updateSessionAttributes.useMutation({
@@ -254,8 +283,70 @@ function ExpandedRowPanel({
     })
   }
 
+  const sortedLevels = rankingLevels
+    ? [...rankingLevels].sort((a, b) => a.order - b.order)
+    : []
+  const showRankSelector =
+    sortedLevels.length > 0 && rankingDefinitionId
+
+  const assignLevelMutation = trpc.plugin.ranking.assignLevel.useMutation({
+    onSuccess: () => {
+      utils.participation.participants.invalidate({ sessionId })
+      utils.plugin.ranking.getLeaderboard.invalidate()
+    },
+    onError: (err: { message: string }) => toast.error(err.message),
+  })
+
+  const handleRankChange = (value: string) => {
+    if (!rankingDefinitionId) return
+    assignLevelMutation.mutate({
+      rankingDefinitionId,
+      userId: item.user.id,
+      levelId: value === "__unranked__" ? null : value,
+    })
+  }
+
   return (
     <div className="border-t bg-muted/50 px-4 py-4 space-y-4 sm:pl-12">
+      {/* Rank Level Assignment */}
+      {showRankSelector && (
+        <div className="space-y-2">
+          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Rank
+          </label>
+          <div className="flex items-center gap-2">
+            <Select
+              value={memberCurrentLevelId ?? "__unranked__"}
+              onValueChange={handleRankChange}
+              disabled={assignLevelMutation.isPending}
+            >
+              <SelectTrigger className="h-8 w-auto min-w-[140px] text-xs">
+                <SelectValue placeholder="Select rank..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__unranked__">
+                  <span className="text-muted-foreground italic">Unranked</span>
+                </SelectItem>
+                {sortedLevels.map((level) => (
+                  <SelectItem key={level.id} value={level.id}>
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="inline-block h-2 w-2 rounded-full shrink-0"
+                        style={{ backgroundColor: level.color ?? "var(--color-muted-foreground)" }}
+                      />
+                      {level.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {assignLevelMutation.isPending && (
+              <span className="text-xs text-muted-foreground">Saving...</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Session Attribute Overrides */}
       {attributeFields && attributeFields.length > 0 && (
         <div className="space-y-2">
@@ -269,7 +360,7 @@ function ExpandedRowPanel({
                   {field.label}:
                 </span>
                 <Select
-                  value={overrides[field.id] ?? OVERRIDE_NOT_SET}
+                  value={getEffectiveAttributeValue(field.id)}
                   onValueChange={(v) => handleOverrideChange(field.id, v)}
                   disabled={updateSessionAttrs.isPending}
                 >
@@ -371,6 +462,8 @@ export function ParticipantsTable({
   onUpdate,
   onApprove,
   onReject,
+  onPromote,
+  isPromoting,
   isUpdating,
   sessionId,
   formFields,
@@ -378,7 +471,11 @@ export function ParticipantsTable({
   onMove,
   isMoving,
   memberLevelMap,
+  memberAttributeMap,
   attributeFields,
+  rankingLevels,
+  memberCurrentLevelMap,
+  rankingDefinitionId,
 }: ParticipantsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -545,6 +642,21 @@ export function ParticipantsTable({
                     </div>
                   ) : (
                     <div className="flex items-center gap-1">
+                      {tab === "waitlisted" && onPromote && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-[var(--color-status-success)] sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onPromote(item.participation.id)
+                          }}
+                          disabled={isPromoting}
+                          title="Promote to joined"
+                        >
+                          <ArrowUpCircle className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       {availableTargetSessions.length > 0 && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -623,6 +735,10 @@ export function ParticipantsTable({
                   onUpdate={onUpdate}
                   isUpdating={isUpdating}
                   attributeFields={attributeFields}
+                  memberAttributes={memberAttributeMap?.get(item.user.id)}
+                  rankingLevels={rankingLevels}
+                  memberCurrentLevelId={memberCurrentLevelMap?.get(item.user.id)}
+                  rankingDefinitionId={rankingDefinitionId}
                 />
               )}
             </div>

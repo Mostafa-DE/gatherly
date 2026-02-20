@@ -134,6 +134,11 @@ export const volleyballDomain: RankingDomain = {
       label: "Position",
       options: ["Setter", "Libero", "OH", "MB", "Opposite"],
     },
+    {
+      id: "height_range",
+      label: "Height Range",
+      options: ["Under 170cm", "170-180cm", "180-190cm", "Over 190cm"],
+    },
   ],
   groupingPreset: {
     mode: "balanced",

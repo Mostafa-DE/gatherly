@@ -108,6 +108,11 @@ export const flagFootballDomain: RankingDomain = {
       label: "Position",
       options: ["QB", "WR", "RB", "Lineman", "DB"],
     },
+    {
+      id: "dominant_hand",
+      label: "Throwing Hand",
+      options: ["Right", "Left"],
+    },
   ],
   groupingPreset: {
     mode: "balanced",

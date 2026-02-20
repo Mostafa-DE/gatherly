@@ -105,6 +105,13 @@ export const poolDomain: RankingDomain = {
     { name: "AA", color: "#F59E0B" },
     { name: "AAA", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "preferred_game",
+      label: "Preferred Game",
+      options: ["8-Ball", "9-Ball", "10-Ball"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "singles",

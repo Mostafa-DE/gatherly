@@ -18,6 +18,7 @@ import {
   approvePendingParticipation,
   rejectPendingParticipation,
   getPendingApprovalsSummary,
+  adminPromoteParticipant,
 } from "@/data-access/participations"
 import {
   joinSessionSchema,
@@ -34,6 +35,7 @@ import {
   moveParticipantSchema,
   approvePendingParticipationSchema,
   rejectPendingParticipationSchema,
+  adminPromoteParticipationSchema,
   pendingApprovalsSummarySchema,
 } from "@/schemas/participation"
 import { getUserByEmailOrPhone } from "@/data-access/users"
@@ -338,6 +340,22 @@ export const participationRouter = router({
       })
 
       return rejectPendingParticipation(input.participationId)
+    }),
+
+  /**
+   * Promote waitlisted participant to joined (Admin)
+   * Checks capacity before promoting.
+   */
+  adminPromote: orgProcedure
+    .input(adminPromoteParticipationSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      await withOrgScope(ctx.activeOrganization.id, async (scope) => {
+        await scope.requireParticipationForMutation(input.participationId)
+      })
+
+      return adminPromoteParticipant(input.participationId)
     }),
 
   /**

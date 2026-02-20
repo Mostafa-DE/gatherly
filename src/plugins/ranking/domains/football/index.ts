@@ -110,6 +110,11 @@ export const footballDomain: RankingDomain = {
       label: "Position",
       options: ["GK", "Defender", "Midfielder", "Attacker"],
     },
+    {
+      id: "dominant_foot",
+      label: "Dominant Foot",
+      options: ["Right", "Left", "Both"],
+    },
   ],
   groupingPreset: {
     mode: "balanced",

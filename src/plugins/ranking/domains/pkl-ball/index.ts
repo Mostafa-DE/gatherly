@@ -132,6 +132,13 @@ export const pklBallDomain: RankingDomain = {
     { name: "4.5", color: "#F59E0B" },
     { name: "5.0", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_hand",
+      label: "Dominant Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "doubles",

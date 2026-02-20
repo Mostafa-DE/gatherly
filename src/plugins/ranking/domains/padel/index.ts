@@ -142,6 +142,11 @@ export const padelDomain: RankingDomain = {
       label: "Dominant Side",
       options: ["Right", "Left"],
     },
+    {
+      id: "court_side",
+      label: "Court Side Preference",
+      options: ["Right (Drive)", "Left (Reves)", "Both"],
+    },
   ],
   groupingPreset: {
     mode: "balanced",

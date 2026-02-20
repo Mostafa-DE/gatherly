@@ -109,6 +109,11 @@ export const basketballDomain: RankingDomain = {
       label: "Position",
       options: ["PG", "SG", "SF", "PF", "Center"],
     },
+    {
+      id: "height_range",
+      label: "Height Range",
+      options: ["Under 170cm", "170-180cm", "180-190cm", "Over 190cm"],
+    },
   ],
   groupingPreset: {
     mode: "balanced",

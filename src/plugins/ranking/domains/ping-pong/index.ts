@@ -123,6 +123,18 @@ export const pingPongDomain: RankingDomain = {
     { field: "wins", direction: "desc" },
     { field: "(games_won - games_lost)", direction: "desc" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_hand",
+      label: "Dominant Hand",
+      options: ["Right", "Left"],
+    },
+    {
+      id: "grip_style",
+      label: "Grip Style",
+      options: ["Shakehand", "Penhold"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "singles",

@@ -40,9 +40,11 @@ import {
   Puzzle,
   Trophy,
   XCircle,
+  Lock,
 } from "lucide-react"
 import { FormFieldEditor } from "@/components/form-field-editor"
 import type { FormField } from "@/types/form"
+import { isRankingAttributeField } from "@/plugins/ranking/utils/join-form-attributes"
 import { pluginCatalog } from "@/plugins/catalog"
 import { RankingManagement } from "@/plugins/ranking/components/ranking-management"
 import { RankingSetupForm } from "@/plugins/ranking/components/ranking-setup-form"
@@ -392,6 +394,8 @@ function JoinFormSection({
     ((activity.joinFormSchema as { fields?: FormField[] } | null)?.fields || [])
 
   const fields = fieldsDraft ?? persistedFields
+  const customFields = fields.filter((f) => !isRankingAttributeField(f.id))
+  const rankingFields = fields.filter((f) => isRankingAttributeField(f.id))
   const formDirty = fieldsDraft !== null
 
   const updateJoinForm = trpc.activity.update.useMutation({
@@ -418,10 +422,12 @@ function JoinFormSection({
   }
 
   const removeField = (id: string) => {
+    if (isRankingAttributeField(id)) return
     setFieldsDraft((prev) => (prev ?? persistedFields).filter((f) => f.id !== id))
   }
 
   const updateField = (id: string, updates: Partial<FormField>) => {
+    if (isRankingAttributeField(id)) return
     setFieldsDraft((prev) =>
       (prev ?? persistedFields).map((f) => (f.id === id ? { ...f, ...updates } : f))
     )
@@ -429,6 +435,7 @@ function JoinFormSection({
 
   const moveField = (index: number, direction: "up" | "down") => {
     const currentFields = fieldsDraft ?? persistedFields
+    if (isRankingAttributeField(currentFields[index].id)) return
     const newIndex = direction === "up" ? index - 1 : index + 1
     if (newIndex < 0 || newIndex >= currentFields.length) return
     const newFields = [...currentFields]
@@ -439,7 +446,7 @@ function JoinFormSection({
 
   const handleSaveForm = () => {
     setFormError("")
-    for (const field of fields) {
+    for (const field of customFields) {
       if (!field.label.trim()) {
         setFormError("All fields must have a label")
         return
@@ -475,7 +482,31 @@ function JoinFormSection({
         </div>
       )}
 
-      {fields.length === 0 ? (
+      {rankingFields.length > 0 && (
+        <div className="mb-4 space-y-3">
+          {rankingFields.map((field) => (
+            <div
+              key={field.id}
+              className="flex items-center gap-3 rounded-lg border border-border/50 bg-muted/30 p-4"
+            >
+              <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{field.label}</span>
+                  <Badge variant="secondary" className="text-xs">Ranking</Badge>
+                </div>
+                {field.options && field.options.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {field.options.join(", ")}
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {customFields.length === 0 && rankingFields.length === 0 ? (
         <div className="py-12 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <FileText className="h-6 w-6 text-primary" />
@@ -491,18 +522,22 @@ function JoinFormSection({
         </div>
       ) : (
         <div className="space-y-4">
-          {fields.map((field, index) => (
-            <FormFieldEditor
-              key={field.id}
-              field={field}
-              index={index}
-              totalFields={fields.length}
-              onUpdate={(updates) => updateField(field.id, updates)}
-              onRemove={() => removeField(field.id)}
-              onMoveUp={() => moveField(index, "up")}
-              onMoveDown={() => moveField(index, "down")}
-            />
-          ))}
+          {customFields.map((field) => {
+            const allFields = fieldsDraft ?? persistedFields
+            const index = allFields.findIndex((f) => f.id === field.id)
+            return (
+              <FormFieldEditor
+                key={field.id}
+                field={field}
+                index={index}
+                totalFields={allFields.length}
+                onUpdate={(updates) => updateField(field.id, updates)}
+                onRemove={() => removeField(field.id)}
+                onMoveUp={() => moveField(index, "up")}
+                onMoveDown={() => moveField(index, "down")}
+              />
+            )
+          })}
           <Button variant="outline" onClick={addField} className="w-full">
             <Plus className="h-4 w-4 mr-2" />
             Add Field
@@ -510,10 +545,11 @@ function JoinFormSection({
         </div>
       )}
 
-      {fields.length > 0 && (
+      {(customFields.length > 0 || rankingFields.length > 0) && (
         <div className="mt-6 flex items-center justify-between border-t border-border/50 pt-6">
           <p className="text-sm text-muted-foreground">
-            {fields.length} field{fields.length !== 1 ? "s" : ""} configured
+            {customFields.length} custom field{customFields.length !== 1 ? "s" : ""}
+            {rankingFields.length > 0 && `, ${rankingFields.length} from ranking`}
           </p>
           <Button
             onClick={handleSaveForm}

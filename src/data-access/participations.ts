@@ -680,6 +680,81 @@ export async function cancelParticipation(
 }
 
 /**
+ * Admin promote waitlisted participant to joined
+ *
+ * Checks capacity before promoting. Uses pessimistic locking on the session
+ * row to prevent over-capacity under concurrency.
+ */
+export async function adminPromoteParticipant(
+  participationId: string
+): Promise<Participation> {
+  return await db.transaction(async (tx) => {
+    // 1. Get participation
+    const [current] = await tx
+      .select()
+      .from(participation)
+      .where(eq(participation.id, participationId))
+
+    if (!current) {
+      throw new NotFoundError("Participation not found")
+    }
+    if (current.status !== "waitlisted") {
+      throw new BadRequestError("Only waitlisted participants can be promoted")
+    }
+
+    // 2. Lock session row and check capacity
+    const sessionResult = await tx.execute<{
+      id: string
+      deleted_at: Date | null
+      status: string
+      max_capacity: number
+    }>(sql`
+      SELECT id, deleted_at, status, max_capacity
+      FROM event_session
+      WHERE id = ${current.sessionId}
+      FOR UPDATE
+    `)
+    const session = sessionResult.rows[0]
+
+    if (!session || session.deleted_at) {
+      throw new NotFoundError("Session not found")
+    }
+    if (session.status === "cancelled") {
+      throw new BadRequestError("Cannot promote in a cancelled session")
+    }
+    if (session.status === "completed") {
+      throw new BadRequestError("Cannot promote in a completed session")
+    }
+
+    // 3. Count current joined participants
+    const [counts] = await tx
+      .select({
+        joined: count(sql`CASE WHEN status = 'joined' THEN 1 END`),
+      })
+      .from(participation)
+      .where(eq(participation.sessionId, current.sessionId))
+
+    const joinedCount = counts?.joined ?? 0
+
+    if (joinedCount >= session.max_capacity) {
+      throw new ConflictError("Session is at capacity. Remove a joined participant first or increase capacity.")
+    }
+
+    // 4. Promote
+    const [updated] = await tx
+      .update(participation)
+      .set({
+        status: "joined",
+        updatedAt: new Date(),
+      })
+      .where(eq(participation.id, participationId))
+      .returning()
+
+    return updated
+  })
+}
+
+/**
  * Update attribute overrides on a participation (admin or self)
  */
 export async function updateAttributeOverrides(

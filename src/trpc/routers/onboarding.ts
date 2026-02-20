@@ -108,7 +108,7 @@ export const onboardingRouter = router({
             slug: internalSlug,
             userSlug,
             ownerUsername: username,
-            defaultJoinMode: "open",
+            defaultJoinMode: "approval",
             createdAt: new Date(),
           })
 

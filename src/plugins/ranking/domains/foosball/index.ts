@@ -105,6 +105,13 @@ export const foosballDomain: RankingDomain = {
     { name: "A", color: "#F59E0B" },
     { name: "AA", color: "#EF4444" },
   ],
+  attributeFields: [
+    {
+      id: "preferred_position",
+      label: "Preferred Position",
+      options: ["Offense", "Defense"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["singles", "doubles"],
     defaultFormat: "doubles",

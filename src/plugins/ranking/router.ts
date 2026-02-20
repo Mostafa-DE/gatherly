@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server"
 import { router, orgProcedure } from "@/trpc"
-import { getActivityByIdForOrg } from "@/data-access/activities"
+import { getActivityByIdForOrg, updateActivity } from "@/data-access/activities"
 import { getActiveActivityMemberIds } from "@/data-access/activity-members"
 import { listDomains as listDomainsFromCatalog, getDomain } from "./domains"
 import {
@@ -52,6 +52,8 @@ import {
   updateAttributeOverrides,
 } from "@/data-access/participations"
 import { withOrgScope } from "@/data-access/org-scope"
+import { injectRankingAttributeFields } from "@/plugins/ranking/utils/join-form-attributes"
+import type { JoinFormSchema } from "@/types/form"
 
 function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") {
@@ -192,11 +194,22 @@ export const rankingRouter = router({
         })
       }
 
-      return createRankingDefinition(
+      const definition = await createRankingDefinition(
         ctx.activeOrganization.id,
         ctx.user.id,
         input
       )
+
+      // Auto-inject domain attribute fields into the activity join form
+      if (domain.attributeFields && domain.attributeFields.length > 0) {
+        const currentSchema = activityRecord.joinFormSchema as JoinFormSchema | null
+        const updatedSchema = injectRankingAttributeFields(currentSchema, domain.attributeFields)
+        await updateActivity(input.activityId, ctx.activeOrganization.id, {
+          joinFormSchema: updatedSchema,
+        })
+      }
+
+      return definition
     }),
 
   updateDefinition: orgProcedure

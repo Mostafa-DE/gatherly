@@ -9,6 +9,7 @@ import {
   user,
   userInterest,
 } from "@/db/schema"
+import { member, organization } from "@/db/auth-schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
@@ -169,6 +170,17 @@ describe("onboarding router", () => {
       timezone: "Asia/Amman",
       onboardingCompleted: true,
     })
+
+    const [createdOrg] = await db
+      .select({
+        defaultJoinMode: organization.defaultJoinMode,
+      })
+      .from(organization)
+      .innerJoin(member, eq(member.organizationId, organization.id))
+      .where(eq(member.userId, standaloneUser.id))
+      .limit(1)
+
+    expect(createdOrg?.defaultJoinMode).toBe("approval")
   })
 
   it("saves and returns user interests", async () => {

@@ -122,12 +122,20 @@ export const tennisDomain: RankingDomain = {
     { field: "wins", direction: "desc" },
     { field: "(sets_won - sets_lost)", direction: "desc" },
   ],
+  attributeFields: [
+    {
+      id: "dominant_hand",
+      label: "Dominant Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   groupingPreset: {
     mode: "balanced",
     balanceStatIds: [
       { statId: "wins", weight: 1 },
     ],
     partitionByLevel: true,
+    partitionByAttribute: "dominant_hand",
     teamCount: 2,
   },
   matchConfig: {

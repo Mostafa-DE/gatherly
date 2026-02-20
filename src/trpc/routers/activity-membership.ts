@@ -29,6 +29,9 @@ import {
   listActivityMembersSchema,
   listActivityJoinRequestsSchema,
 } from "@/schemas/activity-membership"
+import { extractRankingAttributesFromAnswers } from "@/plugins/ranking/utils/join-form-attributes"
+import { getRankingDefinitionByActivity } from "@/plugins/ranking/data-access/ranking-definitions"
+import { updateMemberAttributes } from "@/plugins/ranking/data-access/member-ranks"
 
 function assertAdmin(role: string): void {
   if (role !== "owner" && role !== "admin") {
@@ -144,6 +147,26 @@ export const activityMembershipRouter = router({
       }
 
       const request = await approveActivityJoinRequest(input.requestId, ctx.user.id)
+
+      // Sync ranking attributes from form answers to memberRank
+      const formAnswers = pending.formAnswers as Record<string, unknown> | null
+      if (formAnswers) {
+        const rankingAttrs = extractRankingAttributesFromAnswers(formAnswers)
+        if (rankingAttrs) {
+          const definition = await getRankingDefinitionByActivity(
+            pending.activityId,
+            ctx.activeOrganization.id
+          )
+          if (definition) {
+            await updateMemberAttributes(
+              definition.id,
+              ctx.activeOrganization.id,
+              pending.userId,
+              rankingAttrs
+            )
+          }
+        }
+      }
 
       return request
     }),

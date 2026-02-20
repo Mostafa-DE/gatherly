@@ -105,13 +105,27 @@ function SessionParticipantsPage() {
     string,
     { levelName: string | null; levelColor: string | null }
   >()
+  // Build a lookup map: userId -> currentLevelId (for rank assignment)
+  const memberCurrentLevelMap = new Map<string, string | null>()
   if (leaderboard) {
     for (const entry of leaderboard) {
+      memberCurrentLevelMap.set(entry.userId, entry.currentLevelId)
       if (entry.levelName) {
         memberLevelMap.set(entry.userId, {
           levelName: entry.levelName,
           levelColor: entry.levelColor,
         })
+      }
+    }
+  }
+
+  // Build a lookup map: userId -> { dominant_side: "Right", ... }
+  const memberAttributeMap = new Map<string, Record<string, string>>()
+  if (leaderboard) {
+    for (const entry of leaderboard) {
+      const attrs = entry.attributes as Record<string, string> | null
+      if (attrs && Object.keys(attrs).length > 0) {
+        memberAttributeMap.set(entry.userId, attrs)
       }
     }
   }
@@ -172,6 +186,14 @@ function SessionParticipantsPage() {
     onSuccess: () => {
       invalidateAll()
       toast.success("Request rejected")
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  const adminPromote = trpc.participation.adminPromote.useMutation({
+    onSuccess: () => {
+      invalidateAll()
+      toast.success("Participant promoted to joined")
     },
     onError: (err) => toast.error(err.message),
   })
@@ -374,7 +396,11 @@ function SessionParticipantsPage() {
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
             memberLevelMap={memberLevelMap}
+            memberAttributeMap={memberAttributeMap}
             attributeFields={domainConfig?.attributeFields}
+            rankingLevels={rankingDefinition?.levels}
+            memberCurrentLevelMap={memberCurrentLevelMap}
+            rankingDefinitionId={rankingDefinition?.id}
           />
         </TabsContent>
 
@@ -386,6 +412,8 @@ function SessionParticipantsPage() {
             selectedIds={selectedIds}
             onToggleSelect={handleToggleSelect}
             onUpdate={handleUpdate}
+            onPromote={(id) => adminPromote.mutate({ participationId: id })}
+            isPromoting={adminPromote.isPending}
             isUpdating={updateParticipation.isPending}
             sessionId={sessionId}
             formFields={sessionFormFields}
@@ -393,7 +421,11 @@ function SessionParticipantsPage() {
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
             memberLevelMap={memberLevelMap}
+            memberAttributeMap={memberAttributeMap}
             attributeFields={domainConfig?.attributeFields}
+            rankingLevels={rankingDefinition?.levels}
+            memberCurrentLevelMap={memberCurrentLevelMap}
+            rankingDefinitionId={rankingDefinition?.id}
           />
         </TabsContent>
 
@@ -414,7 +446,11 @@ function SessionParticipantsPage() {
             onMove={handleMove}
             isMoving={moveParticipant.isPending}
             memberLevelMap={memberLevelMap}
+            memberAttributeMap={memberAttributeMap}
             attributeFields={domainConfig?.attributeFields}
+            rankingLevels={rankingDefinition?.levels}
+            memberCurrentLevelMap={memberCurrentLevelMap}
+            rankingDefinitionId={rankingDefinition?.id}
           />
         </TabsContent>
       </Tabs>

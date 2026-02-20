@@ -102,6 +102,13 @@ export const dodgeballDomain: RankingDomain = {
     { name: "Intermediate", color: "#3B82F6" },
     { name: "Competitive", color: "#10B981" },
   ],
+  attributeFields: [
+    {
+      id: "throw_hand",
+      label: "Throwing Hand",
+      options: ["Right", "Left"],
+    },
+  ],
   matchConfig: {
     supportedFormats: ["6v6", "8v8"],
     defaultFormat: "6v6",
