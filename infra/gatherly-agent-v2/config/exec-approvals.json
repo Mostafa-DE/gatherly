@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "defaults": {
+    "security": "allowlist",
+    "ask": "off"
+  },
+  "agents": {
+    "main": {
+      "security": "allowlist",
+      "ask": "off",
+      "allowlist": [
+        { "pattern": "/usr/bin/curl" }
+      ]
+    }
+  }
+}

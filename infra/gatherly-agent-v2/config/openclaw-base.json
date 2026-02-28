@@ -1,0 +1,53 @@
+{
+  "session": {
+    "dmScope": "per-channel-peer",
+    "reset": {
+      "mode": "idle",
+      "idleMinutes": 1440
+    }
+  },
+  "tools": {
+    "profile": "full",
+    "deny": [
+      "group:automation",
+      "group:fs",
+      "group:ui",
+      "group:web",
+      "sessions_spawn",
+      "sessions_send",
+      "process",
+      "image"
+    ],
+    "exec": {
+      "security": "allowlist"
+    },
+    "elevated": {
+      "enabled": false
+    },
+    "fs": {
+      "workspaceOnly": true
+    }
+  },
+  "skills": {
+    "allowBundled": [],
+    "load": {
+      "extraDirs": ["/openclaw-skills"]
+    }
+  },
+  "commands": {
+    "native": false,
+    "nativeSkills": false,
+    "text": false,
+    "bash": false,
+    "config": false,
+    "debug": false,
+    "restart": false
+  },
+  "channels": {
+    "telegram": {
+      "dmPolicy": "open",
+      "allowFrom": ["*"],
+      "groupPolicy": "disabled"
+    }
+  }
+}
