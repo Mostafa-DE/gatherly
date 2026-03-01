@@ -8,6 +8,13 @@ import express from "express";
 import httpProxy from "http-proxy";
 import pty from "node-pty";
 import { WebSocketServer } from "ws";
+import {
+  buildRelayHeaders,
+  extractTelegramUserIdFromTrpcRequest,
+  GATHERLY_TRPC_ALLOWED_PROCEDURES,
+  isLoopbackRequest,
+  normalizeTelegramUserId,
+} from "./gatherly-relay.js";
 
 const PORT = Number.parseInt(process.env.PORT ?? "8080", 10);
 const STATE_DIR =
@@ -22,8 +29,15 @@ const SETUP_PASSWORD = process.env.SETUP_PASSWORD?.trim();
 // ========== GATHERLY INTEGRATION ==========
 const GATHERLY_BASE_URL = process.env.GATHERLY_BASE_URL?.trim();
 const GATHERLY_BOT_API_KEY = process.env.GATHERLY_BOT_API_KEY?.trim();
+const GATHERLY_BOT_SECOND_SECRET =
+  process.env.GATHERLY_BOT_SECOND_SECRET?.trim();
+const GATHERLY_LOCAL_PROXY_BASE_URL = `http://127.0.0.1:${PORT}/gatherly`;
+process.env.GATHERLY_RELAY_BASE_URL = GATHERLY_LOCAL_PROXY_BASE_URL;
 if (!GATHERLY_BASE_URL) console.warn("[warn] GATHERLY_BASE_URL not set");
 if (!GATHERLY_BOT_API_KEY) console.warn("[warn] GATHERLY_BOT_API_KEY not set");
+if (!GATHERLY_BOT_SECOND_SECRET) {
+  console.warn("[warn] GATHERLY_BOT_SECOND_SECRET not set");
+}
 
 // Debug logging helper
 const DEBUG = process.env.OPENCLAW_TEMPLATE_DEBUG?.toLowerCase() === "true";
@@ -121,11 +135,37 @@ function isConfigured() {
   }
 }
 
-function normalizeTelegramUserId(value) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return null;
-  const normalized = raw.replace(/^(tg:|telegram:)/i, "").trim();
-  return /^\d+$/.test(normalized) ? normalized : null;
+function buildCommandAllowFromConfig(adminTelegramUserId) {
+  const normalizedAdminId = normalizeTelegramUserId(adminTelegramUserId);
+  const denyAllMarker = "__deny_all__";
+  if (!normalizedAdminId) {
+    return {
+      normalizedAdminId: null,
+      commandAllowFrom: {
+        "*": [denyAllMarker],
+        telegram: [denyAllMarker],
+      },
+    };
+  }
+
+  const allowEntries = Array.from(new Set([
+    normalizedAdminId,
+    `tg:${normalizedAdminId}`,
+    `telegram:${normalizedAdminId}`,
+    `user:${normalizedAdminId}`,
+    `telegram:user:${normalizedAdminId}`,
+    `telegram:slash:${normalizedAdminId}`,
+    `telegram:default:${normalizedAdminId}`,
+    `telegram/default:${normalizedAdminId}`,
+  ]));
+
+  return {
+    normalizedAdminId,
+    commandAllowFrom: {
+      "*": allowEntries,
+      telegram: allowEntries,
+    },
+  };
 }
 
 function extractSkillEndpoints(skillMarkdown) {
@@ -265,6 +305,8 @@ async function startGateway() {
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
       GATHERLY_BASE_URL: process.env.GATHERLY_BASE_URL || "",
       GATHERLY_BOT_API_KEY: process.env.GATHERLY_BOT_API_KEY || "",
+      GATHERLY_BOT_SECOND_SECRET: process.env.GATHERLY_BOT_SECOND_SECRET || "",
+      GATHERLY_RELAY_BASE_URL: GATHERLY_LOCAL_PROXY_BASE_URL,
     },
   });
 
@@ -451,6 +493,71 @@ app.get("/healthz", async (_req, res) => {
     gateway = isGatewayReady() ? "ready" : "starting";
   }
   res.json({ ok: true, gateway });
+});
+
+// Local relay for Gatherly assistant APIs.
+// Security goal: model sends only business payload; wrapper injects auth headers.
+app.all("/gatherly/api/trpc/:procedure", async (req, res) => {
+  if (!isLoopbackRequest(req)) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  if (req.method !== "GET" && req.method !== "POST") {
+    res.setHeader("allow", "GET, POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const procedure = String(req.params?.procedure || "").trim();
+  if (!GATHERLY_TRPC_ALLOWED_PROCEDURES.has(procedure)) {
+    return res.status(404).json({ error: "Unknown endpoint" });
+  }
+
+  if (!GATHERLY_BASE_URL || !GATHERLY_BOT_API_KEY || !GATHERLY_BOT_SECOND_SECRET) {
+    console.warn(
+      "[gatherly-relay] unavailable: missing relay config " +
+      `(base=${Boolean(GATHERLY_BASE_URL)} apiKey=${Boolean(GATHERLY_BOT_API_KEY)} secondSecret=${Boolean(GATHERLY_BOT_SECOND_SECRET)})`
+    );
+    return res.status(503).json({ error: "Gatherly relay is unavailable" });
+  }
+
+  const telegramUserId = extractTelegramUserIdFromTrpcRequest(req);
+  if (!telegramUserId) {
+    return res.status(400).json({
+      error: "Missing or invalid telegramUserId in request payload",
+    });
+  }
+
+  const queryStart = req.originalUrl.indexOf("?");
+  const query = queryStart >= 0 ? req.originalUrl.slice(queryStart) : "";
+  const upstreamUrl = `${GATHERLY_BASE_URL}/api/trpc/${procedure}${query}`;
+  const relayHeaders = buildRelayHeaders({
+    primarySecret: GATHERLY_BOT_API_KEY,
+    secondSecret: GATHERLY_BOT_SECOND_SECRET,
+    telegramUserId,
+    method: req.method,
+  });
+
+  try {
+    const upstream = await fetch(upstreamUrl, {
+      method: req.method,
+      headers: relayHeaders,
+      body: req.method === "POST" ? JSON.stringify(req.body ?? {}) : undefined,
+    });
+
+    const responseText = await upstream.text();
+    const contentType = upstream.headers.get("content-type");
+    if (contentType) {
+      res.setHeader("content-type", contentType);
+    }
+
+    return res.status(upstream.status).send(responseText);
+  } catch (err) {
+    const message = err && typeof err === "object" && "message" in err
+      ? err.message
+      : String(err);
+    console.warn(`[gatherly-relay] upstream error: ${message}`);
+    return res.status(502).json({ error: "Gatherly relay request failed" });
+  }
 });
 
 app.get("/setup/healthz", async (_req, res) => {
@@ -660,10 +767,13 @@ function runCmd(cmd, args, opts = {}) {
         ...process.env,
         OPENCLAW_STATE_DIR: STATE_DIR,
         OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
-        GATHERLY_BASE_URL: process.env.GATHERLY_BASE_URL || "",
-        GATHERLY_BOT_API_KEY: process.env.GATHERLY_BOT_API_KEY || "",
-      },
-    });
+      GATHERLY_BASE_URL: process.env.GATHERLY_BASE_URL || "",
+      GATHERLY_BOT_API_KEY: process.env.GATHERLY_BOT_API_KEY || "",
+      GATHERLY_BOT_SECOND_SECRET:
+        process.env.GATHERLY_BOT_SECOND_SECRET || "",
+      GATHERLY_RELAY_BASE_URL: GATHERLY_LOCAL_PROXY_BASE_URL,
+    },
+  });
 
     let out = "";
     proc.stdout?.on("data", (d) => (out += d.toString("utf8")));
@@ -793,13 +903,15 @@ ${rulesLines}
 
 You have one tool: \`exec\` running \`/usr/bin/curl\` only.
 
-## Gatherly API Connection
-- **Base URL:** ${GATHERLY_BASE_URL || "NOT SET"}
-- **API Key:** ${GATHERLY_BOT_API_KEY || "NOT SET"}
+## Gatherly API Relay
+- **Local Relay URL:** ${GATHERLY_LOCAL_PROXY_BASE_URL}
+- The relay injects all auth headers automatically.
+- Never send auth or identity headers yourself.
 
-When making curl calls, use these exact values:
+Use this pattern:
 \`\`\`
-/usr/bin/curl -s -H "Authorization: Bearer ${GATHERLY_BOT_API_KEY || "NOT SET"}" "${GATHERLY_BASE_URL || "NOT SET"}/api/trpc/..."
+/usr/bin/curl -s \
+  "${GATHERLY_LOCAL_PROXY_BASE_URL}/api/trpc/plugin.assistant.getCapabilities?input=%7B%22json%22%3A%7B%22telegramUserId%22%3A%22123456%22%7D%7D"
 \`\`\`
 
 Use endpoint paths from \`SKILL-SNAPSHOT.md\` (synced from \`${skillPath}\`):
@@ -813,6 +925,17 @@ No other commands are available. Only /usr/bin/curl.
   // 4. Reconcile Telegram channel config from current env vars
   const telegramToken = process.env.TELEGRAM_BOT_TOKEN?.trim();
   const telegramAdminId = process.env.TELEGRAM_ADMIN_ID?.trim();
+  const { normalizedAdminId, commandAllowFrom } =
+    buildCommandAllowFromConfig(telegramAdminId);
+  async function setCommandFlag(key, value) {
+    const setResult = await runCmd(
+      OPENCLAW_NODE,
+      clawArgs(["config", "set", key, value ? "true" : "false"]),
+    );
+    if (setResult.code !== 0) {
+      console.warn(`[gatherly] Failed to set ${key}=${value} (exit=${setResult.code})`);
+    }
+  }
   if (telegramToken || telegramAdminId) {
     try {
       const result = await runCmd(OPENCLAW_NODE, clawArgs(["config", "get", "channels.telegram"]));
@@ -832,9 +955,8 @@ No other commands are available. Only /usr/bin/curl.
 
       const mergedConfig = { ...existingConfig };
       let changed = false;
-      const normalizedAdminId = normalizeTelegramUserId(telegramAdminId);
       if (telegramAdminId && !normalizedAdminId) {
-        console.warn("[gatherly] TELEGRAM_ADMIN_ID is not numeric; falling back to dmPolicy=pairing");
+        console.warn("[gatherly] TELEGRAM_ADMIN_ID is not numeric; commands allowlist will be fail-closed");
       }
 
       if (telegramToken) {
@@ -842,6 +964,19 @@ No other commands are available. Only /usr/bin/curl.
         if (mergedConfig.groupPolicy !== "disabled") { mergedConfig.groupPolicy = "disabled"; changed = true; }
         if (!mergedConfig.streamMode) { mergedConfig.streamMode = "partial"; changed = true; }
         if (mergedConfig.botToken !== telegramToken) { mergedConfig.botToken = telegramToken; changed = true; }
+      }
+
+      if (typeof mergedConfig.commands !== "object" || Array.isArray(mergedConfig.commands) || !mergedConfig.commands) {
+        mergedConfig.commands = {};
+        changed = true;
+      }
+      if (mergedConfig.commands.native !== false) {
+        mergedConfig.commands.native = false;
+        changed = true;
+      }
+      if (mergedConfig.commands.nativeSkills !== false) {
+        mergedConfig.commands.nativeSkills = false;
+        changed = true;
       }
 
       // Open DM policy — Gatherly's getCapabilities endpoint handles
@@ -875,6 +1010,30 @@ No other commands are available. Only /usr/bin/curl.
     } catch (err) {
       console.warn(`[gatherly] Telegram reconciliation error: ${err.message}`);
     }
+  }
+
+  const commandsAllowFromResult = await runCmd(
+    OPENCLAW_NODE,
+    clawArgs([
+      "config",
+      "set",
+      "--json",
+      "commands.allowFrom",
+      JSON.stringify(commandAllowFrom),
+    ]),
+  );
+  if (commandsAllowFromResult.code === 0) {
+    const adminMsg = normalizedAdminId ? normalizedAdminId : "(none)";
+    console.log(`[gatherly] Enforced commands.allowFrom lock for telegram admin: ${adminMsg}`);
+    await setCommandFlag("commands.text", true);
+    await setCommandFlag("commands.native", false);
+    await setCommandFlag("commands.nativeSkills", false);
+  } else {
+    console.warn(`[gatherly] Failed to set commands.allowFrom (exit=${commandsAllowFromResult.code})`);
+    // Fail closed: if allowlist can't be enforced, disable command parsing completely.
+    await setCommandFlag("commands.text", false);
+    await setCommandFlag("commands.native", false);
+    await setCommandFlag("commands.nativeSkills", false);
   }
 
   // 5. Set allowedOrigins dynamically from RAILWAY_PUBLIC_DOMAIN
@@ -1013,9 +1172,9 @@ async function autoConfigureIfNeeded() {
 
   // Configure Telegram channel
   if (telegramToken) {
-    const normalizedAdminId = normalizeTelegramUserId(telegramAdminId);
+    const { normalizedAdminId } = buildCommandAllowFromConfig(telegramAdminId);
     if (telegramAdminId && !normalizedAdminId) {
-      extra += "[telegram] TELEGRAM_ADMIN_ID is not numeric; using dmPolicy=pairing\n";
+      extra += "[telegram] TELEGRAM_ADMIN_ID is not numeric; commands allowlist will be fail-closed\n";
     }
     const channelConfig = {
       enabled: true,
@@ -1024,6 +1183,10 @@ async function autoConfigureIfNeeded() {
       botToken: telegramToken,
       groupPolicy: "disabled",
       streamMode: "partial",
+      commands: {
+        native: false,
+        nativeSkills: false,
+      },
     };
     extra += await configureChannel("telegram", channelConfig);
   }
@@ -1149,7 +1312,11 @@ app.post("/setup/api/run", requireSetupAuth, async (req, res) => {
           botToken: payload.telegramToken.trim(),
           groupPolicy: "disabled",
           streamMode: "partial",
-            };
+          commands: {
+            native: false,
+            nativeSkills: false,
+          },
+        };
         extra += await configureChannel("telegram", channelConfig);
       }
 
@@ -1262,6 +1429,7 @@ function createTuiWebSocketServer(httpServer) {
           OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
           GATHERLY_BASE_URL: process.env.GATHERLY_BASE_URL || "",
           GATHERLY_BOT_API_KEY: process.env.GATHERLY_BOT_API_KEY || "",
+          GATHERLY_RELAY_BASE_URL: GATHERLY_LOCAL_PROXY_BASE_URL,
           TERM: "xterm-256color",
         },
       });

@@ -37,17 +37,25 @@
   "commands": {
     "native": false,
     "nativeSkills": false,
-    "text": false,
+    "text": true,
     "bash": false,
     "config": false,
     "debug": false,
-    "restart": false
+    "restart": false,
+    "allowFrom": {
+      "*": [],
+      "telegram": []
+    }
   },
   "channels": {
     "telegram": {
       "dmPolicy": "open",
       "allowFrom": ["*"],
-      "groupPolicy": "disabled"
+      "groupPolicy": "disabled",
+      "commands": {
+        "native": false,
+        "nativeSkills": false
+      }
     }
   }
 }

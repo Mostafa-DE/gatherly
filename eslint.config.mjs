@@ -13,6 +13,7 @@ export default tseslint.config(
       "src/routeTree.gen.ts",
       "src/db/auth-schema.ts",
       "src/db/migrations/**",
+      "infra/gatherly-agent-v2/**",
     ],
   },
   js.configs.recommended,
