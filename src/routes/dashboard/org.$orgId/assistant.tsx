@@ -145,6 +145,7 @@ function AssistantPage() {
 function TelegramSection() {
   const utils = trpc.useUtils()
   const botUsername = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined
+  const showTelegramConfigWarning = import.meta.env.DEV && !botUsername
 
   const { data: telegramLink, isLoading: linkLoading } =
     trpc.plugin.assistant.getMyTelegramLink.useQuery()
@@ -232,9 +233,11 @@ function TelegramSection() {
             </div>
 
             {!botUsername ? (
+              showTelegramConfigWarning ? (
               <p className="text-sm text-destructive">
                 Telegram bot username is not configured. Set VITE_TELEGRAM_BOT_USERNAME in your environment.
               </p>
+              ) : null
             ) : linkWidgetMutation.isPending ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
