@@ -865,9 +865,10 @@ export const assistantRouter = router({
 
   getMyTelegramLink: orgProcedure.query(async ({ ctx }) => {
     const link = await findLinkByUserId(ctx.activeOrganization.id, ctx.user.id)
+    const botUsername = process.env.TELEGRAM_BOT_USERNAME || null
     return link
-      ? { linked: true as const, telegramUserId: link.telegramUserId, linkedAt: link.linkedAt }
-      : { linked: false as const }
+      ? { linked: true as const, telegramUserId: link.telegramUserId, linkedAt: link.linkedAt, botUsername }
+      : { linked: false as const, botUsername }
   }),
 
   // ===========================================================================
