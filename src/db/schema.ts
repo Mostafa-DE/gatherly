@@ -707,4 +707,8 @@ export type {
   NewSmartGroupEntry,
   SmartGroupProposal,
   NewSmartGroupProposal,
+  TelegramIdentityLink,
+  NewTelegramIdentityLink,
+  AssistantActionRequest,
+  NewAssistantActionRequest,
 } from "@/db/types"

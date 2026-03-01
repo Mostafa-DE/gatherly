@@ -1,1 +1,0 @@
-ALTER TABLE "smart_group_config" ADD COLUMN "visible_fields" jsonb;

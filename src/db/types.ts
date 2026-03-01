@@ -29,6 +29,11 @@ import type {
   smartGroupProposal,
   smartGroupHistory,
 } from "@/plugins/smart-groups/schema"
+import type {
+  telegramIdentityLink,
+  assistantActionRequest,
+  assistantBotRequestNonce,
+} from "@/plugins/assistant/schema"
 
 // Auth types (from Better Auth)
 export type User = typeof user.$inferSelect
@@ -95,3 +100,11 @@ export type SmartGroupProposal = typeof smartGroupProposal.$inferSelect
 export type NewSmartGroupProposal = typeof smartGroupProposal.$inferInsert
 export type SmartGroupHistory = typeof smartGroupHistory.$inferSelect
 export type NewSmartGroupHistory = typeof smartGroupHistory.$inferInsert
+
+// Assistant plugin types
+export type TelegramIdentityLink = typeof telegramIdentityLink.$inferSelect
+export type NewTelegramIdentityLink = typeof telegramIdentityLink.$inferInsert
+export type AssistantActionRequest = typeof assistantActionRequest.$inferSelect
+export type NewAssistantActionRequest = typeof assistantActionRequest.$inferInsert
+export type AssistantBotRequestNonce = typeof assistantBotRequestNonce.$inferSelect
+export type NewAssistantBotRequestNonce = typeof assistantBotRequestNonce.$inferInsert

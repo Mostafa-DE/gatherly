@@ -1,1 +1,0 @@
-ALTER TABLE "activity" ADD COLUMN "enabled_plugins" jsonb DEFAULT '{}'::jsonb NOT NULL;

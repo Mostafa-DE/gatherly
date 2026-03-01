@@ -9,6 +9,7 @@ import {
   UserPlus,
   BarChart3,
   Layers,
+  Bot,
 } from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import { ActivitySwitcher } from "@/components/dashboard/activity-switcher"
@@ -28,6 +29,7 @@ type NavItem = {
   url: string
   icon: React.ElementType
   adminOnly?: boolean
+  pluginId?: string
 }
 
 const mainNavItems: NavItem[] = [
@@ -81,6 +83,14 @@ const adminNavItems: NavItem[] = [
   },
 ]
 
+const gigiNavItem: NavItem = {
+  title: "Gigi",
+  url: "/dashboard/org/$orgId/assistant",
+  icon: Bot,
+  adminOnly: true,
+  pluginId: "assistant",
+}
+
 export function NavMain() {
   const { orgId } = useParams({ strict: false })
   const routerState = useRouterState()
@@ -89,6 +99,14 @@ export function NavMain() {
 
   const { data: whoami } = trpc.user.whoami.useQuery()
   const isAdmin = whoami?.membership?.role === "owner" || whoami?.membership?.role === "admin"
+
+  const { data: orgSettings } = trpc.organizationSettings.get.useQuery(
+    {},
+    { enabled: isAdmin }
+  )
+  const enabledPlugins = (orgSettings?.enabledPlugins ?? {}) as Record<string, boolean>
+  const gigiEnabled = enabledPlugins["assistant"] === true
+
   const { data: pendingJoinRequests } = trpc.joinRequest.listPending.useQuery(
     undefined,
     { enabled: isAdmin }
@@ -101,10 +119,15 @@ export function NavMain() {
     undefined,
     { enabled: isAdmin }
   )
+  const { data: pendingAssistantRequests } = trpc.plugin.assistant.listPending.useQuery(
+    { statuses: ["pending_approval"] },
+    { enabled: isAdmin && gigiEnabled }
+  )
 
   const pendingJoinRequestsCount = pendingJoinRequests?.length ?? 0
   const pendingSessionApprovalsCount = pendingApprovals?.totalPending ?? 0
   const activityRequestsBadgeCount = pendingActivityRequestsCount ?? 0
+  const pendingAssistantCount = pendingAssistantRequests?.length ?? 0
 
   const handleNavClick = () => {
     setOpenMobile(false)
@@ -112,8 +135,6 @@ export function NavMain() {
 
   const isActive = (url: string) => {
     const resolvedUrl = url.replace("$orgId", orgId ?? "")
-    // Check if current path starts with the nav item URL (for nested routes)
-    // But exact match for overview
     if (url === "/dashboard/org/$orgId") {
       return currentPath === resolvedUrl
     }
@@ -124,12 +145,16 @@ export function NavMain() {
     if (!isAdmin) return 0
     if (title === "Sessions") return pendingSessionApprovalsCount
     if (title === "Join Requests") return pendingJoinRequestsCount + activityRequestsBadgeCount
+    if (title === "Gigi") return pendingAssistantCount
     return 0
   }
 
   if (!orgId) {
     return null
   }
+
+  const gigiActive = isActive(gigiNavItem.url)
+  const gigiBadgeCount = getBadgeCount("Gigi")
 
   return (
     <>
@@ -216,6 +241,43 @@ export function NavMain() {
                 </SidebarMenuItem>
               )
             })}
+
+            {gigiEnabled && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={gigiActive}
+                  tooltip={gigiNavItem.title}
+                  className={cn(
+                    "transition-all duration-200",
+                    gigiActive
+                      ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                      : "text-primary/80 font-medium"
+                  )}
+                >
+                  <Link
+                    to={gigiNavItem.url}
+                    params={{ orgId }}
+                    onClick={handleNavClick}
+                  >
+                    <span className={cn(
+                      "flex items-center justify-center rounded-md p-0.5",
+                      gigiActive ? "bg-primary/15" : "bg-primary/10"
+                    )}>
+                      <gigiNavItem.icon className={cn(
+                        "size-3.5 text-primary",
+                      )} />
+                    </span>
+                    <span>{gigiNavItem.title}</span>
+                    {gigiBadgeCount > 0 && (
+                      <Badge className="ml-auto h-5 min-w-5 rounded-full px-1.5 text-xs tabular-nums group-data-[collapsible=icon]:hidden">
+                        {gigiBadgeCount > 99 ? "99+" : gigiBadgeCount}
+                      </Badge>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
       )}

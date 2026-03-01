@@ -36,6 +36,13 @@ export const pluginCatalog: PluginMeta[] = [
       "Form-driven grouping engine to organize members into groups by attributes and criteria",
     scope: "activity",
   },
+  {
+    id: "assistant",
+    name: "Gigi",
+    description:
+      "Your smart assistant to manage your group via Telegram with approval workflows",
+    scope: "org",
+  },
 ]
 
 export const pluginMetaMap = Object.fromEntries(

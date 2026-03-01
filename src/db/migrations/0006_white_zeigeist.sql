@@ -1,1 +1,0 @@
-ALTER TABLE "smart_group_run" ADD COLUMN "excluded_count" integer DEFAULT 0 NOT NULL;
