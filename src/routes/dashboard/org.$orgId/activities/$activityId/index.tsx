@@ -49,6 +49,7 @@ import { pluginCatalog } from "@/plugins/catalog"
 import { RankingManagement } from "@/plugins/ranking/components/ranking-management"
 import { RankingSetupForm } from "@/plugins/ranking/components/ranking-setup-form"
 import { SmartGroupsSection } from "@/plugins/smart-groups/components/smart-groups-section"
+import { TournamentsSection } from "@/plugins/tournaments/components/tournaments-section"
 
 export const Route = createFileRoute(
   "/dashboard/org/$orgId/activities/$activityId/"
@@ -114,6 +115,7 @@ function ActivitySettingsPage() {
 
   const enabledPlugins = (activityData.enabledPlugins ?? {}) as Record<string, boolean>
   const smartGroupsEnabled = enabledPlugins["smart-groups"] === true
+  const tournamentsEnabled = enabledPlugins["tournaments"] === true
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 py-8 px-4">
@@ -132,17 +134,30 @@ function ActivitySettingsPage() {
             </Badge>
           </div>
         </div>
-        {smartGroupsEnabled && (
-          <Button variant="outline" size="sm" asChild>
-            <Link
-              to="/dashboard/org/$orgId/activities/$activityId/smart-groups"
-              params={{ orgId, activityId }}
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Smart Groups
-            </Link>
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {smartGroupsEnabled && (
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                to="/dashboard/org/$orgId/activities/$activityId/smart-groups"
+                params={{ orgId, activityId }}
+              >
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Smart Groups
+              </Link>
+            </Button>
+          )}
+          {tournamentsEnabled && (
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                to="/dashboard/org/$orgId/activities/$activityId/tournaments"
+                params={{ orgId, activityId }}
+              >
+                <Trophy className="h-4 w-4 mr-2" />
+                Tournaments
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* General Settings Section */}
@@ -168,6 +183,9 @@ function ActivitySettingsPage() {
 
       {/* Smart Groups Section (conditional) */}
       <SmartGroupsSection activityId={activityId} activity={activityData} />
+
+      {/* Tournaments Section (conditional) */}
+      <TournamentsSection activityId={activityId} orgId={orgId} activity={activityData} />
     </div>
   )
 }

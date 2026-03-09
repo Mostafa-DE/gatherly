@@ -26,6 +26,7 @@ import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc/$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as UsernameGroupSlugActivitiesRouteImport } from './routes/$username.$groupSlug/activities'
 import { Route as DashboardOrgOrgIdIndexRouteImport } from './routes/dashboard/org.$orgId/index'
+import { Route as UsernameGroupSlugActivitiesIndexRouteImport } from './routes/$username.$groupSlug/activities.index'
 import { Route as DashboardOrgOrgIdSettingsRouteImport } from './routes/dashboard/org.$orgId/settings'
 import { Route as DashboardOrgOrgIdProfileRouteImport } from './routes/dashboard/org.$orgId/profile'
 import { Route as DashboardOrgOrgIdJoinRequestsRouteImport } from './routes/dashboard/org.$orgId/join-requests'
@@ -38,15 +39,22 @@ import { Route as UsernameGroupSlugActivitiesActivitySlugRouteImport } from './r
 import { Route as DashboardOrgOrgIdSessionsIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/index'
 import { Route as DashboardOrgOrgIdMembersIndexRouteImport } from './routes/dashboard/org.$orgId/members/index'
 import { Route as DashboardOrgOrgIdActivitiesIndexRouteImport } from './routes/dashboard/org.$orgId/activities/index'
+import { Route as UsernameGroupSlugActivitiesActivitySlugIndexRouteImport } from './routes/$username.$groupSlug/activities.$activitySlug/index'
 import { Route as DashboardOrgOrgIdSessionsCreateRouteImport } from './routes/dashboard/org.$orgId/sessions/create'
 import { Route as DashboardOrgOrgIdSessionsSessionIdRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId'
 import { Route as DashboardOrgOrgIdMembersUserIdRouteImport } from './routes/dashboard/org.$orgId/members/$userId'
 import { Route as DashboardOrgOrgIdActivitiesActivityIdRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId'
 import { Route as DashboardOrgOrgIdSessionsSessionIdIndexRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/index'
 import { Route as DashboardOrgOrgIdActivitiesActivityIdIndexRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId/index'
+import { Route as UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRouteImport } from './routes/$username.$groupSlug/activities.$activitySlug/tournaments/index'
 import { Route as DashboardOrgOrgIdSessionsSessionIdParticipantsRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/participants'
 import { Route as DashboardOrgOrgIdSessionsSessionIdEditRouteImport } from './routes/dashboard/org.$orgId/sessions/$sessionId/edit'
 import { Route as DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId/smart-groups'
+import { Route as DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId/tournaments/index'
+import { Route as UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRouteImport } from './routes/$username.$groupSlug/activities.$activitySlug/tournaments/$tournamentId/index'
+import { Route as DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId/tournaments/create'
+import { Route as DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRouteImport } from './routes/dashboard/org.$orgId/activities/$activityId/tournaments/$tournamentId/index'
+import { Route as UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRouteImport } from './routes/$username.$groupSlug/activities.$activitySlug/tournaments/$tournamentId/matches/$matchId'
 
 const TestRoute = TestRouteImport.update({
   id: '/test',
@@ -134,6 +142,12 @@ const DashboardOrgOrgIdIndexRoute = DashboardOrgOrgIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardOrgOrgIdRoute,
 } as any)
+const UsernameGroupSlugActivitiesIndexRoute =
+  UsernameGroupSlugActivitiesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => UsernameGroupSlugActivitiesRoute,
+  } as any)
 const DashboardOrgOrgIdSettingsRoute =
   DashboardOrgOrgIdSettingsRouteImport.update({
     id: '/settings',
@@ -206,6 +220,12 @@ const DashboardOrgOrgIdActivitiesIndexRoute =
     path: '/activities/',
     getParentRoute: () => DashboardOrgOrgIdRoute,
   } as any)
+const UsernameGroupSlugActivitiesActivitySlugIndexRoute =
+  UsernameGroupSlugActivitiesActivitySlugIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => UsernameGroupSlugActivitiesActivitySlugRoute,
+  } as any)
 const DashboardOrgOrgIdSessionsCreateRoute =
   DashboardOrgOrgIdSessionsCreateRouteImport.update({
     id: '/sessions/create',
@@ -242,6 +262,12 @@ const DashboardOrgOrgIdActivitiesActivityIdIndexRoute =
     path: '/',
     getParentRoute: () => DashboardOrgOrgIdActivitiesActivityIdRoute,
   } as any)
+const UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute =
+  UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRouteImport.update({
+    id: '/tournaments/',
+    path: '/tournaments/',
+    getParentRoute: () => UsernameGroupSlugActivitiesActivitySlugRoute,
+  } as any)
 const DashboardOrgOrgIdSessionsSessionIdParticipantsRoute =
   DashboardOrgOrgIdSessionsSessionIdParticipantsRouteImport.update({
     id: '/participants',
@@ -260,6 +286,42 @@ const DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute =
     path: '/smart-groups',
     getParentRoute: () => DashboardOrgOrgIdActivitiesActivityIdRoute,
   } as any)
+const DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute =
+  DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRouteImport.update({
+    id: '/tournaments/',
+    path: '/tournaments/',
+    getParentRoute: () => DashboardOrgOrgIdActivitiesActivityIdRoute,
+  } as any)
+const UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute =
+  UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRouteImport.update(
+    {
+      id: '/tournaments/$tournamentId/',
+      path: '/tournaments/$tournamentId/',
+      getParentRoute: () => UsernameGroupSlugActivitiesActivitySlugRoute,
+    } as any,
+  )
+const DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute =
+  DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRouteImport.update({
+    id: '/tournaments/create',
+    path: '/tournaments/create',
+    getParentRoute: () => DashboardOrgOrgIdActivitiesActivityIdRoute,
+  } as any)
+const DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute =
+  DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRouteImport.update(
+    {
+      id: '/tournaments/$tournamentId/',
+      path: '/tournaments/$tournamentId/',
+      getParentRoute: () => DashboardOrgOrgIdActivitiesActivityIdRoute,
+    } as any,
+  )
+const UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute =
+  UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRouteImport.update(
+    {
+      id: '/tournaments/$tournamentId/matches/$matchId',
+      path: '/tournaments/$tournamentId/matches/$matchId',
+      getParentRoute: () => UsernameGroupSlugActivitiesActivitySlugRoute,
+    } as any,
+  )
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -278,7 +340,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
-  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
+  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRouteWithChildren
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/assistant': typeof DashboardOrgOrgIdAssistantRoute
@@ -287,19 +349,27 @@ export interface FileRoutesByFullPath {
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/profile': typeof DashboardOrgOrgIdProfileRoute
   '/dashboard/org/$orgId/settings': typeof DashboardOrgOrgIdSettingsRoute
+  '/$username/$groupSlug/activities/': typeof UsernameGroupSlugActivitiesIndexRoute
   '/dashboard/org/$orgId/': typeof DashboardOrgOrgIdIndexRoute
   '/dashboard/org/$orgId/activities/$activityId': typeof DashboardOrgOrgIdActivitiesActivityIdRouteWithChildren
   '/dashboard/org/$orgId/members/$userId': typeof DashboardOrgOrgIdMembersUserIdRoute
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
+  '/$username/$groupSlug/activities/$activitySlug/': typeof UsernameGroupSlugActivitiesActivitySlugIndexRoute
   '/dashboard/org/$orgId/activities/': typeof DashboardOrgOrgIdActivitiesIndexRoute
   '/dashboard/org/$orgId/members/': typeof DashboardOrgOrgIdMembersIndexRoute
   '/dashboard/org/$orgId/sessions/': typeof DashboardOrgOrgIdSessionsIndexRoute
   '/dashboard/org/$orgId/activities/$activityId/smart-groups': typeof DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute
   '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   '/dashboard/org/$orgId/sessions/$sessionId/participants': typeof DashboardOrgOrgIdSessionsSessionIdParticipantsRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute
   '/dashboard/org/$orgId/activities/$activityId/': typeof DashboardOrgOrgIdActivitiesActivityIdIndexRoute
   '/dashboard/org/$orgId/sessions/$sessionId/': typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/create': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -311,12 +381,10 @@ export interface FileRoutesByTo {
   '/dashboard/invitations': typeof DashboardInvitationsRoute
   '/dashboard/profile': typeof DashboardProfileRoute
   '/dashboard': typeof DashboardIndexRoute
-  '/$username/$groupSlug/activities': typeof UsernameGroupSlugActivitiesRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/$username/$groupSlug': typeof UsernameGroupSlugIndexRoute
-  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/assistant': typeof DashboardOrgOrgIdAssistantRoute
@@ -325,17 +393,25 @@ export interface FileRoutesByTo {
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/profile': typeof DashboardOrgOrgIdProfileRoute
   '/dashboard/org/$orgId/settings': typeof DashboardOrgOrgIdSettingsRoute
+  '/$username/$groupSlug/activities': typeof UsernameGroupSlugActivitiesIndexRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdIndexRoute
   '/dashboard/org/$orgId/members/$userId': typeof DashboardOrgOrgIdMembersUserIdRoute
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
+  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugIndexRoute
   '/dashboard/org/$orgId/activities': typeof DashboardOrgOrgIdActivitiesIndexRoute
   '/dashboard/org/$orgId/members': typeof DashboardOrgOrgIdMembersIndexRoute
   '/dashboard/org/$orgId/sessions': typeof DashboardOrgOrgIdSessionsIndexRoute
   '/dashboard/org/$orgId/activities/$activityId/smart-groups': typeof DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute
   '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   '/dashboard/org/$orgId/sessions/$sessionId/participants': typeof DashboardOrgOrgIdSessionsSessionIdParticipantsRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute
   '/dashboard/org/$orgId/activities/$activityId': typeof DashboardOrgOrgIdActivitiesActivityIdIndexRoute
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/create': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -355,7 +431,7 @@ export interface FileRoutesById {
   '/dashboard/groups/create': typeof DashboardGroupsCreateRoute
   '/dashboard/org/$orgId': typeof DashboardOrgOrgIdRouteWithChildren
   '/$username/$groupSlug/': typeof UsernameGroupSlugIndexRoute
-  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRoute
+  '/$username/$groupSlug/activities/$activitySlug': typeof UsernameGroupSlugActivitiesActivitySlugRouteWithChildren
   '/$username/$groupSlug/sessions/$sessionId': typeof UsernameGroupSlugSessionsSessionIdRoute
   '/dashboard/org/$orgId/analytics': typeof DashboardOrgOrgIdAnalyticsRoute
   '/dashboard/org/$orgId/assistant': typeof DashboardOrgOrgIdAssistantRoute
@@ -364,19 +440,27 @@ export interface FileRoutesById {
   '/dashboard/org/$orgId/join-requests': typeof DashboardOrgOrgIdJoinRequestsRoute
   '/dashboard/org/$orgId/profile': typeof DashboardOrgOrgIdProfileRoute
   '/dashboard/org/$orgId/settings': typeof DashboardOrgOrgIdSettingsRoute
+  '/$username/$groupSlug/activities/': typeof UsernameGroupSlugActivitiesIndexRoute
   '/dashboard/org/$orgId/': typeof DashboardOrgOrgIdIndexRoute
   '/dashboard/org/$orgId/activities/$activityId': typeof DashboardOrgOrgIdActivitiesActivityIdRouteWithChildren
   '/dashboard/org/$orgId/members/$userId': typeof DashboardOrgOrgIdMembersUserIdRoute
   '/dashboard/org/$orgId/sessions/$sessionId': typeof DashboardOrgOrgIdSessionsSessionIdRouteWithChildren
   '/dashboard/org/$orgId/sessions/create': typeof DashboardOrgOrgIdSessionsCreateRoute
+  '/$username/$groupSlug/activities/$activitySlug/': typeof UsernameGroupSlugActivitiesActivitySlugIndexRoute
   '/dashboard/org/$orgId/activities/': typeof DashboardOrgOrgIdActivitiesIndexRoute
   '/dashboard/org/$orgId/members/': typeof DashboardOrgOrgIdMembersIndexRoute
   '/dashboard/org/$orgId/sessions/': typeof DashboardOrgOrgIdSessionsIndexRoute
   '/dashboard/org/$orgId/activities/$activityId/smart-groups': typeof DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute
   '/dashboard/org/$orgId/sessions/$sessionId/edit': typeof DashboardOrgOrgIdSessionsSessionIdEditRoute
   '/dashboard/org/$orgId/sessions/$sessionId/participants': typeof DashboardOrgOrgIdSessionsSessionIdParticipantsRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute
   '/dashboard/org/$orgId/activities/$activityId/': typeof DashboardOrgOrgIdActivitiesActivityIdIndexRoute
   '/dashboard/org/$orgId/sessions/$sessionId/': typeof DashboardOrgOrgIdSessionsSessionIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/create': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute
+  '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId': typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute
+  '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/': typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -406,19 +490,27 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/profile'
     | '/dashboard/org/$orgId/settings'
+    | '/$username/$groupSlug/activities/'
     | '/dashboard/org/$orgId/'
     | '/dashboard/org/$orgId/activities/$activityId'
     | '/dashboard/org/$orgId/members/$userId'
     | '/dashboard/org/$orgId/sessions/$sessionId'
     | '/dashboard/org/$orgId/sessions/create'
+    | '/$username/$groupSlug/activities/$activitySlug/'
     | '/dashboard/org/$orgId/activities/'
     | '/dashboard/org/$orgId/members/'
     | '/dashboard/org/$orgId/sessions/'
     | '/dashboard/org/$orgId/activities/$activityId/smart-groups'
     | '/dashboard/org/$orgId/sessions/$sessionId/edit'
     | '/dashboard/org/$orgId/sessions/$sessionId/participants'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/'
     | '/dashboard/org/$orgId/activities/$activityId/'
     | '/dashboard/org/$orgId/sessions/$sessionId/'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/create'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -430,12 +522,10 @@ export interface FileRouteTypes {
     | '/dashboard/invitations'
     | '/dashboard/profile'
     | '/dashboard'
-    | '/$username/$groupSlug/activities'
     | '/api/auth/$'
     | '/api/trpc/$'
     | '/dashboard/groups/create'
     | '/$username/$groupSlug'
-    | '/$username/$groupSlug/activities/$activitySlug'
     | '/$username/$groupSlug/sessions/$sessionId'
     | '/dashboard/org/$orgId/analytics'
     | '/dashboard/org/$orgId/assistant'
@@ -444,17 +534,25 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/profile'
     | '/dashboard/org/$orgId/settings'
+    | '/$username/$groupSlug/activities'
     | '/dashboard/org/$orgId'
     | '/dashboard/org/$orgId/members/$userId'
     | '/dashboard/org/$orgId/sessions/create'
+    | '/$username/$groupSlug/activities/$activitySlug'
     | '/dashboard/org/$orgId/activities'
     | '/dashboard/org/$orgId/members'
     | '/dashboard/org/$orgId/sessions'
     | '/dashboard/org/$orgId/activities/$activityId/smart-groups'
     | '/dashboard/org/$orgId/sessions/$sessionId/edit'
     | '/dashboard/org/$orgId/sessions/$sessionId/participants'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments'
     | '/dashboard/org/$orgId/activities/$activityId'
     | '/dashboard/org/$orgId/sessions/$sessionId'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/create'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId'
   id:
     | '__root__'
     | '/'
@@ -482,19 +580,27 @@ export interface FileRouteTypes {
     | '/dashboard/org/$orgId/join-requests'
     | '/dashboard/org/$orgId/profile'
     | '/dashboard/org/$orgId/settings'
+    | '/$username/$groupSlug/activities/'
     | '/dashboard/org/$orgId/'
     | '/dashboard/org/$orgId/activities/$activityId'
     | '/dashboard/org/$orgId/members/$userId'
     | '/dashboard/org/$orgId/sessions/$sessionId'
     | '/dashboard/org/$orgId/sessions/create'
+    | '/$username/$groupSlug/activities/$activitySlug/'
     | '/dashboard/org/$orgId/activities/'
     | '/dashboard/org/$orgId/members/'
     | '/dashboard/org/$orgId/sessions/'
     | '/dashboard/org/$orgId/activities/$activityId/smart-groups'
     | '/dashboard/org/$orgId/sessions/$sessionId/edit'
     | '/dashboard/org/$orgId/sessions/$sessionId/participants'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/'
     | '/dashboard/org/$orgId/activities/$activityId/'
     | '/dashboard/org/$orgId/sessions/$sessionId/'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/create'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/'
+    | '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId'
+    | '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -633,6 +739,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdIndexRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
+    '/$username/$groupSlug/activities/': {
+      id: '/$username/$groupSlug/activities/'
+      path: '/'
+      fullPath: '/$username/$groupSlug/activities/'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesIndexRouteImport
+      parentRoute: typeof UsernameGroupSlugActivitiesRoute
+    }
     '/dashboard/org/$orgId/settings': {
       id: '/dashboard/org/$orgId/settings'
       path: '/settings'
@@ -717,6 +830,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdActivitiesIndexRouteImport
       parentRoute: typeof DashboardOrgOrgIdRoute
     }
+    '/$username/$groupSlug/activities/$activitySlug/': {
+      id: '/$username/$groupSlug/activities/$activitySlug/'
+      path: '/'
+      fullPath: '/$username/$groupSlug/activities/$activitySlug/'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesActivitySlugIndexRouteImport
+      parentRoute: typeof UsernameGroupSlugActivitiesActivitySlugRoute
+    }
     '/dashboard/org/$orgId/sessions/create': {
       id: '/dashboard/org/$orgId/sessions/create'
       path: '/sessions/create'
@@ -759,6 +879,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdActivitiesActivityIdIndexRouteImport
       parentRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRoute
     }
+    '/$username/$groupSlug/activities/$activitySlug/tournaments/': {
+      id: '/$username/$groupSlug/activities/$activitySlug/tournaments/'
+      path: '/tournaments'
+      fullPath: '/$username/$groupSlug/activities/$activitySlug/tournaments/'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRouteImport
+      parentRoute: typeof UsernameGroupSlugActivitiesActivitySlugRoute
+    }
     '/dashboard/org/$orgId/sessions/$sessionId/participants': {
       id: '/dashboard/org/$orgId/sessions/$sessionId/participants'
       path: '/participants'
@@ -780,12 +907,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRouteImport
       parentRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRoute
     }
+    '/dashboard/org/$orgId/activities/$activityId/tournaments/': {
+      id: '/dashboard/org/$orgId/activities/$activityId/tournaments/'
+      path: '/tournaments'
+      fullPath: '/dashboard/org/$orgId/activities/$activityId/tournaments/'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRouteImport
+      parentRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRoute
+    }
+    '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/': {
+      id: '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/'
+      path: '/tournaments/$tournamentId'
+      fullPath: '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRouteImport
+      parentRoute: typeof UsernameGroupSlugActivitiesActivitySlugRoute
+    }
+    '/dashboard/org/$orgId/activities/$activityId/tournaments/create': {
+      id: '/dashboard/org/$orgId/activities/$activityId/tournaments/create'
+      path: '/tournaments/create'
+      fullPath: '/dashboard/org/$orgId/activities/$activityId/tournaments/create'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRouteImport
+      parentRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRoute
+    }
+    '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/': {
+      id: '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/'
+      path: '/tournaments/$tournamentId'
+      fullPath: '/dashboard/org/$orgId/activities/$activityId/tournaments/$tournamentId/'
+      preLoaderRoute: typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRouteImport
+      parentRoute: typeof DashboardOrgOrgIdActivitiesActivityIdRoute
+    }
+    '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId': {
+      id: '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId'
+      path: '/tournaments/$tournamentId/matches/$matchId'
+      fullPath: '/$username/$groupSlug/activities/$activitySlug/tournaments/$tournamentId/matches/$matchId'
+      preLoaderRoute: typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRouteImport
+      parentRoute: typeof UsernameGroupSlugActivitiesActivitySlugRoute
+    }
   }
 }
 
 interface DashboardOrgOrgIdActivitiesActivityIdRouteChildren {
   DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute: typeof DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute
   DashboardOrgOrgIdActivitiesActivityIdIndexRoute: typeof DashboardOrgOrgIdActivitiesActivityIdIndexRoute
+  DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute: typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute
+  DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute: typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute
+  DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute: typeof DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute
 }
 
 const DashboardOrgOrgIdActivitiesActivityIdRouteChildren: DashboardOrgOrgIdActivitiesActivityIdRouteChildren =
@@ -794,6 +959,12 @@ const DashboardOrgOrgIdActivitiesActivityIdRouteChildren: DashboardOrgOrgIdActiv
       DashboardOrgOrgIdActivitiesActivityIdSmartGroupsRoute,
     DashboardOrgOrgIdActivitiesActivityIdIndexRoute:
       DashboardOrgOrgIdActivitiesActivityIdIndexRoute,
+    DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute:
+      DashboardOrgOrgIdActivitiesActivityIdTournamentsCreateRoute,
+    DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute:
+      DashboardOrgOrgIdActivitiesActivityIdTournamentsIndexRoute,
+    DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute:
+      DashboardOrgOrgIdActivitiesActivityIdTournamentsTournamentIdIndexRoute,
   }
 
 const DashboardOrgOrgIdActivitiesActivityIdRouteWithChildren =
@@ -883,14 +1054,41 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
   DashboardRouteChildren,
 )
 
+interface UsernameGroupSlugActivitiesActivitySlugRouteChildren {
+  UsernameGroupSlugActivitiesActivitySlugIndexRoute: typeof UsernameGroupSlugActivitiesActivitySlugIndexRoute
+  UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute: typeof UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute
+  UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute: typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute
+  UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute: typeof UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute
+}
+
+const UsernameGroupSlugActivitiesActivitySlugRouteChildren: UsernameGroupSlugActivitiesActivitySlugRouteChildren =
+  {
+    UsernameGroupSlugActivitiesActivitySlugIndexRoute:
+      UsernameGroupSlugActivitiesActivitySlugIndexRoute,
+    UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute:
+      UsernameGroupSlugActivitiesActivitySlugTournamentsIndexRoute,
+    UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute:
+      UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdIndexRoute,
+    UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute:
+      UsernameGroupSlugActivitiesActivitySlugTournamentsTournamentIdMatchesMatchIdRoute,
+  }
+
+const UsernameGroupSlugActivitiesActivitySlugRouteWithChildren =
+  UsernameGroupSlugActivitiesActivitySlugRoute._addFileChildren(
+    UsernameGroupSlugActivitiesActivitySlugRouteChildren,
+  )
+
 interface UsernameGroupSlugActivitiesRouteChildren {
-  UsernameGroupSlugActivitiesActivitySlugRoute: typeof UsernameGroupSlugActivitiesActivitySlugRoute
+  UsernameGroupSlugActivitiesActivitySlugRoute: typeof UsernameGroupSlugActivitiesActivitySlugRouteWithChildren
+  UsernameGroupSlugActivitiesIndexRoute: typeof UsernameGroupSlugActivitiesIndexRoute
 }
 
 const UsernameGroupSlugActivitiesRouteChildren: UsernameGroupSlugActivitiesRouteChildren =
   {
     UsernameGroupSlugActivitiesActivitySlugRoute:
-      UsernameGroupSlugActivitiesActivitySlugRoute,
+      UsernameGroupSlugActivitiesActivitySlugRouteWithChildren,
+    UsernameGroupSlugActivitiesIndexRoute:
+      UsernameGroupSlugActivitiesIndexRoute,
   }
 
 const UsernameGroupSlugActivitiesRouteWithChildren =

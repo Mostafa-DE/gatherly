@@ -4,13 +4,14 @@ import * as schema from "@/db/schema"
 import * as rankingSchema from "@/plugins/ranking/schema"
 import * as smartGroupsSchema from "@/plugins/smart-groups/schema"
 import * as assistantSchema from "@/plugins/assistant/schema"
+import * as tournamentsSchema from "@/plugins/tournaments/schema"
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 })
 
 export const db = drizzle(pool, {
-  schema: { ...schema, ...rankingSchema, ...smartGroupsSchema, ...assistantSchema },
+  schema: { ...schema, ...rankingSchema, ...smartGroupsSchema, ...assistantSchema, ...tournamentsSchema },
 })
 
 export type Database = typeof db

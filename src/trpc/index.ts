@@ -16,6 +16,7 @@ const publicErrorCodes = new Set([
   "BAD_REQUEST",
   "UNAUTHORIZED",
   "FORBIDDEN",
+  "CONFLICT",
 ])
 
 const BOT_REQUEST_NONCE_TTL_MS = Number.parseInt(

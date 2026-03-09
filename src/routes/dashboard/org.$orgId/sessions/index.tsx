@@ -68,7 +68,7 @@ function SessionsPage() {
       debounceRef.current = setTimeout(() => {
         const trimmed = value.trim()
         navigate({
-          search: (prev) => ({
+          search: (prev: Record<string, unknown>) => ({
             ...prev,
             search: trimmed.length >= 3 ? trimmed : undefined,
           }),

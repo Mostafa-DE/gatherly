@@ -8,6 +8,13 @@
       "when": 1772329322090,
       "tag": "0000_skinny_living_mummy",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773079341221,
+      "tag": "0001_free_fenris",
+      "breakpoints": true
     }
   ]
 }

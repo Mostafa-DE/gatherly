@@ -43,6 +43,13 @@ export const pluginCatalog: PluginMeta[] = [
       "Your smart assistant to manage your group via Telegram with approval workflows",
     scope: "org",
   },
+  {
+    id: "tournaments",
+    name: "Tournaments",
+    description:
+      "Organize competitive tournaments with brackets, seeding, and standings",
+    scope: "activity",
+  },
 ]
 
 export const pluginMetaMap = Object.fromEntries(

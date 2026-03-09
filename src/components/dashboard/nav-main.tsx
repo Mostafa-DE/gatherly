@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { trpc } from "@/lib/trpc"
 import { ActivitySwitcher } from "@/components/dashboard/activity-switcher"
+import { TournamentsNavItem } from "@/components/dashboard/tournaments-nav-item"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -197,6 +198,7 @@ export function NavMain() {
               </SidebarMenuItem>
             )
           })}
+          <TournamentsNavItem />
         </SidebarMenu>
       </SidebarGroup>
 

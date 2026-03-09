@@ -4,6 +4,7 @@ import { analyticsRouter } from "@/plugins/analytics/router"
 import { rankingRouter } from "@/plugins/ranking/router"
 import { smartGroupsRouter } from "@/plugins/smart-groups/router"
 import { assistantRouter } from "@/plugins/assistant/router"
+import { tournamentRouter } from "@/plugins/tournaments/router"
 import { pluginCatalog, pluginMetaMap } from "@/plugins/catalog"
 
 export { pluginCatalog, pluginMetaMap }
@@ -14,4 +15,5 @@ export const pluginRouter = router({
   ranking: rankingRouter,
   smartGroups: smartGroupsRouter,
   assistant: assistantRouter,
+  tournaments: tournamentRouter,
 })

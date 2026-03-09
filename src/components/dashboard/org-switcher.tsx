@@ -39,7 +39,7 @@ export function OrgSwitcher() {
     setOpenMobile(false)
     navigate({
       to: ".",
-      params: (previousParams) => ({
+      params: (previousParams: Record<string, string>) => ({
         ...previousParams,
         orgId: newOrgId,
       }),

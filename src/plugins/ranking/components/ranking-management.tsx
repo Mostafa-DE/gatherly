@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import {
+  ArrowRight,
   Trophy,
   MoreVertical,
   Medal,
@@ -63,6 +64,8 @@ export function RankingManagement({
     return null
   }
 
+  const orderedLevels = [...definition.levels].sort((left, right) => left.order - right.order)
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -75,20 +78,28 @@ export function RankingManagement({
       </div>
 
       {/* Levels preview */}
-      <div className="flex flex-wrap gap-1.5">
-        {definition.levels.map((level) => (
-          <Badge
-            key={level.id}
-            variant="outline"
-            className="text-xs"
-            style={{
-              borderColor: level.color ?? undefined,
-              color: level.color ?? undefined,
-            }}
-          >
-            {level.name}
-          </Badge>
-        ))}
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground">Rank order</span>
+          <span>Highest</span>
+          <ArrowRight className="h-3 w-3" />
+          <span>Lowest</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {orderedLevels.map((level) => (
+            <Badge
+              key={level.id}
+              variant="outline"
+              className="text-xs"
+              style={{
+                borderColor: level.color ?? undefined,
+                color: level.color ?? undefined,
+              }}
+            >
+              {level.name}
+            </Badge>
+          ))}
+        </div>
       </div>
 
       {/* Leaderboard */}
@@ -166,9 +177,14 @@ function LeaderboardSection({
   return (
     <>
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {leaderboard?.length ?? 0} ranked member{(leaderboard?.length ?? 0) !== 1 ? "s" : ""}
-        </p>
+        <div className="space-y-0.5">
+          <p className="text-sm text-muted-foreground">
+            {leaderboard?.length ?? 0} ranked member{(leaderboard?.length ?? 0) !== 1 ? "s" : ""}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            Leaderboard is sorted from highest rank to lowest rank.
+          </p>
+        </div>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

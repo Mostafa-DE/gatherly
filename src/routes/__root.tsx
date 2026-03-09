@@ -7,7 +7,11 @@ import { ThemeProvider } from 'next-themes'
 import { useState } from 'react'
 
 import { Toaster } from 'sonner'
+import { MutationCache } from '@tanstack/react-query'
 import { trpc, getTrpcClient } from '@/lib/trpc'
+import { GlobalErrorBanner } from '@/components/global-error-banner'
+import { globalErrorAtom } from '@/state'
+import { getDefaultStore } from 'jotai'
 
 import appCss from '@/styles.css?url'
 
@@ -63,6 +67,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             staleTime: 60 * 1000,
           },
         },
+        mutationCache: new MutationCache({
+          onError: (error) => {
+            getDefaultStore().set(globalErrorAtom, error.message || "Something went wrong")
+          },
+        }),
       })
   )
   const [trpcClient] = useState(() => getTrpcClient())
@@ -77,6 +86,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <JotaiProvider>
             <trpc.Provider client={trpcClient} queryClient={queryClient}>
               <QueryClientProvider client={queryClient}>
+                <GlobalErrorBanner />
                 {children}
                 <Toaster richColors position="bottom-right" />
                 <TanStackDevtools

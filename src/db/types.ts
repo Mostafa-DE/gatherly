@@ -34,6 +34,19 @@ import type {
   assistantActionRequest,
   assistantBotRequestNonce,
 } from "@/plugins/assistant/schema"
+import type {
+  tournament,
+  tournamentStage,
+  tournamentGroup,
+  tournamentRound,
+  tournamentMatch,
+  tournamentMatchEdge,
+  tournamentEntry,
+  tournamentTeam,
+  tournamentTeamMember,
+  tournamentMatchEntry,
+  tournamentStanding,
+} from "@/plugins/tournaments/schema"
 
 // Auth types (from Better Auth)
 export type User = typeof user.$inferSelect
@@ -108,3 +121,27 @@ export type AssistantActionRequest = typeof assistantActionRequest.$inferSelect
 export type NewAssistantActionRequest = typeof assistantActionRequest.$inferInsert
 export type AssistantBotRequestNonce = typeof assistantBotRequestNonce.$inferSelect
 export type NewAssistantBotRequestNonce = typeof assistantBotRequestNonce.$inferInsert
+
+// Tournaments plugin types
+export type Tournament = typeof tournament.$inferSelect
+export type NewTournament = typeof tournament.$inferInsert
+export type TournamentStage = typeof tournamentStage.$inferSelect
+export type NewTournamentStage = typeof tournamentStage.$inferInsert
+export type TournamentGroup = typeof tournamentGroup.$inferSelect
+export type NewTournamentGroup = typeof tournamentGroup.$inferInsert
+export type TournamentRound = typeof tournamentRound.$inferSelect
+export type NewTournamentRound = typeof tournamentRound.$inferInsert
+export type TournamentMatch = typeof tournamentMatch.$inferSelect
+export type NewTournamentMatch = typeof tournamentMatch.$inferInsert
+export type TournamentMatchEdge = typeof tournamentMatchEdge.$inferSelect
+export type NewTournamentMatchEdge = typeof tournamentMatchEdge.$inferInsert
+export type TournamentEntry = typeof tournamentEntry.$inferSelect
+export type NewTournamentEntry = typeof tournamentEntry.$inferInsert
+export type TournamentTeam = typeof tournamentTeam.$inferSelect
+export type NewTournamentTeam = typeof tournamentTeam.$inferInsert
+export type TournamentTeamMember = typeof tournamentTeamMember.$inferSelect
+export type NewTournamentTeamMember = typeof tournamentTeamMember.$inferInsert
+export type TournamentMatchEntry = typeof tournamentMatchEntry.$inferSelect
+export type NewTournamentMatchEntry = typeof tournamentMatchEntry.$inferInsert
+export type TournamentStanding = typeof tournamentStanding.$inferSelect
+export type NewTournamentStanding = typeof tournamentStanding.$inferInsert

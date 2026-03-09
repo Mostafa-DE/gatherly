@@ -18,6 +18,15 @@ export function buildInviteUrl(
   return `${window.location.origin}/${username}/${groupSlug}?invite=${token}`
 }
 
+export function buildTournamentUrl(
+  username: string,
+  groupSlug: string,
+  activitySlug: string,
+  tournamentId: string
+) {
+  return `${window.location.origin}/${username}/${groupSlug}/activities/${activitySlug}/tournaments/${tournamentId}`
+}
+
 export function buildWhatsAppUrl(url: string, message?: string) {
   const text = message ? `${message} ${url}` : url
   return `https://wa.me/?text=${encodeURIComponent(text)}`

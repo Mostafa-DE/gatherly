@@ -6,7 +6,7 @@
  *   pnpm db:seed:test --clean  # remove seeded test data (restore previous state)
  *
  * What it creates:
- *   - 1 admin user (the "owner") + 24 member users (with gender + nationality)
+ *   - 1 admin user (the "owner") + 104 member users (with gender + nationality)
  *   - 1 organization ("Seed Community TEST") with settings
  *     - Org join form: Gender, Nationality, Age Range (general questions)
  *   - All members added to the org with profile answers
@@ -15,17 +15,18 @@
  *     - Ranking definitions and levels
  *     - Sport-specific join forms (e.g. Padel: preferred side, dominant hand,
  *       weight/height range, own racket; Football: position, preferred foot, etc.)
- *     - Smart Groups plugin enabled + config
+ *     - Smart Groups + Tournaments plugins enabled + config
  *   - Historical + upcoming published sessions across all activities (some with session join forms)
  *   - Match records with realistic scores per domain
  *   - Member ranks with accumulated stats and levels
  *   - Activity join requests with sport-specific form answers
  *   - Participations (some with session form answers), member notes, join requests, invite links
+ *   - Tournaments across activities (draft, registration, in-progress, completed) with brackets + scores
  *
  * All seeded records use a deterministic ID prefix "seed_" so cleanup is safe.
  */
 
-import { eq, like, inArray } from "drizzle-orm"
+import { eq, like, inArray, and } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { auth } from "../src/auth"
 import { db } from "../src/db"
@@ -73,9 +74,18 @@ import { resolveChessMatch } from "../src/plugins/ranking/domains/chess"
 import {
   smartGroupConfig,
 } from "../src/plugins/smart-groups/schema"
+import {
+  tournament,
+  tournamentMatch,
+  tournamentMatchEntry,
+} from "../src/plugins/tournaments/schema"
+import { createTournament } from "../src/plugins/tournaments/data-access/tournaments"
+import { registerEntry, randomizeSeeds } from "../src/plugins/tournaments/data-access/entries"
+import { startTournament, completeMatch } from "../src/plugins/tournaments/data-access/lifecycle"
 import { getDomain } from "../src/plugins/ranking/domains"
 import { injectRankingAttributeFields } from "../src/plugins/ranking/utils/join-form-attributes"
 import type { JoinFormSchema } from "../src/types/form"
+import type { TournamentFormat, TournamentConfig } from "../src/plugins/tournaments/types"
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -155,6 +165,90 @@ const MEMBER_DATA = [
   { name: "Aya Bishara", city: "Dubai", gender: "Female", nationality: "Emirati" },
   { name: "Khaled Zein", city: "Amman", gender: "Male", nationality: "Jordanian" },
 ]
+
+// Additional members (100+ total for realistic tournament brackets and community size)
+MEMBER_DATA.push(
+  { name: "Nour Abed", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Rami Qasim", city: "Dubai", gender: "Male", nationality: "Palestinian" },
+  { name: "Lama Turk", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Ahmad Shamsi", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Reem Khatib", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Hussein Barakat", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Ghada Halabi", city: "Istanbul", gender: "Female", nationality: "Syrian" },
+  { name: "Ibrahim Nassar", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Sahar Obeid", city: "Amman", gender: "Female", nationality: "Palestinian" },
+  { name: "Younis Suleiman", city: "Dubai", gender: "Male", nationality: "Emirati" },
+  { name: "Dalal Ghazi", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Nasir Hamed", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Nisreen Joudeh", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Waleed Shabaan", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Abeer Zaghloul", city: "Cairo", gender: "Female", nationality: "Egyptian" },
+  { name: "Ayman Qadri", city: "Dubai", gender: "Male", nationality: "Palestinian" },
+  { name: "Manal Bani-Hani", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Samir Abdallah", city: "Istanbul", gender: "Male", nationality: "Turkish" },
+  { name: "Suha Nabulsi", city: "Amman", gender: "Female", nationality: "Palestinian" },
+  { name: "Adel Masri", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Wafa Rimawi", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Haitham Arafat", city: "Dubai", gender: "Male", nationality: "Palestinian" },
+  { name: "Samira Hindi", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Nabil Najjar", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Huda Samhan", city: "Riyadh", gender: "Female", nationality: "Saudi" },
+  { name: "Firas Badran", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Lubna Kaddoura", city: "Cairo", gender: "Female", nationality: "Egyptian" },
+  { name: "Amer Aqel", city: "Dubai", gender: "Male", nationality: "Emirati" },
+  { name: "Sawsan Ajlouni", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Majid Tamimi", city: "Istanbul", gender: "Male", nationality: "Turkish" },
+  { name: "Nawal Jarrar", city: "Amman", gender: "Female", nationality: "Palestinian" },
+  { name: "Rafiq Bataineh", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Amina Omari", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Jamal Dajani", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Leena Tarifi", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Bassam Zureikat", city: "Dubai", gender: "Male", nationality: "Palestinian" },
+  { name: "Dalia Maaytah", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Munir Sweiss", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Ruba Hamdallah", city: "Amman", gender: "Female", nationality: "Palestinian" },
+  { name: "Tamer Shaban", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Hala Tawalbeh", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Wael Rawashdeh", city: "Dubai", gender: "Male", nationality: "Emirati" },
+  { name: "Shireen Momani", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Imad Haddadin", city: "Beirut", gender: "Male", nationality: "Lebanese" },
+  { name: "Tamara Abadi", city: "Amman", gender: "Female", nationality: "Palestinian" },
+  { name: "Hazem Obeidat", city: "Istanbul", gender: "Male", nationality: "Turkish" },
+  { name: "Asma Faouri", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Raed Masarweh", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Bushra Toukan", city: "Dubai", gender: "Female", nationality: "Emirati" },
+  { name: "Ashraf Dmour", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Khadija Qutob", city: "Riyadh", gender: "Female", nationality: "Saudi" },
+  { name: "Nizar Zoubi", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "May Hijazi", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Mustafa Gharaibeh", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Arwa Smadi", city: "Cairo", gender: "Female", nationality: "Egyptian" },
+  { name: "Shadi Batayneh", city: "Dubai", gender: "Male", nationality: "Palestinian" },
+  { name: "Taghreed Tal", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Ramzi Freij", city: "Istanbul", gender: "Male", nationality: "Turkish" },
+  { name: "Jumana Khaldi", city: "Amman", gender: "Female", nationality: "Palestinian" },
+  { name: "Marwan Habashneh", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Haneen Nsour", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Samer Adwan", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Sana Kafri", city: "Beirut", gender: "Female", nationality: "Lebanese" },
+  { name: "Talal Sukkar", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Majd Arandi", city: "Dubai", gender: "Female", nationality: "Emirati" },
+  { name: "Osama Tal", city: "Amman", gender: "Male", nationality: "Palestinian" },
+  { name: "Rasha Azzam", city: "Istanbul", gender: "Female", nationality: "Turkish" },
+  { name: "Hamza Theeb", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Intisar Yaghi", city: "Cairo", gender: "Female", nationality: "Egyptian" },
+  { name: "Mohannad Faqir", city: "Riyadh", gender: "Male", nationality: "Saudi" },
+  { name: "Nermin Zubi", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Ismail Khasawneh", city: "Dubai", gender: "Male", nationality: "Palestinian" },
+  { name: "Leen Sharif", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Jihad Radaideh", city: "Beirut", gender: "Male", nationality: "Lebanese" },
+  { name: "Duaa Muflih", city: "Amman", gender: "Female", nationality: "Jordanian" },
+  { name: "Anwar Qudah", city: "Cairo", gender: "Male", nationality: "Egyptian" },
+  { name: "Iman Hijjawi", city: "Dubai", gender: "Female", nationality: "Palestinian" },
+  { name: "Fouad Shakhshir", city: "Amman", gender: "Male", nationality: "Jordanian" },
+  { name: "Rawan Sabbah", city: "Istanbul", gender: "Female", nationality: "Turkish" },
+  { name: "Zaid Ababneh", city: "Amman", gender: "Male", nationality: "Jordanian" },
+)
 
 const AGE_RANGES = ["18-25", "26-35", "36-45", "46-55"]
 
@@ -1030,7 +1124,7 @@ async function createOrganization(ownerId: string): Promise<string> {
   await db.insert(organizationSettings).values({
     organizationId: orgId,
     currency: "JOD",
-    enabledPlugins: { analytics: true, ai: true, ranking: true, "smart-groups": true },
+    enabledPlugins: { analytics: true, ai: true, ranking: true, "smart-groups": true, tournaments: true },
     joinFormSchema: {
       fields: [
         {
@@ -1130,7 +1224,7 @@ async function createActivitiesAndRankings(
       slug: cfg.activitySlug,
       joinMode: "require_approval",
       isActive: true,
-      enabledPlugins: { ranking: true, "smart-groups": true },
+      enabledPlugins: { ranking: true, "smart-groups": true, tournaments: true },
       joinFormSchema: actJoinForm,
       joinFormVersion: 1,
       createdBy: ownerId,
@@ -1682,6 +1776,240 @@ async function createInviteLinks(
   console.log(`  Created 2 invite links`)
 }
 
+// ─── Tournament seed ────────────────────────────────────────────────────────
+
+type TournamentSeedConfig = {
+  activitySlug: string
+  name: string
+  slug: string
+  format: TournamentFormat
+  targetStatus: "draft" | "registration" | "in_progress" | "completed"
+  visibility: "public" | "activity_members"
+  participantCount: number
+  config?: TournamentConfig
+  matchesToComplete?: number | "all"
+}
+
+const TOURNAMENT_CONFIGS: TournamentSeedConfig[] = [
+  {
+    activitySlug: "padel",
+    name: "Padel Spring Cup",
+    slug: "padel-spring-cup",
+    format: "single_elimination",
+    targetStatus: "in_progress",
+    visibility: "public",
+    participantCount: 8,
+    config: { thirdPlaceMatch: true },
+    matchesToComplete: 4,
+  },
+  {
+    activitySlug: "football",
+    name: "Football Round Robin League",
+    slug: "football-round-robin",
+    format: "round_robin",
+    targetStatus: "completed",
+    visibility: "public",
+    participantCount: 6,
+    config: { points: { win: 3, draw: 1, loss: 0, bye: 3 } },
+    matchesToComplete: "all",
+  },
+  {
+    activitySlug: "chess",
+    name: "Chess Swiss Open",
+    slug: "chess-swiss-open",
+    format: "swiss",
+    targetStatus: "in_progress",
+    visibility: "public",
+    participantCount: 8,
+    config: { swissRounds: 4, points: { win: 3, draw: 1, loss: 0, bye: 3 } },
+    matchesToComplete: 4,
+  },
+  {
+    activitySlug: "ping-pong",
+    name: "Ping Pong Championship",
+    slug: "ping-pong-championship",
+    format: "single_elimination",
+    targetStatus: "completed",
+    visibility: "public",
+    participantCount: 8,
+    matchesToComplete: "all",
+  },
+  {
+    activitySlug: "tennis",
+    name: "Tennis Open",
+    slug: "tennis-open",
+    format: "single_elimination",
+    targetStatus: "registration",
+    visibility: "public",
+    participantCount: 6,
+    config: { maxCapacity: 16 },
+  },
+  {
+    activitySlug: "badminton",
+    name: "Badminton Summer Challenge",
+    slug: "badminton-summer-challenge",
+    format: "single_elimination",
+    targetStatus: "draft",
+    visibility: "activity_members",
+    participantCount: 0,
+  },
+  {
+    activitySlug: "pool",
+    name: "Pool 8-Ball Cup",
+    slug: "pool-8ball-cup",
+    format: "single_elimination",
+    targetStatus: "in_progress",
+    visibility: "activity_members",
+    participantCount: 4,
+    matchesToComplete: 2,
+  },
+]
+
+async function completeTournamentMatches(
+  tournamentId: string,
+  orgId: string,
+  count: number | "all"
+): Promise<number> {
+  let completed = 0
+  const maxIterations = 20
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    if (count !== "all" && completed >= count) break
+
+    const matches = await db
+      .select({
+        id: tournamentMatch.id,
+        status: tournamentMatch.status,
+        matchNumber: tournamentMatch.matchNumber,
+        version: tournamentMatch.version,
+      })
+      .from(tournamentMatch)
+      .where(
+        and(
+          eq(tournamentMatch.tournamentId, tournamentId),
+          eq(tournamentMatch.status, "pending")
+        )
+      )
+      .orderBy(tournamentMatch.matchNumber)
+
+    if (matches.length === 0) break
+
+    let completedThisRound = 0
+
+    for (const match of matches) {
+      if (count !== "all" && completed >= count) break
+
+      const entries = await db
+        .select({ entryId: tournamentMatchEntry.entryId })
+        .from(tournamentMatchEntry)
+        .where(eq(tournamentMatchEntry.matchId, match.id))
+
+      if (entries.length < 2) continue
+
+      const winnerEntry = pick(entries)
+
+      // Re-read version in case it changed
+      const [freshMatch] = await db
+        .select({ version: tournamentMatch.version })
+        .from(tournamentMatch)
+        .where(eq(tournamentMatch.id, match.id))
+
+      await completeMatch(tournamentId, orgId, match.id, freshMatch?.version ?? 1, {
+        scores: { team1: randomInt(1, 5), team2: randomInt(0, 4) },
+        winnerEntryId: winnerEntry.entryId,
+      })
+
+      completed++
+      completedThisRound++
+    }
+
+    if (completedThisRound === 0) break
+  }
+
+  return completed
+}
+
+async function createTournaments(
+  orgId: string,
+  ownerId: string
+): Promise<void> {
+  console.log("Creating tournaments...")
+
+  let totalTournaments = 0
+
+  for (const cfg of TOURNAMENT_CONFIGS) {
+    const activityId = seedId(`activity_${cfg.activitySlug}`)
+
+    // 1. Create tournament
+    const t = await createTournament(orgId, ownerId, {
+      activityId,
+      name: cfg.name,
+      slug: cfg.slug,
+      format: cfg.format,
+      visibility: cfg.visibility,
+      config: cfg.config ?? {},
+      startsAt:
+        cfg.targetStatus === "in_progress" || cfg.targetStatus === "completed"
+          ? daysAgo(7)
+          : daysFromNow(14),
+    })
+
+    // 2. Register entries
+    if (cfg.participantCount > 0) {
+      const actMembers = await db
+        .select({ userId: activityMember.userId })
+        .from(activityMember)
+        .where(eq(activityMember.activityId, activityId))
+
+      const participantUserIds = pickN(
+        actMembers.map((m) => m.userId),
+        cfg.participantCount
+      )
+
+      for (const userId of participantUserIds) {
+        await registerEntry(t.id, orgId, userId, { allowDraft: true })
+      }
+    }
+
+    // 3. Handle target status
+    if (cfg.targetStatus === "draft") {
+      console.log(`  Tournament: ${cfg.name} (draft${cfg.participantCount > 0 ? `, ${cfg.participantCount} entries` : ""})`)
+      totalTournaments++
+      continue
+    }
+
+    if (cfg.targetStatus === "registration") {
+      await db
+        .update(tournament)
+        .set({ status: "registration" })
+        .where(eq(tournament.id, t.id))
+      console.log(`  Tournament: ${cfg.name} (registration, ${cfg.participantCount} entries)`)
+      totalTournaments++
+      continue
+    }
+
+    // in_progress or completed: seed → start → complete matches
+    await randomizeSeeds(t.id, orgId)
+    await startTournament(t.id, orgId)
+
+    let matchesCompleted = 0
+    if (cfg.matchesToComplete) {
+      matchesCompleted = await completeTournamentMatches(
+        t.id,
+        orgId,
+        cfg.matchesToComplete
+      )
+    }
+
+    console.log(
+      `  Tournament: ${cfg.name} (${cfg.targetStatus}, ${cfg.participantCount} entries, ${matchesCompleted} matches completed)`
+    )
+    totalTournaments++
+  }
+
+  console.log(`  Created ${totalTournaments} tournaments`)
+}
+
 // ─── Main seed ───────────────────────────────────────────────────────────────
 
 async function seed() {
@@ -1713,6 +2041,7 @@ async function seed() {
   await createMemberNotes(orgId, ownerId, memberUserIds)
   await createJoinRequests(orgId, memberUserIds)
   await createInviteLinks(orgId, ownerId)
+  await createTournaments(orgId, ownerId)
 
   console.log("\n=== Seed complete! ===")
   console.log(`\n  Login:    ${OWNER_EMAIL} / ${PASSWORD}`)
@@ -1720,6 +2049,7 @@ async function seed() {
   console.log(`  Members:  ${memberUserIds.length + 1}`)
   console.log(`  Sessions: ${sessionIds.length} (${upcomingSessionIds.length} upcoming)`)
   console.log(`  Activities: ${DOMAIN_CONFIGS.length} (${DOMAIN_CONFIGS.map((c) => c.activityName).join(", ")})`)
+  console.log(`  Tournaments: ${TOURNAMENT_CONFIGS.length}`)
   console.log(`  URL:      /${OWNER_USERNAME}/seed-community-test\n`)
 }
 
@@ -1789,6 +2119,11 @@ async function clean() {
   await db
     .delete(smartGroupConfig)
     .where(eq(smartGroupConfig.organizationId, orgId))
+
+  console.log("Deleting tournament data...")
+  await db
+    .delete(tournament)
+    .where(eq(tournament.organizationId, orgId))
 
   console.log("Deleting activity members & join requests...")
   const orgActivities = await db

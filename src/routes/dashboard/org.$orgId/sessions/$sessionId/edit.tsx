@@ -249,7 +249,7 @@ function EditSessionPage() {
   }
 
   const form =
-    formDraft?.sessionId === sessionId
+    formDraft && formDraft.sessionId === sessionId
       ? formDraft.values
       : initialForm
 
@@ -259,7 +259,7 @@ function EditSessionPage() {
   ) => {
     setFormDraft((prev) => {
       const baseValues =
-        prev?.sessionId === sessionId
+        prev && prev.sessionId === sessionId
           ? prev.values
           : initialForm
 
