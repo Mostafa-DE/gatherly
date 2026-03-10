@@ -86,12 +86,12 @@ export const dartsDomain: RankingDomain = {
   id: "darts",
   name: "Darts",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "legs_won", label: "Legs Won" },
-    { id: "legs_lost", label: "Legs Lost" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "legs_won", label: "Legs Won", source: "team" },
+    { id: "legs_lost", label: "Legs Lost", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

@@ -86,12 +86,12 @@ export const bowlingDomain: RankingDomain = {
   id: "bowling",
   name: "Bowling",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "pins_scored", label: "Total Pins" },
-    { id: "pins_conceded", label: "Opponent Pins" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "pins_scored", label: "Total Pins", source: "team" },
+    { id: "pins_conceded", label: "Opponent Pins", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

@@ -131,26 +131,81 @@ export function BracketTab({
   const isElimination =
     format === "single_elimination" || format === "double_elimination"
 
+  const stages = (bracket.stages ?? []) as Array<{ id: string; stageType: string; stageOrder: number; status: string }>
+  const allRounds = bracket.rounds as Array<{ id: string; roundNumber: number; groupId: string | null; stageId: string }>
+  const allMatches = bracket.matches as Array<{ id: string; roundId: string; matchNumber: number; status: string; scores: unknown; winnerEntryId: string | null; version: number }>
+  const allMatchEntries = bracket.matchEntries as Array<{ id: string; matchId: string; entryId: string; slot: number; result: string | null; score: unknown }>
+  const allEdges = bracket.edges as Array<{ id: string; fromMatchId: string; toMatchId: string; outcomeType: string; toSlot: number }>
+  const allGroups = bracket.groups as Array<{ id: string; name: string; groupOrder: number }>
+
+  // For group_knockout: split data by stage
+  const groupStage = format === "group_knockout" ? stages.find((s) => s.stageType === "group") : null
+  const knockoutStage = format === "group_knockout" ? stages.find((s) => s.stageType === "single_elimination") : null
+
+  const groupRoundIds = groupStage ? new Set(allRounds.filter((r) => r.stageId === groupStage.id).map((r) => r.id)) : null
+  const knockoutRoundIds = knockoutStage ? new Set(allRounds.filter((r) => r.stageId === knockoutStage.id).map((r) => r.id)) : null
+
+  const knockoutRounds = knockoutRoundIds ? allRounds.filter((r) => knockoutRoundIds.has(r.id)) : []
+  const knockoutMatchIds = knockoutRoundIds ? new Set(allMatches.filter((m) => knockoutRoundIds.has(m.roundId)).map((m) => m.id)) : new Set<string>()
+
   const selectedMatch = reportMatch
-    ? (bracket.matches as Array<{ id: string; matchNumber: number; status: string; scores: unknown; winnerEntryId: string | null; version: number }>).find(
-        (m) => m.id === reportMatch
-      )
+    ? allMatches.find((m) => m.id === reportMatch)
     : null
 
   const selectedForfeitMatch = forfeitMatch
-    ? (bracket.matches as Array<{ id: string; matchNumber: number; status: string; scores: unknown; winnerEntryId: string | null }>).find(
-        (m) => m.id === forfeitMatch
-      )
+    ? allMatches.find((m) => m.id === forfeitMatch)
     : null
 
   return (
     <div className="space-y-6">
-      {isElimination ? (
+      {format === "group_knockout" ? (
+        <>
+          {/* Group stage: round-by-round */}
+          {groupStage && (
+            <RoundByRoundView
+              rounds={allRounds.filter((r) => groupRoundIds?.has(r.id))}
+              matches={allMatches.filter((m) => groupRoundIds?.has(m.roundId))}
+              matchEntries={allMatchEntries.filter((me) => {
+                const match = allMatches.find((m) => m.id === me.matchId)
+                return match && groupRoundIds?.has(match.roundId)
+              })}
+              groups={allGroups}
+              participantMap={participantMap}
+              currentUserId={currentUserId}
+              isAdmin={isAdmin}
+              onReportScore={(matchId) => setReportMatch(matchId)}
+              onForfeit={(matchId) => setForfeitMatch(matchId)}
+              stageLabel="Group Stage"
+            />
+          )}
+
+          {/* Knockout stage: bracket tree */}
+          {knockoutStage && knockoutRounds.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Knockout Stage
+              </h2>
+              <BracketTree
+                rounds={knockoutRounds}
+                matches={allMatches.filter((m) => knockoutRoundIds?.has(m.roundId))}
+                matchEntries={allMatchEntries.filter((me) => knockoutMatchIds.has(me.matchId))}
+                edges={allEdges.filter((e) => knockoutMatchIds.has(e.fromMatchId) || knockoutMatchIds.has(e.toMatchId))}
+                participantMap={participantMap}
+                currentUserId={currentUserId}
+                isAdmin={isAdmin}
+                format="single_elimination"
+                onReportScore={(matchId) => setReportMatch(matchId)}
+                onForfeit={(matchId) => setForfeitMatch(matchId)}
+              />
+            </div>
+          )}
+        </>
+      ) : isElimination ? (
         <BracketTree
-          rounds={bracket.rounds as Array<{ id: string; roundNumber: number; groupId: string | null }>}
-          matches={bracket.matches as Array<{ id: string; roundId: string; matchNumber: number; status: string; scores: unknown; winnerEntryId: string | null }>}
-          matchEntries={bracket.matchEntries as Array<{ id: string; matchId: string; entryId: string; slot: number; result: string | null; score: unknown }>}
-          edges={bracket.edges as Array<{ id: string; fromMatchId: string; toMatchId: string; outcomeType: string; toSlot: number }>}
+          rounds={allRounds}
+          matches={allMatches}
+          matchEntries={allMatchEntries}
+          edges={allEdges}
           participantMap={participantMap}
           currentUserId={currentUserId}
           isAdmin={isAdmin}
@@ -160,10 +215,10 @@ export function BracketTab({
         />
       ) : (
         <RoundByRoundView
-          rounds={bracket.rounds as Array<{ id: string; roundNumber: number; groupId: string | null; stageId: string }>}
-          matches={bracket.matches as Array<{ id: string; roundId: string; matchNumber: number; status: string; scores: unknown; winnerEntryId: string | null }>}
-          matchEntries={bracket.matchEntries as Array<{ id: string; matchId: string; entryId: string; slot: number; result: string | null; score: unknown }>}
-          groups={bracket.groups as Array<{ id: string; name: string; groupOrder: number }>}
+          rounds={allRounds}
+          matches={allMatches}
+          matchEntries={allMatchEntries}
+          groups={allGroups}
           participantMap={participantMap}
           currentUserId={currentUserId}
           isAdmin={isAdmin}
@@ -218,6 +273,7 @@ function RoundByRoundView({
   isAdmin,
   onReportScore,
   onForfeit,
+  stageLabel,
 }: {
   rounds: Array<{ id: string; roundNumber: number; groupId: string | null; stageId: string }>
   matches: Array<{ id: string; roundId: string; matchNumber: number; status: string; scores: unknown; winnerEntryId: string | null }>
@@ -237,11 +293,17 @@ function RoundByRoundView({
   isAdmin: boolean
   onReportScore: (matchId: string) => void
   onForfeit: (matchId: string) => void
+  stageLabel?: string
 }) {
   const sortedRounds = [...rounds].sort((a, b) => a.roundNumber - b.roundNumber)
 
   return (
     <div className="space-y-6">
+      {stageLabel && (
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+          {stageLabel}
+        </h2>
+      )}
       {sortedRounds.map((round) => {
         const roundMatches = matches
           .filter((m) => m.roundId === round.id)

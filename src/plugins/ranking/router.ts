@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server"
 import { router, orgProcedure } from "@/trpc"
 import { getActivityByIdForOrg, updateActivity } from "@/data-access/activities"
 import { getActiveActivityMemberIds } from "@/data-access/activity-members"
-import { listDomains as listDomainsFromCatalog, getDomain } from "./domains"
+import { listDomains as listDomainsFromCatalog, getDomain, getIndividualStatFields } from "./domains"
 import {
   createRankingSchema,
   updateDefinitionSchema,
@@ -22,6 +22,10 @@ import {
   getDomainConfigSchema,
   updateMemberAttributesSchema,
   updateSessionAttributesSchema,
+  recordBatchStatsSchema,
+  getStatEntriesBySessionSchema,
+  getSessionAwardHoldersSchema,
+  setSessionAwardSchema,
 } from "./schemas"
 import {
   getRankingDefinitionByActivity,
@@ -41,6 +45,10 @@ import {
   recordStats,
   correctStatEntry,
   updateMemberAttributes,
+  getStatEntriesBySession,
+  recordBatchStats,
+  getSessionAwardHolders,
+  setSessionAward,
 } from "./data-access/member-ranks"
 import {
   recordMatch,
@@ -371,7 +379,134 @@ export const rankingRouter = router({
         domainId: domain.id,
         attributeFields: domain.attributeFields ?? [],
         groupingPreset: domain.groupingPreset ?? null,
+        individualStatFields: domain.statFields
+          .filter((f) => f.source === "individual")
+          .map(({ id, label }) => ({ id, label })),
+        sessionAwards: (domain.sessionAwards ?? []).map(({ id, label }) => ({ id, label })),
       }
+    }),
+
+  getStatEntriesBySession: orgProcedure
+    .input(getStatEntriesBySessionSchema)
+    .query(async ({ ctx, input }) => {
+      const definition = await getRankingDefinitionById(
+        input.rankingDefinitionId,
+        ctx.activeOrganization.id
+      )
+      if (!definition) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ranking not found" })
+      }
+
+      return getStatEntriesBySession(
+        input.rankingDefinitionId,
+        input.sessionId
+      )
+    }),
+
+  getSessionAwardHolders: orgProcedure
+    .input(getSessionAwardHoldersSchema)
+    .query(async ({ ctx, input }) => {
+      const definition = await getRankingDefinitionById(
+        input.rankingDefinitionId,
+        ctx.activeOrganization.id
+      )
+      if (!definition) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ranking not found" })
+      }
+
+      const domain = getDomain(definition.domainId)
+      const awardIds = (domain?.sessionAwards ?? []).map((a) => a.id)
+      if (awardIds.length === 0) return {}
+
+      return getSessionAwardHolders(
+        input.rankingDefinitionId,
+        input.sessionId,
+        awardIds
+      )
+    }),
+
+  setSessionAward: orgProcedure
+    .input(setSessionAwardSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      const definition = await getRankingDefinitionById(
+        input.rankingDefinitionId,
+        ctx.activeOrganization.id
+      )
+      if (!definition) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ranking not found" })
+      }
+
+      // Validate award id
+      const domain = getDomain(definition.domainId)
+      const validAwards = new Set((domain?.sessionAwards ?? []).map((a) => a.id))
+      if (!validAwards.has(input.awardId)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Invalid award: ${input.awardId}`,
+        })
+      }
+
+      // Validate user is active member (if setting, not clearing)
+      if (input.userId) {
+        await assertActiveMembers(definition.activityId, [input.userId])
+      }
+
+      await setSessionAward(
+        ctx.activeOrganization.id,
+        input.rankingDefinitionId,
+        ctx.user.id,
+        {
+          sessionId: input.sessionId,
+          awardId: input.awardId,
+          userId: input.userId,
+        }
+      )
+    }),
+
+  recordBatchStats: orgProcedure
+    .input(recordBatchStatsSchema)
+    .mutation(async ({ ctx, input }) => {
+      assertAdmin(ctx.membership.role)
+
+      const definition = await getRankingDefinitionById(
+        input.rankingDefinitionId,
+        ctx.activeOrganization.id
+      )
+      if (!definition) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ranking not found" })
+      }
+
+      // Validate stat keys are individual fields only
+      const individualFields = getIndividualStatFields(definition.domainId)
+      const validIds = new Set(individualFields.map((f) => f.id))
+      for (const entry of input.entries) {
+        const invalidKeys = Object.keys(entry.stats).filter(
+          (k) => !validIds.has(k)
+        )
+        if (invalidKeys.length > 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Invalid individual stat fields: ${invalidKeys.join(", ")}`,
+          })
+        }
+      }
+
+      // Validate all users are active members
+      const userIds = input.entries.map((e) => e.userId)
+      await assertActiveMembers(definition.activityId, userIds)
+
+      return recordBatchStats(
+        ctx.activeOrganization.id,
+        input.rankingDefinitionId,
+        ctx.user.id,
+        {
+          sessionId: input.sessionId,
+          entries: input.entries,
+          notes: input.notes,
+        }
+      )
     }),
 
   updateMemberAttributes: orgProcedure

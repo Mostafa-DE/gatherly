@@ -35,9 +35,10 @@ export type {
   SessionConfig,
   AttributeField,
   GroupingPreset,
+  SessionAward,
 } from "./types"
 
-import type { MatchFormat, FormatRule, AttributeField } from "./types"
+import type { MatchFormat, FormatRule, AttributeField, StatField } from "./types"
 
 const domainRegistry = new Map<string, RankingDomain>([
   [padelDomain.id, padelDomain],
@@ -72,6 +73,23 @@ export function listDomains(): RankingDomain[] {
 
 export function isDomainValid(domainId: string): boolean {
   return domainRegistry.has(domainId)
+}
+
+/** Get individual stat fields for a domain (entered per player, not auto-derived from match) */
+export function getIndividualStatFields(domainId: string): StatField[] {
+  const domain = domainRegistry.get(domainId)
+  return domain?.statFields.filter((f) => f.source === "individual") ?? []
+}
+
+/** Get team stat fields for a domain (auto-derived from match result) */
+export function getTeamStatFields(domainId: string): StatField[] {
+  const domain = domainRegistry.get(domainId)
+  return domain?.statFields.filter((f) => f.source === "team") ?? []
+}
+
+/** Check if a domain has individual stats that need per-player input */
+export function hasIndividualStats(domainId: string): boolean {
+  return getIndividualStatFields(domainId).length > 0
 }
 
 /** Get attribute fields for a domain (returns empty array if none) */

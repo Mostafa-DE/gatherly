@@ -108,6 +108,45 @@ export const updateSessionAttributesSchema = z.object({
 })
 
 // =============================================================================
+// Individual Stats Schemas
+// =============================================================================
+
+export const recordBatchStatsSchema = z.object({
+  rankingDefinitionId: z.string(),
+  sessionId: z.string(),
+  entries: z
+    .array(
+      z.object({
+        userId: z.string(),
+        stats: z.record(z.string(), z.number().int().min(0)),
+      })
+    )
+    .min(1),
+  notes: z.string().max(500).optional(),
+})
+
+export const getStatEntriesBySessionSchema = z.object({
+  rankingDefinitionId: z.string(),
+  sessionId: z.string(),
+})
+
+// =============================================================================
+// Session Award Schemas
+// =============================================================================
+
+export const getSessionAwardHoldersSchema = z.object({
+  rankingDefinitionId: z.string(),
+  sessionId: z.string(),
+})
+
+export const setSessionAwardSchema = z.object({
+  rankingDefinitionId: z.string(),
+  sessionId: z.string(),
+  awardId: z.string(),
+  userId: z.string().nullable(),
+})
+
+// =============================================================================
 // Match Schemas
 // =============================================================================
 
@@ -166,3 +205,5 @@ export type ListMatchesByDefinitionInput = z.infer<typeof listMatchesByDefinitio
 export type GetDomainConfigInput = z.infer<typeof getDomainConfigSchema>
 export type UpdateMemberAttributesInput = z.infer<typeof updateMemberAttributesSchema>
 export type UpdateSessionAttributesInput = z.infer<typeof updateSessionAttributesSchema>
+export type RecordBatchStatsInput = z.infer<typeof recordBatchStatsSchema>
+export type GetStatEntriesBySessionInput = z.infer<typeof getStatEntriesBySessionSchema>

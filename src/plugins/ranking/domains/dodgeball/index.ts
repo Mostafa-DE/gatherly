@@ -86,12 +86,12 @@ export const dodgeballDomain: RankingDomain = {
   id: "dodgeball",
   name: "Dodgeball",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "rounds_won", label: "Rounds Won" },
-    { id: "rounds_lost", label: "Rounds Lost" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "rounds_won", label: "Rounds Won", source: "team" },
+    { id: "rounds_lost", label: "Rounds Lost", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

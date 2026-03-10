@@ -53,8 +53,6 @@ export function resolveFootballMatch(scores: unknown): MatchResult {
     wins: 0,
     draws: 0,
     losses: 0,
-    goals_scored: 0,
-    goals_conceded: 0,
   }
 
   return {
@@ -64,16 +62,12 @@ export function resolveFootballMatch(scores: unknown): MatchResult {
       wins: winner === "team1" ? 1 : 0,
       draws: winner === "draw" ? 1 : 0,
       losses: winner === "team2" ? 1 : 0,
-      goals_scored: team1,
-      goals_conceded: team2,
     },
     team2Stats: {
       ...baseStats,
       wins: winner === "team2" ? 1 : 0,
       draws: winner === "draw" ? 1 : 0,
       losses: winner === "team1" ? 1 : 0,
-      goals_scored: team2,
-      goals_conceded: team1,
     },
   }
 }
@@ -86,16 +80,22 @@ export const footballDomain: RankingDomain = {
   id: "football",
   name: "Football",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "goals_scored", label: "Goals Scored" },
-    { id: "goals_conceded", label: "Goals Conceded" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "goals", label: "Goals", source: "individual" },
+    { id: "assists", label: "Assists", source: "individual" },
+    { id: "yellow_cards", label: "Yellow Cards", source: "individual" },
+    { id: "red_cards", label: "Red Cards", source: "individual" },
+    { id: "motm", label: "MOTM", source: "team" },
+  ],
+  sessionAwards: [
+    { id: "motm", label: "Man of the Match" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },
-    { field: "(goals_scored - goals_conceded)", direction: "desc" },
+    { field: "goals", direction: "desc" },
   ],
   defaultLevels: [
     { name: "Beginner", color: "#6B7280" },
@@ -120,7 +120,7 @@ export const footballDomain: RankingDomain = {
     mode: "balanced",
     balanceStatIds: [
       { statId: "wins", weight: 1 },
-      { statId: "goals_scored", weight: 0.5 },
+      { statId: "goals", weight: 0.5 },
     ],
     partitionByLevel: true,
     partitionByAttribute: "position",

@@ -11,7 +11,14 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trophy } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 import type { JoinFormSchema } from "@/types/form"
 import type { AttendanceStatus, PaymentStatus } from "@/lib/sessions/state-machine"
@@ -99,6 +106,41 @@ function SessionParticipantsPage() {
       { activityId: sessionData?.activityId ?? "" },
       { enabled: !!sessionData?.activityId }
     )
+
+  // Individual stats per participant (e.g., goals, assists)
+  const hasIndividualStats =
+    (domainConfig?.individualStatFields?.length ?? 0) > 0
+  const { data: individualStatsMap } =
+    trpc.plugin.ranking.getStatEntriesBySession.useQuery(
+      {
+        rankingDefinitionId: domainConfig?.rankingDefinitionId ?? "",
+        sessionId,
+      },
+      { enabled: hasIndividualStats && !!domainConfig?.rankingDefinitionId }
+    )
+
+  // Session awards (e.g., MOTM)
+  const hasSessionAwards = (domainConfig?.sessionAwards?.length ?? 0) > 0
+  const { data: awardHolders } =
+    trpc.plugin.ranking.getSessionAwardHolders.useQuery(
+      {
+        rankingDefinitionId: domainConfig?.rankingDefinitionId ?? "",
+        sessionId,
+      },
+      { enabled: hasSessionAwards && !!domainConfig?.rankingDefinitionId }
+    )
+
+  const setAwardMutation = trpc.plugin.ranking.setSessionAward.useMutation({
+    onSuccess: () => {
+      utils.plugin.ranking.getSessionAwardHolders.invalidate({
+        rankingDefinitionId: domainConfig?.rankingDefinitionId ?? "",
+        sessionId,
+      })
+      utils.plugin.ranking.getLeaderboard.invalidate()
+      toast.success("Award updated")
+    },
+    onError: (err) => toast.error(err.message),
+  })
 
   // Build a lookup map: userId -> { levelName, levelColor }
   const memberLevelMap = new Map<
@@ -346,6 +388,45 @@ function SessionParticipantsPage() {
         onParticipantAdded={invalidateAll}
       />
 
+      {/* Session Awards (e.g., MOTM) */}
+      {hasSessionAwards && isAdmin && joinedParticipants && joinedParticipants.length > 0 && (
+        <div className="flex flex-wrap gap-4">
+          {domainConfig?.sessionAwards?.map((award) => (
+            <div key={award.id} className="flex items-center gap-2">
+              <Trophy className="h-4 w-4 text-[var(--color-status-warning)]" />
+              <span className="text-sm font-medium">{award.label}:</span>
+              <Select
+                value={awardHolders?.[award.id] ?? "__none__"}
+                onValueChange={(value) => {
+                  if (!domainConfig?.rankingDefinitionId) return
+                  setAwardMutation.mutate({
+                    rankingDefinitionId: domainConfig.rankingDefinitionId,
+                    sessionId,
+                    awardId: award.id,
+                    userId: value === "__none__" ? null : value,
+                  })
+                }}
+                disabled={setAwardMutation.isPending}
+              >
+                <SelectTrigger className="h-8 w-auto min-w-[180px] text-xs">
+                  <SelectValue placeholder="Select player..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">
+                    <span className="text-muted-foreground italic">None</span>
+                  </SelectItem>
+                  {joinedParticipants.map((p) => (
+                    <SelectItem key={p.user.id} value={p.user.id}>
+                      {p.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
@@ -401,6 +482,8 @@ function SessionParticipantsPage() {
             rankingLevels={rankingDefinition?.levels}
             memberCurrentLevelMap={memberCurrentLevelMap}
             rankingDefinitionId={rankingDefinition?.id}
+            individualStatFields={domainConfig?.individualStatFields}
+            individualStatsMap={individualStatsMap}
           />
         </TabsContent>
 
@@ -426,6 +509,8 @@ function SessionParticipantsPage() {
             rankingLevels={rankingDefinition?.levels}
             memberCurrentLevelMap={memberCurrentLevelMap}
             rankingDefinitionId={rankingDefinition?.id}
+            individualStatFields={domainConfig?.individualStatFields}
+            individualStatsMap={individualStatsMap}
           />
         </TabsContent>
 
@@ -451,6 +536,8 @@ function SessionParticipantsPage() {
             rankingLevels={rankingDefinition?.levels}
             memberCurrentLevelMap={memberCurrentLevelMap}
             rankingDefinitionId={rankingDefinition?.id}
+            individualStatFields={domainConfig?.individualStatFields}
+            individualStatsMap={individualStatsMap}
           />
         </TabsContent>
       </Tabs>

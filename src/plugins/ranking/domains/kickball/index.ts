@@ -86,12 +86,12 @@ export const kickballDomain: RankingDomain = {
   id: "kickball",
   name: "Kickball",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "runs_scored", label: "Runs Scored" },
-    { id: "runs_conceded", label: "Runs Conceded" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "runs_scored", label: "Runs Scored", source: "team" },
+    { id: "runs_conceded", label: "Runs Conceded", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

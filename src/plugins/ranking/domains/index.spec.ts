@@ -3,7 +3,10 @@ import {
   getDomain,
   getDomainAttributeFields,
   getFormatFromCapacity,
+  getIndividualStatFields,
   getMatchModeFormats,
+  getTeamStatFields,
+  hasIndividualStats,
   isDomainValid,
   listDomains,
 } from "./index"
@@ -107,7 +110,7 @@ describe("ranking domain utilities", () => {
       })
     })
 
-    it("resolves winners and derived stats", () => {
+    it("resolves winners and derived stats (team-level only, individual stats tracked separately)", () => {
       expect(matchConfig.resolveMatch({ team1: 2, team2: 0 })).toEqual({
         winner: "team1",
         team1Stats: {
@@ -115,16 +118,12 @@ describe("ranking domain utilities", () => {
           wins: 1,
           draws: 0,
           losses: 0,
-          goals_scored: 2,
-          goals_conceded: 0,
         },
         team2Stats: {
           matches_played: 1,
           wins: 0,
           draws: 0,
           losses: 1,
-          goals_scored: 0,
-          goals_conceded: 2,
         },
       })
 
@@ -346,6 +345,72 @@ describe("ranking domain utilities", () => {
     })
   })
 
+  describe("individual vs team stat fields", () => {
+    it("every stat field has a valid source", () => {
+      for (const domain of listDomains()) {
+        for (const field of domain.statFields) {
+          expect(["team", "individual"]).toContain(field.source)
+        }
+      }
+    })
+
+    it("football has individual stats", () => {
+      const domainsWithIndividual = listDomains().filter((d) =>
+        d.statFields.some((f) => f.source === "individual")
+      )
+      expect(domainsWithIndividual.map((d) => d.id)).toEqual(["football"])
+    })
+
+    it("getIndividualStatFields returns correct fields for football", () => {
+      const fields = getIndividualStatFields("football")
+      expect(fields.map((f) => f.id)).toEqual([
+        "goals",
+        "assists",
+        "yellow_cards",
+        "red_cards",
+      ])
+    })
+
+    it("football has session awards (MOTM)", () => {
+      const football = getDomain("football")!
+      expect(football.sessionAwards).toEqual([
+        { id: "motm", label: "Man of the Match" },
+      ])
+    })
+
+    it("getTeamStatFields returns correct fields for football", () => {
+      const fields = getTeamStatFields("football")
+      expect(fields.map((f) => f.id)).toEqual([
+        "matches_played",
+        "wins",
+        "draws",
+        "losses",
+        "motm",
+      ])
+    })
+
+    it("hasIndividualStats returns true only for football", () => {
+      expect(hasIndividualStats("football")).toBe(true)
+      expect(hasIndividualStats("basketball")).toBe(false)
+      expect(hasIndividualStats("tennis")).toBe(false)
+      expect(hasIndividualStats("chess")).toBe(false)
+      expect(hasIndividualStats("reading")).toBe(false)
+    })
+
+    it("football resolveMatch does not include individual fields", () => {
+      const football = getDomain("football")!
+      const individualIds = football.statFields
+        .filter((f) => f.source === "individual")
+        .map((f) => f.id)
+
+      const result = football.matchConfig!.resolveMatch({ team1: 3, team2: 1 })
+      for (const statId of individualIds) {
+        expect(result.team1Stats).not.toHaveProperty(statId)
+        expect(result.team2Stats).not.toHaveProperty(statId)
+      }
+    })
+  })
+
   describe("grouping presets", () => {
     it("returns grouping preset for domains that define them", () => {
       const football = getDomain("football")
@@ -355,7 +420,7 @@ describe("ranking domain utilities", () => {
       expect(football?.groupingPreset?.partitionByAttribute).toBe("position")
       expect(football?.groupingPreset?.balanceStatIds).toEqual([
         { statId: "wins", weight: 1 },
-        { statId: "goals_scored", weight: 0.5 },
+        { statId: "goals", weight: 0.5 },
       ])
     })
 

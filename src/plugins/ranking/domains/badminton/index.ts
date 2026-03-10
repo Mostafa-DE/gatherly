@@ -114,11 +114,11 @@ export const badmintonDomain: RankingDomain = {
   id: "badminton",
   name: "Badminton",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "losses", label: "Losses" },
-    { id: "games_won", label: "Games Won" },
-    { id: "games_lost", label: "Games Lost" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "games_won", label: "Games Won", source: "team" },
+    { id: "games_lost", label: "Games Lost", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

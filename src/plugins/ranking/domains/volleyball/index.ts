@@ -118,11 +118,11 @@ export const volleyballDomain: RankingDomain = {
   id: "volleyball",
   name: "Volleyball",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "losses", label: "Losses" },
-    { id: "sets_won", label: "Sets Won" },
-    { id: "sets_lost", label: "Sets Lost" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "sets_won", label: "Sets Won", source: "team" },
+    { id: "sets_lost", label: "Sets Lost", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

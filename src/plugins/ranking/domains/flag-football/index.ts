@@ -86,12 +86,12 @@ export const flagFootballDomain: RankingDomain = {
   id: "flag-football",
   name: "Flag Football",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "points_scored", label: "Points Scored" },
-    { id: "points_conceded", label: "Points Conceded" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "points_scored", label: "Points Scored", source: "team" },
+    { id: "points_conceded", label: "Points Conceded", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

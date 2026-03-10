@@ -373,6 +373,289 @@ export async function getMemberAttributes(
   return (result?.attributes as Record<string, unknown>) ?? {}
 }
 
+// =============================================================================
+// Individual Stats (per-participant per-session)
+// =============================================================================
+
+export async function getStatEntriesBySession(
+  rankingDefinitionId: string,
+  sessionId: string
+): Promise<Record<string, Record<string, number>>> {
+  const entries = await db
+    .select({ userId: rankStatEntry.userId, stats: rankStatEntry.stats })
+    .from(rankStatEntry)
+    .where(
+      and(
+        eq(rankStatEntry.rankingDefinitionId, rankingDefinitionId),
+        eq(rankStatEntry.sessionId, sessionId)
+      )
+    )
+  return Object.fromEntries(
+    entries.map((e) => [e.userId, e.stats as Record<string, number>])
+  )
+}
+
+export async function recordBatchStats(
+  organizationId: string,
+  rankingDefinitionId: string,
+  recordedBy: string,
+  input: {
+    sessionId: string
+    entries: Array<{ userId: string; stats: Record<string, number> }>
+    notes?: string
+  }
+): Promise<MemberRank[]> {
+  return db.transaction(async (tx) => {
+    const updatedRanks: MemberRank[] = []
+
+    for (const entry of input.entries) {
+      // Check for existing stat entry (idempotency via unique index)
+      const [existingEntry] = await tx
+        .select()
+        .from(rankStatEntry)
+        .where(
+          and(
+            eq(rankStatEntry.rankingDefinitionId, rankingDefinitionId),
+            eq(rankStatEntry.userId, entry.userId),
+            eq(rankStatEntry.sessionId, input.sessionId)
+          )
+        )
+        .limit(1)
+
+      const oldStats = existingEntry
+        ? (existingEntry.stats as Record<string, number>)
+        : null
+
+      // Upsert stat entry
+      if (existingEntry) {
+        await tx
+          .update(rankStatEntry)
+          .set({
+            stats: entry.stats,
+            recordedBy,
+            notes: input.notes ?? null,
+          })
+          .where(eq(rankStatEntry.id, existingEntry.id))
+      } else {
+        await tx.insert(rankStatEntry).values({
+          organizationId,
+          rankingDefinitionId,
+          userId: entry.userId,
+          sessionId: input.sessionId,
+          stats: entry.stats,
+          recordedBy,
+          notes: input.notes ?? null,
+        })
+      }
+
+      // Upsert member rank — compute delta (new - old)
+      const [existingRank] = await tx
+        .select()
+        .from(memberRank)
+        .where(
+          and(
+            eq(memberRank.rankingDefinitionId, rankingDefinitionId),
+            eq(memberRank.userId, entry.userId)
+          )
+        )
+        .limit(1)
+
+      if (existingRank) {
+        const currentStats = (existingRank.stats as Record<string, number>) ?? {}
+        const newCumulative = { ...currentStats }
+
+        // Reverse old entry stats if updating
+        if (oldStats) {
+          for (const [key, value] of Object.entries(oldStats)) {
+            newCumulative[key] = (newCumulative[key] ?? 0) - value
+          }
+        }
+
+        // Apply new stats
+        for (const [key, value] of Object.entries(entry.stats)) {
+          newCumulative[key] = (newCumulative[key] ?? 0) + value
+        }
+
+        const [updated] = await tx
+          .update(memberRank)
+          .set({ stats: newCumulative, lastActivityAt: new Date() })
+          .where(eq(memberRank.id, existingRank.id))
+          .returning()
+        updatedRanks.push(updated)
+      } else {
+        const [created] = await tx
+          .insert(memberRank)
+          .values({
+            organizationId,
+            rankingDefinitionId,
+            userId: entry.userId,
+            stats: entry.stats,
+            lastActivityAt: new Date(),
+          })
+          .returning()
+        updatedRanks.push(created)
+      }
+    }
+
+    return updatedRanks
+  })
+}
+
+// =============================================================================
+// Session Awards (e.g., MOTM — one player per session)
+// =============================================================================
+
+export async function getSessionAwardHolders(
+  rankingDefinitionId: string,
+  sessionId: string,
+  awardIds: string[]
+): Promise<Record<string, string | null>> {
+  // Returns { awardId: userId | null } for each award
+  const entries = await db
+    .select({ userId: rankStatEntry.userId, stats: rankStatEntry.stats })
+    .from(rankStatEntry)
+    .where(
+      and(
+        eq(rankStatEntry.rankingDefinitionId, rankingDefinitionId),
+        eq(rankStatEntry.sessionId, sessionId)
+      )
+    )
+
+  const result: Record<string, string | null> = {}
+  for (const awardId of awardIds) {
+    result[awardId] = null
+    for (const entry of entries) {
+      const stats = entry.stats as Record<string, number>
+      if (stats[awardId] && stats[awardId] > 0) {
+        result[awardId] = entry.userId
+        break
+      }
+    }
+  }
+  return result
+}
+
+export async function setSessionAward(
+  organizationId: string,
+  rankingDefinitionId: string,
+  recordedBy: string,
+  input: {
+    sessionId: string
+    awardId: string
+    userId: string | null // null to clear
+  }
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    // Find current holder of this award in this session
+    const entries = await tx
+      .select()
+      .from(rankStatEntry)
+      .where(
+        and(
+          eq(rankStatEntry.rankingDefinitionId, rankingDefinitionId),
+          eq(rankStatEntry.sessionId, input.sessionId)
+        )
+      )
+
+    let currentHolderId: string | null = null
+    for (const entry of entries) {
+      const stats = entry.stats as Record<string, number>
+      if (stats[input.awardId] && stats[input.awardId] > 0) {
+        currentHolderId = entry.userId
+        break
+      }
+    }
+
+    // If same player, nothing to do
+    if (currentHolderId === input.userId) return
+
+    // Remove award from current holder
+    if (currentHolderId) {
+      const currentEntry = entries.find((e) => e.userId === currentHolderId)!
+      const currentStats = { ...(currentEntry.stats as Record<string, number>) }
+      delete currentStats[input.awardId]
+
+      await tx
+        .update(rankStatEntry)
+        .set({ stats: currentStats, recordedBy })
+        .where(eq(rankStatEntry.id, currentEntry.id))
+
+      // Decrement in memberRank
+      const [currentRank] = await tx
+        .select()
+        .from(memberRank)
+        .where(
+          and(
+            eq(memberRank.rankingDefinitionId, rankingDefinitionId),
+            eq(memberRank.userId, currentHolderId)
+          )
+        )
+        .limit(1)
+
+      if (currentRank) {
+        const cumStats = { ...(currentRank.stats as Record<string, number>) }
+        cumStats[input.awardId] = Math.max(0, (cumStats[input.awardId] ?? 0) - 1)
+        await tx
+          .update(memberRank)
+          .set({ stats: cumStats })
+          .where(eq(memberRank.id, currentRank.id))
+      }
+    }
+
+    // Set award on new holder
+    if (input.userId) {
+      const existingEntry = entries.find((e) => e.userId === input.userId)
+
+      if (existingEntry) {
+        const newStats = { ...(existingEntry.stats as Record<string, number>) }
+        newStats[input.awardId] = 1
+        await tx
+          .update(rankStatEntry)
+          .set({ stats: newStats, recordedBy })
+          .where(eq(rankStatEntry.id, existingEntry.id))
+      } else {
+        await tx.insert(rankStatEntry).values({
+          organizationId,
+          rankingDefinitionId,
+          userId: input.userId,
+          sessionId: input.sessionId,
+          stats: { [input.awardId]: 1 },
+          recordedBy,
+        })
+      }
+
+      // Increment in memberRank
+      const [newRank] = await tx
+        .select()
+        .from(memberRank)
+        .where(
+          and(
+            eq(memberRank.rankingDefinitionId, rankingDefinitionId),
+            eq(memberRank.userId, input.userId)
+          )
+        )
+        .limit(1)
+
+      if (newRank) {
+        const cumStats = { ...(newRank.stats as Record<string, number>) }
+        cumStats[input.awardId] = (cumStats[input.awardId] ?? 0) + 1
+        await tx
+          .update(memberRank)
+          .set({ stats: cumStats, lastActivityAt: new Date() })
+          .where(eq(memberRank.id, newRank.id))
+      } else {
+        await tx.insert(memberRank).values({
+          organizationId,
+          rankingDefinitionId,
+          userId: input.userId,
+          stats: { [input.awardId]: 1 },
+          lastActivityAt: new Date(),
+        })
+      }
+    }
+  })
+}
+
 export async function correctStatEntry(
   organizationId: string,
   rankingDefinitionId: string,

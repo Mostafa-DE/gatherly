@@ -48,6 +48,11 @@ type RankingLevelOption = {
   order: number
 }
 
+type IndividualStatFieldConfig = {
+  id: string
+  label: string
+}
+
 type ParticipantsTableProps = {
   participants: ParticipantData[] | undefined
   isLoading: boolean
@@ -71,6 +76,8 @@ type ParticipantsTableProps = {
   rankingLevels?: RankingLevelOption[]
   memberCurrentLevelMap?: Map<string, string | null>
   rankingDefinitionId?: string
+  individualStatFields?: IndividualStatFieldConfig[]
+  individualStatsMap?: Record<string, Record<string, number>>
 }
 
 // Payment toggles: unpaid ↔ paid
@@ -207,6 +214,104 @@ function EmptyState({ tab }: { tab: string }) {
 }
 
 // ============================================================================
+// Individual Stats Section
+// ============================================================================
+
+function IndividualStatsSection({
+  fields,
+  rankingDefinitionId,
+  sessionId,
+  userId,
+  existingStats,
+}: {
+  fields: IndividualStatFieldConfig[]
+  rankingDefinitionId: string
+  sessionId: string
+  userId: string
+  existingStats?: Record<string, number>
+}) {
+  const [stats, setStats] = useState<Record<string, number>>(() =>
+    Object.fromEntries(
+      fields.map((f) => [f.id, existingStats?.[f.id] ?? 0])
+    )
+  )
+  const [isDirty, setIsDirty] = useState(false)
+
+  const utils = trpc.useUtils()
+  const mutation = trpc.plugin.ranking.recordBatchStats.useMutation({
+    onSuccess: () => {
+      setIsDirty(false)
+      utils.plugin.ranking.getStatEntriesBySession.invalidate({
+        rankingDefinitionId,
+        sessionId,
+      })
+      utils.plugin.ranking.getLeaderboard.invalidate()
+      toast.success("Stats saved")
+    },
+    onError: (err) => toast.error(err.message),
+  })
+
+  // Sync with server data when it changes
+  useEffect(() => {
+    if (existingStats) {
+      setStats(
+        Object.fromEntries(
+          fields.map((f) => [f.id, existingStats[f.id] ?? 0])
+        )
+      )
+      setIsDirty(false)
+    }
+  }, [existingStats, fields])
+
+  const handleSave = () => {
+    mutation.mutate({
+      rankingDefinitionId,
+      sessionId,
+      entries: [{ userId, stats }],
+    })
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        Individual Stats
+      </label>
+      <div className="flex flex-wrap gap-3">
+        {fields.map((field) => (
+          <div key={field.id} className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              {field.label}:
+            </span>
+            <input
+              type="number"
+              min={0}
+              className="h-7 w-16 rounded-md border border-input bg-popover px-2 text-xs text-center shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              value={stats[field.id] ?? 0}
+              onChange={(e) => {
+                const val = Math.max(0, parseInt(e.target.value) || 0)
+                setStats((prev) => ({ ...prev, [field.id]: val }))
+                setIsDirty(true)
+              }}
+              disabled={mutation.isPending}
+            />
+          </div>
+        ))}
+      </div>
+      {isDirty && (
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={mutation.isPending}
+        >
+          <Save className="mr-1.5 h-3.5 w-3.5" />
+          {mutation.isPending ? "Saving..." : "Save Stats"}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
 // Expanded Row Detail Panel
 // ============================================================================
 
@@ -223,6 +328,8 @@ function ExpandedRowPanel({
   rankingLevels,
   memberCurrentLevelId,
   rankingDefinitionId,
+  individualStatFields,
+  individualStats,
 }: {
   item: ParticipantData
   sessionId: string
@@ -234,6 +341,8 @@ function ExpandedRowPanel({
   rankingLevels?: RankingLevelOption[]
   memberCurrentLevelId?: string | null
   rankingDefinitionId?: string
+  individualStatFields?: IndividualStatFieldConfig[]
+  individualStats?: Record<string, number>
 }) {
   const [notesValue, setNotesValue] = useState(item.participation.notes ?? "")
   const [notesDirty, setNotesDirty] = useState(false)
@@ -345,6 +454,17 @@ function ExpandedRowPanel({
             )}
           </div>
         </div>
+      )}
+
+      {/* Individual Stats */}
+      {individualStatFields && individualStatFields.length > 0 && rankingDefinitionId && (
+        <IndividualStatsSection
+          fields={individualStatFields}
+          rankingDefinitionId={rankingDefinitionId}
+          sessionId={sessionId}
+          userId={item.user.id}
+          existingStats={individualStats}
+        />
       )}
 
       {/* Session Attribute Overrides */}
@@ -476,6 +596,8 @@ export function ParticipantsTable({
   rankingLevels,
   memberCurrentLevelMap,
   rankingDefinitionId,
+  individualStatFields,
+  individualStatsMap,
 }: ParticipantsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
 
@@ -739,6 +861,8 @@ export function ParticipantsTable({
                   rankingLevels={rankingLevels}
                   memberCurrentLevelId={memberCurrentLevelMap?.get(item.user.id)}
                   rankingDefinitionId={rankingDefinitionId}
+                  individualStatFields={individualStatFields}
+                  individualStats={individualStatsMap?.[item.user.id]}
                 />
               )}
             </div>

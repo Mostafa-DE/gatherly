@@ -82,7 +82,9 @@ import {
 import { createTournament } from "../src/plugins/tournaments/data-access/tournaments"
 import { registerEntry, randomizeSeeds } from "../src/plugins/tournaments/data-access/entries"
 import { startTournament, completeMatch } from "../src/plugins/tournaments/data-access/lifecycle"
-import { getDomain } from "../src/plugins/ranking/domains"
+import { advanceGroupStage } from "../src/plugins/tournaments/data-access/advancement"
+import { createTeam, joinTeam, registerTeamEntry } from "../src/plugins/tournaments/data-access/teams"
+import { getDomain, hasIndividualStats } from "../src/plugins/ranking/domains"
 import { injectRankingAttributeFields } from "../src/plugins/ranking/utils/join-form-attributes"
 import type { JoinFormSchema } from "../src/types/form"
 import type { TournamentFormat, TournamentConfig } from "../src/plugins/tournaments/types"
@@ -90,7 +92,7 @@ import type { TournamentFormat, TournamentConfig } from "../src/plugins/tourname
 // ─── Config ──────────────────────────────────────────────────────────────────
 
 const SEED_PREFIX = "seed_"
-const OWNER_EMAIL = "seed-admin@gatherly.test"
+const OWNER_EMAIL = "admin@example.com"
 const OWNER_USERNAME = "seedadmin"
 const ORG_SLUG = `${OWNER_USERNAME}-seed-community-test`
 const PASSWORD = "password123"
@@ -135,6 +137,17 @@ function weighted<T>(options: [T, number][]): T {
     if (r <= 0) return val
   }
   return options[options.length - 1][0]
+}
+
+/** Distribute a total randomly among n buckets (e.g., 5 goals among 3 players → [2, 2, 1]) */
+function distributeAmong(total: number, n: number): number[] {
+  if (n <= 0) return []
+  if (n === 1) return [total]
+  const result = new Array(n).fill(0)
+  for (let i = 0; i < total; i++) {
+    result[Math.floor(Math.random() * n)]++
+  }
+  return result
 }
 
 // ─── Data definitions ────────────────────────────────────────────────────────
@@ -1344,7 +1357,7 @@ async function createActivitiesAndRankings(
         const scores = cfg.generateScores()
         const result = cfg.resolveMatch(scores)
 
-        // Build derived stats per player
+        // Build derived stats per player (team stats only — individual stats are separate)
         const derivedStats: Record<string, Record<string, number>> = {}
         for (const userId of team1) {
           derivedStats[userId] = { ...result.team1Stats }
@@ -1376,6 +1389,80 @@ async function createActivitiesAndRankings(
           createdAt: daysAgo(sessionDaysAgo - randomInt(0, 1)),
         })
         totalMatches++
+
+        // Generate individual stats per player (currently football only)
+        if (hasIndividualStats(cfg.domainId)) {
+          const teamScore = scores as { team1: number; team2: number }
+
+          for (const [teamPlayers, teamTotal] of [
+            [team1, teamScore.team1],
+            [team2, teamScore.team2],
+          ] as const) {
+            // Distribute team goals among individual players
+            const goalDistribution = distributeAmong(teamTotal, teamPlayers.length)
+
+            for (let p = 0; p < teamPlayers.length; p++) {
+              const playerId = teamPlayers[p]
+              const playerGoals = goalDistribution[p]
+              const playerStats: Record<string, number> = {
+                goals: playerGoals,
+                assists: randomInt(0, Math.max(0, teamTotal - playerGoals)),
+                yellow_cards: randomInt(0, 1) > 0.8 ? 1 : 0,
+                red_cards: randomInt(0, 20) === 0 ? 1 : 0,
+              }
+
+              // Insert stat entry
+              await db.insert(rankStatEntry).values({
+                id: seedId(`stat_${cfg.domainId}_s${s}_p${teamPlayers === team1 ? p : ppt + p}`),
+                organizationId: orgId,
+                rankingDefinitionId: defId,
+                userId: playerId,
+                sessionId,
+                stats: playerStats,
+                recordedBy: ownerId,
+                createdAt: daysAgo(sessionDaysAgo - randomInt(0, 1)),
+              })
+
+              // Aggregate into cumulative stats
+              if (!userStats[playerId]) userStats[playerId] = {}
+              for (const [k, v] of Object.entries(playerStats)) {
+                userStats[playerId][k] = (userStats[playerId][k] ?? 0) + v
+              }
+            }
+          }
+
+          // Assign MOTM to a random player from the winning team (or random if draw)
+          const domain = getDomain(cfg.domainId)
+          if (domain?.sessionAwards?.some((a) => a.id === "motm")) {
+            const motmCandidates = result.winner === "team1" ? team1
+              : result.winner === "team2" ? team2
+              : [...team1, ...team2]
+            const motmUserId = pick(motmCandidates)
+
+            // Merge motm into existing stat entry for this player
+            // The stat entry was already created above, so we need to update it
+            const existingId = seedId(`stat_${cfg.domainId}_s${s}_p${
+              team1.indexOf(motmUserId) >= 0
+                ? team1.indexOf(motmUserId)
+                : ppt + team2.indexOf(motmUserId)
+            }`)
+            const [existing] = await db
+              .select({ stats: rankStatEntry.stats })
+              .from(rankStatEntry)
+              .where(eq(rankStatEntry.id, existingId))
+              .limit(1)
+            if (existing) {
+              const updatedStats = { ...(existing.stats as Record<string, number>), motm: 1 }
+              await db
+                .update(rankStatEntry)
+                .set({ stats: updatedStats })
+                .where(eq(rankStatEntry.id, existingId))
+            }
+
+            if (!userStats[motmUserId]) userStats[motmUserId] = {}
+            userStats[motmUserId].motm = (userStats[motmUserId].motm ?? 0) + 1
+          }
+        }
       }
     }
 
@@ -1786,6 +1873,9 @@ type TournamentSeedConfig = {
   targetStatus: "draft" | "registration" | "in_progress" | "completed"
   visibility: "public" | "activity_members"
   participantCount: number
+  participantType?: "individual" | "team"
+  teamSize?: number // players per team (for team tournaments)
+  teamNames?: string[] // team names (for team tournaments)
   config?: TournamentConfig
   matchesToComplete?: number | "all"
 }
@@ -1804,13 +1894,24 @@ const TOURNAMENT_CONFIGS: TournamentSeedConfig[] = [
   },
   {
     activitySlug: "football",
-    name: "Football Round Robin League",
-    slug: "football-round-robin",
-    format: "round_robin",
+    name: "Football Group Knockout",
+    slug: "football-group-knockout",
+    format: "group_knockout",
     targetStatus: "completed",
     visibility: "public",
-    participantCount: 6,
-    config: { points: { win: 3, draw: 1, loss: 0, bye: 3 } },
+    participantType: "team",
+    participantCount: 8,
+    teamSize: 5,
+    teamNames: [
+      "Lions", "Eagles", "Falcons", "Panthers",
+      "Wolves", "Titans", "Vipers", "Thunder",
+    ],
+    config: {
+      groupCount: 2,
+      minTeamSize: 5,
+      maxTeamSize: 5,
+      points: { win: 3, draw: 1, loss: 0, bye: 3 },
+    },
     matchesToComplete: "all",
   },
   {
@@ -1947,6 +2048,7 @@ async function createTournaments(
       slug: cfg.slug,
       format: cfg.format,
       visibility: cfg.visibility,
+      participantType: cfg.participantType ?? "individual",
       config: cfg.config ?? {},
       startsAt:
         cfg.targetStatus === "in_progress" || cfg.targetStatus === "completed"
@@ -1961,13 +2063,30 @@ async function createTournaments(
         .from(activityMember)
         .where(eq(activityMember.activityId, activityId))
 
-      const participantUserIds = pickN(
-        actMembers.map((m) => m.userId),
-        cfg.participantCount
-      )
+      const allUserIds = actMembers.map((m) => m.userId)
 
-      for (const userId of participantUserIds) {
-        await registerEntry(t.id, orgId, userId, { allowDraft: true })
+      if (cfg.participantType === "team" && cfg.teamNames && cfg.teamSize) {
+        // Team tournament: create teams, add members, register
+        const totalPlayers = cfg.participantCount * cfg.teamSize
+        const selectedUsers = pickN(allUserIds, totalPlayers)
+        let userIdx = 0
+
+        for (let i = 0; i < cfg.participantCount; i++) {
+          const captainId = selectedUsers[userIdx++]
+          const team = await createTeam(orgId, t.id, cfg.teamNames[i], captainId)
+
+          for (let j = 1; j < cfg.teamSize; j++) {
+            await joinTeam(t.id, orgId, team.id, selectedUsers[userIdx++])
+          }
+
+          await registerTeamEntry(t.id, orgId, team.id, { allowDraft: true })
+        }
+      } else {
+        // Individual tournament
+        const participantUserIds = pickN(allUserIds, cfg.participantCount)
+        for (const userId of participantUserIds) {
+          await registerEntry(t.id, orgId, userId, { allowDraft: true })
+        }
       }
     }
 
@@ -1994,11 +2113,28 @@ async function createTournaments(
 
     let matchesCompleted = 0
     if (cfg.matchesToComplete) {
-      matchesCompleted = await completeTournamentMatches(
-        t.id,
-        orgId,
-        cfg.matchesToComplete
-      )
+      // For group_knockout: complete group stage, advance, then complete knockout
+      if (cfg.format === "group_knockout") {
+        // Complete all group stage matches first
+        matchesCompleted = await completeTournamentMatches(t.id, orgId, "all")
+
+        // Advance group stage → generate knockout bracket
+        await advanceGroupStage(t.id, orgId)
+
+        // Complete knockout matches
+        if (cfg.matchesToComplete === "all") {
+          matchesCompleted += await completeTournamentMatches(t.id, orgId, "all")
+        } else {
+          const knockoutCount = Math.max(0, cfg.matchesToComplete - matchesCompleted)
+          matchesCompleted += await completeTournamentMatches(t.id, orgId, knockoutCount)
+        }
+      } else {
+        matchesCompleted = await completeTournamentMatches(
+          t.id,
+          orgId,
+          cfg.matchesToComplete
+        )
+      }
     }
 
     console.log(

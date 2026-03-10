@@ -84,10 +84,10 @@ export const chessDomain: RankingDomain = {
   id: "chess",
   name: "Chess",
   statFields: [
-    { id: "matches_played", label: "Games Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
+    { id: "matches_played", label: "Games Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

@@ -86,12 +86,12 @@ export const hockeyDomain: RankingDomain = {
   id: "hockey",
   name: "Hockey",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "wins", label: "Wins" },
-    { id: "draws", label: "Draws" },
-    { id: "losses", label: "Losses" },
-    { id: "goals_scored", label: "Goals Scored" },
-    { id: "goals_conceded", label: "Goals Conceded" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "wins", label: "Wins", source: "team" },
+    { id: "draws", label: "Draws", source: "team" },
+    { id: "losses", label: "Losses", source: "team" },
+    { id: "goals_scored", label: "Goals Scored", source: "team" },
+    { id: "goals_conceded", label: "Goals Conceded", source: "team" },
   ],
   tieBreak: [
     { field: "wins", direction: "desc" },

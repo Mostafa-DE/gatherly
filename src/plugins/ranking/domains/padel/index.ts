@@ -112,11 +112,11 @@ export const padelDomain: RankingDomain = {
   id: "padel",
   name: "Padel",
   statFields: [
-    { id: "matches_played", label: "Matches Played" },
-    { id: "match_wins", label: "Match Wins" },
-    { id: "match_losses", label: "Match Losses" },
-    { id: "set_wins", label: "Set Wins" },
-    { id: "set_losses", label: "Set Losses" },
+    { id: "matches_played", label: "Matches Played", source: "team" },
+    { id: "match_wins", label: "Match Wins", source: "team" },
+    { id: "match_losses", label: "Match Losses", source: "team" },
+    { id: "set_wins", label: "Set Wins", source: "team" },
+    { id: "set_losses", label: "Set Losses", source: "team" },
   ],
   tieBreak: [
     { field: "match_wins", direction: "desc" },

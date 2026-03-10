@@ -3,6 +3,7 @@ import type { ComponentType } from "react"
 export type StatField = {
   id: string
   label: string
+  source: "team" | "individual"
 }
 
 export type TieBreakRule = {
@@ -83,6 +84,15 @@ export type GroupingPreset = {
 }
 
 // =============================================================================
+// Session Awards (e.g., MOTM — one player per session)
+// =============================================================================
+
+export type SessionAward = {
+  id: string         // stat key in memberRank.stats (e.g., "motm")
+  label: string      // display label (e.g., "Man of the Match")
+}
+
+// =============================================================================
 // Domain Type
 // =============================================================================
 
@@ -101,4 +111,5 @@ export type RankingDomain = {
   sessionConfig?: SessionConfig
   attributeFields?: AttributeField[]
   groupingPreset?: GroupingPreset
+  sessionAwards?: SessionAward[]
 }
