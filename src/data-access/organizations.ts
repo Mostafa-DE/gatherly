@@ -115,6 +115,7 @@ export async function updateOrganizationById(
     name: string
     timezone: string | null
     defaultJoinMode: "open" | "invite" | "approval"
+    memberLimit: number
   }>
 ) {
   await db

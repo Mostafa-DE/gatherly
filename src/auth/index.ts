@@ -49,6 +49,10 @@ function getTrustedOriginList(request?: Request): string[] {
   return Array.from(trusted)
 }
 
+function getOrganizationMemberLimit(org: { memberLimit?: number }): number {
+  return org.memberLimit ?? 100
+}
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
@@ -113,6 +117,8 @@ export const auth = betterAuth({
   plugins: [
     oneTap(),
     organization({
+      membershipLimit: (_user, org) =>
+        getOrganizationMemberLimit(org as { memberLimit?: number }),
       schema: {
         organization: {
           additionalFields: {
@@ -135,6 +141,12 @@ export const auth = betterAuth({
             ownerUsername: {
               type: "string",
               required: true,
+              input: true,
+            },
+            memberLimit: {
+              type: "number",
+              required: true,
+              defaultValue: 100,
               input: true,
             },
           },

@@ -1,8 +1,10 @@
 import { z } from "zod"
+import { rethrowBetterAuthOrganizationError } from "@/auth/organization-errors"
 import { router, publicProcedure, protectedProcedure, orgProcedure } from "@/trpc"
 import { ForbiddenError, NotFoundError, BadRequestError, ConflictError } from "@/exceptions"
 import {
   createInviteLink,
+  decrementUsedCount,
   getValidInviteLinkByToken,
   claimInviteLinkByToken,
   listInviteLinks,
@@ -95,13 +97,26 @@ export const inviteLinkRouter = router({
       }
 
       // Add member via Better Auth
-      await auth.api.addMember({
-        body: {
-          userId: ctx.user.id,
-          role: link.role as "member" | "admin",
-          organizationId: link.organizationId,
-        },
-      })
+      try {
+        await auth.api.addMember({
+          body: {
+            userId: ctx.user.id,
+            role: link.role as "member" | "admin",
+            organizationId: link.organizationId,
+          },
+        })
+      } catch (error) {
+        const membership = await getOrganizationMemberByUserId(
+          link.organizationId,
+          ctx.user.id
+        )
+
+        if (!membership) {
+          await decrementUsedCount(link.id)
+        }
+
+        rethrowBetterAuthOrganizationError(error)
+      }
 
       // Save form answers if provided
       if (input.formAnswers && Object.keys(input.formAnswers).length > 0) {

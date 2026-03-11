@@ -56,6 +56,15 @@ export async function incrementUsedCount(id: string) {
     .where(eq(inviteLink.id, id))
 }
 
+export async function decrementUsedCount(id: string) {
+  await db
+    .update(inviteLink)
+    .set({
+      usedCount: sql`GREATEST(${inviteLink.usedCount} - 1, 0)`,
+    })
+    .where(eq(inviteLink.id, id))
+}
+
 /**
  * Atomically claim an invite link: validates token, expiration, active status,
  * and max uses in a single UPDATE ... WHERE ... RETURNING query.

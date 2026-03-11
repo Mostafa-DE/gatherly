@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { groupMemberProfile, inviteLink, member } from "@/db/schema"
+import { groupMemberProfile, inviteLink, member, organization } from "@/db/schema"
 import type { Session, User } from "@/db/types"
 import {
   cleanupTestData,
@@ -306,6 +306,35 @@ describe("invite-link router", () => {
 
     expect(linkAfterAttempt?.usedCount).toBe(0)
     expect(addMemberSpy).not.toHaveBeenCalled()
+  })
+
+  it("does not consume invite usage when org member limit blocks the join", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+    const inviteeCaller = buildCaller(invitee)
+
+    await db
+      .update(organization)
+      .set({ memberLimit: 1 })
+      .where(eq(organization.id, organizationId))
+
+    const link = await ownerCaller.inviteLink.create({
+      role: "member",
+      maxUses: 2,
+    })
+
+    await expect(
+      inviteeCaller.inviteLink.useToken({
+        token: link.token,
+      })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" })
+
+    const [linkAfterAttempt] = await db
+      .select({ usedCount: inviteLink.usedCount })
+      .from(inviteLink)
+      .where(eq(inviteLink.id, link.id))
+      .limit(1)
+
+    expect(linkAfterAttempt?.usedCount).toBe(0)
   })
 
   it("enforces maxUses and rejects a second redemption", async () => {

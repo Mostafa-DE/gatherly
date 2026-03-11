@@ -1,0 +1,1 @@
+ALTER TABLE "organization" ADD COLUMN "member_limit" integer DEFAULT 100 NOT NULL;

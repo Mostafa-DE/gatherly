@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { eq, and, sql } from "drizzle-orm"
+import { rethrowBetterAuthOrganizationError } from "@/auth/organization-errors"
 import { router, publicProcedure, protectedProcedure, orgProcedure } from "@/trpc"
 import { BadRequestError, ForbiddenError, NotFoundError } from "@/exceptions"
 import { organization, member, invitation, user } from "@/db/auth-schema"
@@ -167,13 +168,17 @@ export const organizationRouter = router({
           getOrganizationById,
           getOrganizationMemberByUserId,
           addMember: async ({ organizationId, userId, role }) => {
-            await auth.api.addMember({
-              body: {
-                userId,
-                role,
-                organizationId,
-              },
-            })
+            try {
+              await auth.api.addMember({
+                body: {
+                  userId,
+                  role,
+                  organizationId,
+                },
+              })
+            } catch (error) {
+              rethrowBetterAuthOrganizationError(error)
+            }
           },
         },
         {
@@ -395,6 +400,7 @@ export const organizationRouter = router({
         confirmText: z.string().optional(),
         timezone: z.string().max(100).nullable().optional(),
         defaultJoinMode: z.enum(["open", "invite", "approval"]).optional(),
+        memberLimit: z.number().int().positive().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -420,6 +426,7 @@ export const organizationRouter = router({
           name: input.name,
           timezone: input.timezone ?? undefined,
           defaultJoinMode: input.defaultJoinMode,
+          memberLimit: input.memberLimit,
           callerRole: ctx.membership.role,
         }
       )

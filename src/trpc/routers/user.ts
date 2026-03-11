@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { eq, and } from "drizzle-orm"
+import { rethrowBetterAuthOrganizationError } from "@/auth/organization-errors"
 import { router, publicProcedure, protectedProcedure } from "@/trpc"
 import { getPublicUserById, getUserByUsername, updateUser } from "@/data-access/users"
 import { updateProfileSchema, usernameSchema } from "@/schemas/user"
@@ -88,6 +89,7 @@ export const userRouter = router({
         slug: z.string().min(1).max(100).regex(/^[a-z0-9-]+$/),
         timezone: z.string().optional(),
         defaultJoinMode: z.enum(["open", "invite", "approval"]).default("invite"),
+        memberLimit: z.number().int().positive().optional(),
         currency: z.enum(SUPPORTED_CURRENCIES).nullable().optional(),
         interestIds: z.array(z.string()).optional(),
       })
@@ -110,6 +112,7 @@ export const userRouter = router({
           defaultJoinMode: input.defaultJoinMode,
           userSlug: input.slug,
           ownerUsername: username,
+          memberLimit: input.memberLimit ?? 100,
         },
         headers: ctx.headers,
       })
@@ -190,12 +193,16 @@ export const userRouter = router({
       }
 
       // Accept via Better Auth
-      await auth.api.acceptInvitation({
-        body: {
-          invitationId: input.invitationId,
-        },
-        headers: ctx.headers,
-      })
+      try {
+        await auth.api.acceptInvitation({
+          body: {
+            invitationId: input.invitationId,
+          },
+          headers: ctx.headers,
+        })
+      } catch (error) {
+        rethrowBetterAuthOrganizationError(error)
+      }
 
       return { success: true }
     }),

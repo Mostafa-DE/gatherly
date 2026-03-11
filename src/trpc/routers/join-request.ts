@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { rethrowBetterAuthOrganizationError } from "@/auth/organization-errors"
 import { router, protectedProcedure, orgProcedure } from "@/trpc"
 import { ForbiddenError, NotFoundError, BadRequestError } from "@/exceptions"
 import { auth } from "@/auth"
@@ -133,13 +134,17 @@ export const joinRequestRouter = router({
       }
 
       // Add user as member first; only mark request approved once membership exists.
-      await auth.api.addMember({
-        body: {
-          userId: requestData.request.userId,
-          role: "member",
-          organizationId: ctx.activeOrganization.id,
-        },
-      })
+      try {
+        await auth.api.addMember({
+          body: {
+            userId: requestData.request.userId,
+            role: "member",
+            organizationId: ctx.activeOrganization.id,
+          },
+        })
+      } catch (error) {
+        rethrowBetterAuthOrganizationError(error)
+      }
 
       const updatedRequest = await approveJoinRequest(input.requestId, ctx.user.id)
 

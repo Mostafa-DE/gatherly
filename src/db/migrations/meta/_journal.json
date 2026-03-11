@@ -15,6 +15,13 @@
       "when": 1773079341221,
       "tag": "0001_free_fenris",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773196479651,
+      "tag": "0002_amusing_elektra",
+      "breakpoints": true
     }
   ]
 }

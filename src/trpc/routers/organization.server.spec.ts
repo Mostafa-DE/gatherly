@@ -476,6 +476,7 @@ describe("organization router", () => {
       adminCaller.organization.updateSettings({
         timezone: "America/New_York",
         defaultJoinMode: "approval",
+        memberLimit: 250,
       })
     ).resolves.toEqual({ success: true })
 
@@ -483,6 +484,7 @@ describe("organization router", () => {
       .select({
         timezone: organization.timezone,
         defaultJoinMode: organization.defaultJoinMode,
+        memberLimit: organization.memberLimit,
       })
       .from(organization)
       .where(eq(organization.id, orgId))
@@ -490,6 +492,7 @@ describe("organization router", () => {
 
     expect(updated?.timezone).toBe("America/New_York")
     expect(updated?.defaultJoinMode).toBe("approval")
+    expect(updated?.memberLimit).toBe(250)
   })
 
   it("blocks non-admin users from updateSettings", async () => {

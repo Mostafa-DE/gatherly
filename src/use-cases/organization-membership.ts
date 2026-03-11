@@ -64,6 +64,7 @@ type UpdateOrganizationSettingsInput = {
   name?: string
   timezone?: string
   defaultJoinMode?: "open" | "invite" | "approval"
+  memberLimit?: number
   callerRole: string
 }
 
@@ -74,6 +75,7 @@ type UpdateOrganizationSettingsDependencies = {
       name: string
       timezone: string | null
       defaultJoinMode: "open" | "invite" | "approval"
+      memberLimit: number
     }>
   ) => Promise<void>
   lockOrganizationNameChange: (organizationId: string) => Promise<boolean>
@@ -181,6 +183,7 @@ export async function updateOrganizationSettings(
     name: string
     timezone: string | null
     defaultJoinMode: "open" | "invite" | "approval"
+    memberLimit: number
   }> = {}
 
   if (input.name !== undefined) {
@@ -205,6 +208,14 @@ export async function updateOrganizationSettings(
 
   if (input.defaultJoinMode !== undefined) {
     updates.defaultJoinMode = input.defaultJoinMode
+  }
+
+  if (input.memberLimit !== undefined) {
+    if (!Number.isInteger(input.memberLimit) || input.memberLimit < 1) {
+      throw new BadRequestError("Member limit must be a positive integer")
+    }
+
+    updates.memberLimit = input.memberLimit
   }
 
   if (Object.keys(updates).length === 0) {

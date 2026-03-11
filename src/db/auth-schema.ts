@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   boolean,
+  integer,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -101,6 +102,7 @@ export const organization = pgTable(
     defaultJoinMode: text("default_join_mode").default("invite").notNull(),
     userSlug: text("user_slug").notNull(),
     ownerUsername: text("owner_username").notNull(),
+    memberLimit: integer("member_limit").default(100).notNull(),
   },
   (table) => [uniqueIndex("organization_slug_uidx").on(table.slug)],
 );

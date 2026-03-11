@@ -356,6 +356,33 @@ describe("organization-membership use-case", () => {
       expect(result).toEqual({ success: true })
     })
 
+    it("updates member limit", async () => {
+      const deps = { ...baseDeps, updateOrganizationById: vi.fn(async () => undefined) }
+
+      const result = await updateOrganizationSettings(deps, {
+        organizationId: "org_1",
+        memberLimit: 250,
+        callerRole: "admin",
+      })
+
+      expect(deps.updateOrganizationById).toHaveBeenCalledWith("org_1", {
+        memberLimit: 250,
+      })
+      expect(result).toEqual({ success: true })
+    })
+
+    it("rejects invalid member limit", async () => {
+      const deps = { ...baseDeps, updateOrganizationById: vi.fn(async () => undefined) }
+
+      await expect(
+        updateOrganizationSettings(deps, {
+          organizationId: "org_1",
+          memberLimit: 0,
+          callerRole: "admin",
+        })
+      ).rejects.toThrow("Member limit must be a positive integer")
+    })
+
     it("allows owner to change name when not previously changed", async () => {
       const deps = {
         ...baseDeps,

@@ -412,6 +412,7 @@ describe("user router", () => {
       slug: "created-organization",
       timezone: "UTC",
       defaultJoinMode: "open",
+      memberLimit: 250,
     })
 
     expect(result.id).toBe(createdOrganizationId)
@@ -423,6 +424,7 @@ describe("user router", () => {
           slug: `${currentUser.username}-created-organization`,
           timezone: "UTC",
           defaultJoinMode: "open",
+          memberLimit: 250,
           userSlug: "created-organization",
           ownerUsername: currentUser.username,
         }),
