@@ -16,7 +16,6 @@ type FeatureContext = {
 export const suggestSessionDescription: AIFeature<typeof inputSchema> = {
   id: "suggestSessionDescription",
   inputSchema,
-  model: "mistral:7b",
   temperature: 0.5,
   access: "admin",
 

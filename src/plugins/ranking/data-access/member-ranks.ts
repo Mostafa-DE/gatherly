@@ -739,3 +739,46 @@ export async function correctStatEntry(
     return { entry, memberRank: updatedMemberRank }
   })
 }
+
+// =============================================================================
+// AI Enrichment Queries
+// =============================================================================
+
+export async function getUserRecentIndividualStats(
+  userId: string,
+  organizationId: string,
+  limit = 10
+): Promise<Array<{
+  definitionName: string
+  domainId: string
+  stats: Record<string, unknown>
+  sessionId: string | null
+  createdAt: Date
+}>> {
+  const rows = await db
+    .select({
+      definitionName: rankingDefinition.name,
+      domainId: rankingDefinition.domainId,
+      stats: rankStatEntry.stats,
+      sessionId: rankStatEntry.sessionId,
+      createdAt: rankStatEntry.createdAt,
+    })
+    .from(rankStatEntry)
+    .innerJoin(
+      rankingDefinition,
+      eq(rankStatEntry.rankingDefinitionId, rankingDefinition.id)
+    )
+    .where(
+      and(
+        eq(rankStatEntry.userId, userId),
+        eq(rankStatEntry.organizationId, organizationId)
+      )
+    )
+    .orderBy(desc(rankStatEntry.createdAt))
+    .limit(limit)
+
+  return rows.map((row) => ({
+    ...row,
+    stats: (row.stats as Record<string, unknown>) ?? {},
+  }))
+}

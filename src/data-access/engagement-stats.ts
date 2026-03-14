@@ -1,4 +1,4 @@
-import { and, eq, sql, gt, isNull } from "drizzle-orm"
+import { and, eq, sql, gt, isNull, max } from "drizzle-orm"
 import { db } from "@/db"
 import { participation, eventSession } from "@/db/schema"
 
@@ -71,4 +71,61 @@ export async function getEngagementStats(
     attendanceRate,
     upcomingSessions: upcomingResult?.count ?? 0,
   }
+}
+
+export async function getOrgAverageEngagement(
+  organizationId: string
+): Promise<{
+  activeMemberCount: number
+  avgSessionsAttended: number
+  avgAttendanceRate: number
+}> {
+  const result = await db.execute<{
+    active_member_count: number
+    avg_sessions_attended: number
+    avg_attendance_rate: number
+  }>(sql`
+    WITH member_stats AS (
+      SELECT
+        ${participation.userId} as user_id,
+        COUNT(*) FILTER (WHERE ${participation.attendance} = 'show') as shows,
+        COUNT(*) FILTER (WHERE ${participation.attendance} IN ('show', 'no_show')) as total
+      FROM ${participation}
+      INNER JOIN ${eventSession} ON ${participation.sessionId} = ${eventSession.id}
+      WHERE ${eventSession.organizationId} = ${organizationId}
+        AND ${participation.attendance} IN ('show', 'no_show')
+      GROUP BY ${participation.userId}
+    )
+    SELECT
+      COUNT(*)::int as active_member_count,
+      COALESCE(AVG(shows), 0)::float as avg_sessions_attended,
+      COALESCE(AVG(CASE WHEN total > 0 THEN (shows::float / total) * 100 ELSE 0 END), 0)::float as avg_attendance_rate
+    FROM member_stats
+  `)
+
+  const row = result.rows[0]
+  return {
+    activeMemberCount: row?.active_member_count ?? 0,
+    avgSessionsAttended: row?.avg_sessions_attended ?? 0,
+    avgAttendanceRate: row?.avg_attendance_rate ?? 0,
+  }
+}
+
+export async function getMemberLastActivityDate(
+  userId: string,
+  organizationId: string
+): Promise<Date | null> {
+  const [result] = await db
+    .select({ lastDate: max(eventSession.dateTime) })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        eq(participation.userId, userId),
+        eq(eventSession.organizationId, organizationId),
+        eq(participation.attendance, "show")
+      )
+    )
+
+  return result?.lastDate ?? null
 }

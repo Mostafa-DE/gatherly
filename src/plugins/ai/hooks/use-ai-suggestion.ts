@@ -9,6 +9,21 @@ type StreamingQueryResult = {
   error: { message: string } | null
 }
 
+const aiAvailabilityQueryOptions = {
+  staleTime: 30_000,
+  gcTime: 5 * 60_000,
+  retry: false,
+} as const
+
+function useAIAvailability() {
+  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery(
+    undefined,
+    aiAvailabilityQueryOptions
+  )
+
+  return aiAvailability?.available === true
+}
+
 function useStreamingCore(
   queryResult: StreamingQueryResult,
   onComplete: (text: string) => void,
@@ -62,8 +77,7 @@ export function useAISuggestion(options: {
   feature?: "suggestSessionDescription"
   onComplete: (text: string) => void
 }) {
-  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
-  const isAvailable = aiAvailability?.available === true
+  const isAvailable = useAIAvailability()
 
   type Input = {
     sessionTitle: string
@@ -100,8 +114,7 @@ export function useAISuggestion(options: {
 export function useAISuggestMemberNote(options: {
   onComplete: (text: string) => void
 }) {
-  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
-  const isAvailable = aiAvailability?.available === true
+  const isAvailable = useAIAvailability()
 
   type Input = { targetUserId: string }
 
@@ -134,8 +147,7 @@ export function useAISuggestMemberNote(options: {
 export function useAISummarizeJoinRequest(options: {
   onComplete: (text: string) => void
 }) {
-  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
-  const isAvailable = aiAvailability?.available === true
+  const isAvailable = useAIAvailability()
 
   type Input = { requestId: string }
 
@@ -168,8 +180,7 @@ export function useAISummarizeJoinRequest(options: {
 export function useAISuggestParticipationNote(options: {
   onComplete: (text: string) => void
 }) {
-  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
-  const isAvailable = aiAvailability?.available === true
+  const isAvailable = useAIAvailability()
 
   type Input = { participationId: string; sessionId: string }
 
@@ -202,8 +213,7 @@ export function useAISuggestParticipationNote(options: {
 export function useAISummarizeMemberProfile(options: {
   onComplete: (text: string) => void
 }) {
-  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
-  const isAvailable = aiAvailability?.available === true
+  const isAvailable = useAIAvailability()
 
   type Input = { userId: string }
 
@@ -236,8 +246,7 @@ export function useAISummarizeMemberProfile(options: {
 export function useAIAnalyzeAnalytics(options: {
   onComplete: (text: string) => void
 }) {
-  const { data: aiAvailability } = trpc.plugin.ai.checkAvailability.useQuery()
-  const isAvailable = aiAvailability?.available === true
+  const isAvailable = useAIAvailability()
 
   type Input = { days: "7" | "30" | "90" }
 

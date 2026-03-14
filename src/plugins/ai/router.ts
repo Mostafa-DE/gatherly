@@ -1,6 +1,5 @@
 import { router, orgProcedure } from "@/trpc"
 import { getOrCreateOrgSettings } from "@/data-access/organization-settings"
-import { checkOllamaHealth } from "@/plugins/ai/client"
 import { executeAIFeatureStream } from "@/plugins/ai/execute"
 import {
   suggestSessionDescription,
@@ -16,6 +15,11 @@ function isPluginEnabled(enabledPlugins: unknown, pluginId: string): boolean {
   return (enabledPlugins as Record<string, boolean>)[pluginId] === true
 }
 
+function hasAIApiKey(): boolean {
+  const key = process.env.AI_API_KEY?.trim()
+  return !!key
+}
+
 export const aiRouter = router({
   checkAvailability: orgProcedure.query(async ({ ctx }) => {
     const settings = await getOrCreateOrgSettings(ctx.activeOrganization.id)
@@ -25,8 +29,7 @@ export const aiRouter = router({
       return { available: false }
     }
 
-    const healthy = await checkOllamaHealth()
-    return { available: healthy }
+    return { available: hasAIApiKey() }
   }),
 
   suggestSessionDescription: orgProcedure

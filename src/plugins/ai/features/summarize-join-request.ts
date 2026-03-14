@@ -20,9 +20,12 @@ type FeatureContext = {
 export const summarizeJoinRequest: AIFeature<typeof inputSchema> = {
   id: "summarizeJoinRequest",
   inputSchema,
-  model: "mistral:7b",
   temperature: 0.3,
   access: "admin",
+  collectPII: (context) => {
+    const ctx = context as FeatureContext
+    return [ctx.applicantName]
+  },
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
     return withAIFeatureScope(

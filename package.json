@@ -28,11 +28,7 @@
     "db:seed:localminds:clean": "pnpm exec tsx --env-file=.env ./scripts/seed-localminds-scenario.ts --clean",
     "db:seed:large-group": "pnpm exec tsx --env-file=.env ./scripts/seed-large-group-data.ts seed",
     "db:seed:large-group:clean": "pnpm exec tsx --env-file=.env ./scripts/seed-large-group-data.ts cleanup",
-    "auth:generate": "npx @better-auth/cli generate --output ./src/db/auth-schema.ts",
-    "ollama:up": "docker compose up -d ollama && echo 'Waiting for Ollama...' && sleep 5 && docker exec gatherly-ollama ollama pull mistral:7b",
-    "ollama:stop": "docker compose stop ollama",
-    "railway:deploy:ollama": "sh ./scripts/railway-deploy.sh ollama",
-    "railway:deploy:web": "sh ./scripts/railway-deploy.sh web"
+    "auth:generate": "npx @better-auth/cli generate --output ./src/db/auth-schema.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

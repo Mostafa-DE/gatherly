@@ -21,7 +21,6 @@ vi.mock("@/plugins/ai/client", async () => {
 
   return {
     ...actual,
-    checkOllamaHealth: vi.fn(),
     generateText: vi.fn(),
     generateTextStream: vi.fn(),
   }
@@ -159,7 +158,7 @@ describe("plugin router", () => {
       .returning({ id: participation.id })
     externalParticipationId = createdParticipation.id
 
-    vi.mocked(aiClient.checkOllamaHealth).mockResolvedValue(true)
+    process.env.AI_API_KEY = "test-key-for-availability"
     vi.mocked(aiClient.generateText).mockResolvedValue("unused")
     vi.mocked(aiClient.generateTextStream).mockImplementation(() =>
       createChunkStream(["Generated", " description"])
@@ -168,6 +167,8 @@ describe("plugin router", () => {
 
   afterEach(async () => {
     vi.restoreAllMocks()
+    delete process.env.AI_MODEL
+    process.env.AI_API_KEY = "test-key-for-availability"
 
     if (organizationIds.length > 0 || userIds.length > 0) {
       await cleanupTestData({
@@ -234,15 +235,14 @@ describe("plugin router", () => {
     })
   })
 
-  it("returns unavailable and skips health check when AI plugin is disabled", async () => {
+  it("returns unavailable when AI plugin is disabled", async () => {
     const memberCaller = buildCaller(memberUser, organizationId)
 
     const result = await memberCaller.plugin.ai.checkAvailability()
     expect(result).toEqual({ available: false })
-    expect(aiClient.checkOllamaHealth).not.toHaveBeenCalled()
   })
 
-  it("returns health status when AI plugin is enabled", async () => {
+  it("returns available when AI plugin is enabled and API key is set", async () => {
     const ownerCaller = buildCaller(owner, organizationId)
 
     await ownerCaller.organizationSettings.togglePlugin({
@@ -250,15 +250,24 @@ describe("plugin router", () => {
       enabled: true,
     })
 
-    vi.mocked(aiClient.checkOllamaHealth).mockResolvedValueOnce(true)
     await expect(ownerCaller.plugin.ai.checkAvailability()).resolves.toEqual({
       available: true,
     })
+  })
 
-    vi.mocked(aiClient.checkOllamaHealth).mockResolvedValueOnce(false)
+  it("returns unavailable when AI plugin is enabled but no API key", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await ownerCaller.organizationSettings.togglePlugin({
+      pluginId: "ai",
+      enabled: true,
+    })
+
+    delete process.env.AI_API_KEY
     await expect(ownerCaller.plugin.ai.checkAvailability()).resolves.toEqual({
       available: false,
     })
+    process.env.AI_API_KEY = "test-key-for-availability"
   })
 
   it("streams description chunks for admins when plugin is enabled", async () => {
@@ -284,7 +293,8 @@ describe("plugin router", () => {
 
     expect(aiClient.generateTextStream).toHaveBeenCalledTimes(1)
     const [request] = vi.mocked(aiClient.generateTextStream).mock.calls[0]
-    expect(request.model).toBe("mistral:7b")
+    expect(request.model).toBe("llama-3.3-70b-versatile")
+    expect(request.options?.num_predict).toBe(256)
     expect(request.prompt).toContain('Session title: "Tuesday Social Match"')
     expect(request.prompt).toContain("Instructions:")
   })
@@ -320,7 +330,7 @@ describe("plugin router", () => {
     })
   })
 
-  it("rejects streaming when AI service is unhealthy", async () => {
+  it("rejects streaming when the generation request fails", async () => {
     const ownerCaller = buildCaller(owner, organizationId)
 
     await ownerCaller.organizationSettings.togglePlugin({
@@ -328,16 +338,18 @@ describe("plugin router", () => {
       enabled: true,
     })
 
-    vi.mocked(aiClient.checkOllamaHealth).mockResolvedValueOnce(false)
+    vi.mocked(aiClient.generateTextStream).mockImplementationOnce(async function* () {
+      yield "" // eslint requires yield in generators
+      throw new Error("connect ECONNREFUSED")
+    })
 
     const streamPromise = ownerCaller.plugin.ai.suggestSessionDescription({
-      sessionTitle: "Health Check Session",
+      sessionTitle: "Unavailable Session",
     })
 
     await expect(collectStreamFromPromise(streamPromise)).rejects.toMatchObject({
       code: "BAD_REQUEST",
     })
-    expect(aiClient.generateTextStream).not.toHaveBeenCalled()
   })
 
   it("streams analytics analysis for admins when plugin is enabled", async () => {
@@ -361,9 +373,30 @@ describe("plugin router", () => {
 
     expect(aiClient.generateTextStream).toHaveBeenCalledTimes(1)
     const [request] = vi.mocked(aiClient.generateTextStream).mock.calls[0]
-    expect(request.model).toBe("mistral:7b")
+    expect(request.model).toBe("llama-3.3-70b-versatile")
+    expect(request.options?.num_predict).toBe(256)
     expect(request.prompt).toContain("=== GROUP HEALTH ===")
     expect(request.prompt).toContain("=== REVENUE ===")
+  })
+
+  it("uses environment overrides for model selection", async () => {
+    const ownerCaller = buildCaller(owner, organizationId)
+
+    await ownerCaller.organizationSettings.togglePlugin({
+      pluginId: "ai",
+      enabled: true,
+    })
+
+    process.env.AI_MODEL = "custom-model-override"
+
+    const streamPromise = ownerCaller.plugin.ai.suggestSessionDescription({
+      sessionTitle: "Configured Model Session",
+    })
+
+    await collectStreamFromPromise(streamPromise)
+
+    const [request] = vi.mocked(aiClient.generateTextStream).mock.calls.at(-1) ?? []
+    expect(request?.model).toBe("custom-model-override")
   })
 
   it("blocks cross-organization join request summaries", async () => {

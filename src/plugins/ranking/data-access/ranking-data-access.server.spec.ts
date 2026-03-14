@@ -762,16 +762,12 @@ describe("ranking data-access", () => {
         wins: 1,
         draws: 0,
         losses: 1,
-        goals_scored: 2,
-        goals_conceded: 2,
       })
       expect(betaRank?.stats).toEqual({
         matches_played: 2,
         wins: 1,
         draws: 0,
         losses: 1,
-        goals_scored: 2,
-        goals_conceded: 2,
       })
     })
 
@@ -823,16 +819,12 @@ describe("ranking data-access", () => {
         wins: 0,
         draws: 0,
         losses: 1,
-        goals_scored: 0,
-        goals_conceded: 2,
       })
       expect(betaRank?.stats).toEqual({
         matches_played: 1,
         wins: 1,
         draws: 0,
         losses: 0,
-        goals_scored: 2,
-        goals_conceded: 0,
       })
     })
 

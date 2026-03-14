@@ -1,7 +1,7 @@
-import { and, eq, sql, count, ne, inArray, asc } from "drizzle-orm"
+import { and, eq, sql, count, ne, inArray, asc, min } from "drizzle-orm"
 import { db } from "@/db"
 import { user } from "@/db/auth-schema"
-import { tournament, tournamentEntry, tournamentTeam } from "../schema"
+import { tournament, tournamentEntry, tournamentTeam, tournamentMatchEntry } from "../schema"
 import { NotFoundError, BadRequestError, ConflictError } from "@/exceptions"
 import type { EntryStatus } from "../types"
 import { assertEntryTransition } from "../state-machine"
@@ -463,4 +463,58 @@ export async function getActiveEntries(
       )
     )
     .orderBy(tournamentEntry.seed)
+}
+
+// =============================================================================
+// AI Enrichment Queries
+// =============================================================================
+
+export async function getUserTournamentSummary(
+  userId: string,
+  organizationId: string
+): Promise<{
+  tournamentsEntered: number
+  matchWins: number
+  matchLosses: number
+  bestPlacement: number | null
+}> {
+  // Query 1: Count entries and best placement
+  const [entryStats] = await db
+    .select({
+      tournamentsEntered: sql<number>`COUNT(*)::int`,
+      bestPlacement: min(tournamentEntry.finalPlacement),
+    })
+    .from(tournamentEntry)
+    .where(
+      and(
+        eq(tournamentEntry.userId, userId),
+        eq(tournamentEntry.organizationId, organizationId),
+        ne(tournamentEntry.status, "withdrawn")
+      )
+    )
+
+  // Query 2: Count match wins and losses
+  const [matchStats] = await db
+    .select({
+      matchWins: sql<number>`COUNT(*) FILTER (WHERE ${tournamentMatchEntry.result} = 'win')::int`,
+      matchLosses: sql<number>`COUNT(*) FILTER (WHERE ${tournamentMatchEntry.result} = 'loss')::int`,
+    })
+    .from(tournamentMatchEntry)
+    .innerJoin(
+      tournamentEntry,
+      eq(tournamentMatchEntry.entryId, tournamentEntry.id)
+    )
+    .where(
+      and(
+        eq(tournamentEntry.userId, userId),
+        eq(tournamentEntry.organizationId, organizationId)
+      )
+    )
+
+  return {
+    tournamentsEntered: entryStats?.tournamentsEntered ?? 0,
+    matchWins: matchStats?.matchWins ?? 0,
+    matchLosses: matchStats?.matchLosses ?? 0,
+    bestPlacement: entryStats?.bestPlacement ?? null,
+  }
 }

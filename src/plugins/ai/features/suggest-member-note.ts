@@ -37,9 +37,12 @@ type FeatureContext = {
 export const suggestMemberNote: AIFeature<typeof inputSchema> = {
   id: "suggestMemberNote",
   inputSchema,
-  model: "mistral:7b",
   temperature: 0.3,
   access: "admin",
+  collectPII: (context) => {
+    const ctx = context as FeatureContext
+    return [ctx.memberName]
+  },
 
   fetchContext: async (ctx: AIFeatureContext, input) => {
     return withAIFeatureScope(

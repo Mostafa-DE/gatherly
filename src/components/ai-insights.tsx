@@ -86,7 +86,8 @@ export function parseInsights(text: string): ParsedInsight[] {
   const insights: ParsedInsight[] = []
 
   for (const line of lines) {
-    const match = line.match(/^\[(\w+)\]\s*(.+?)\s*\|\s*(.+)$/)
+    const normalizedLine = line.trim().replace(/^[-*]\s+/, "")
+    const match = normalizedLine.match(/^\[(\w+)\]\s*(.+?)\s*\|\s*(.+)$/)
     if (!match) continue
 
     const [, rawCategory, title, description] = match

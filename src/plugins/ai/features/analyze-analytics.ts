@@ -35,7 +35,6 @@ function formatTrend(points: { date: string; [key: string]: unknown }[], valueKe
 export const analyzeAnalytics: AIFeature<typeof inputSchema> = {
   id: "analyzeAnalytics",
   inputSchema,
-  model: "mistral:7b",
   temperature: 0.3,
   access: "admin",
 

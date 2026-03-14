@@ -1,6 +1,6 @@
 import { and, count, eq, ne, sql, desc, asc, isNull, ilike, or, inArray } from "drizzle-orm"
 import { db } from "@/db"
-import { eventSession, participation, user } from "@/db/schema"
+import { eventSession, participation, user, activity, activityMember } from "@/db/schema"
 import type { Participation } from "@/db/types"
 import { NotFoundError, BadRequestError, ConflictError } from "@/exceptions"
 import type {
@@ -1134,4 +1134,115 @@ export async function moveParticipant(
 
     return { cancelled, created }
   })
+}
+
+// =============================================================================
+// AI Enrichment Queries
+// =============================================================================
+
+export async function getMemberPaymentStats(
+  userId: string,
+  organizationId: string
+): Promise<{
+  unpaidCount: number
+  paidCount: number
+  totalWithPayment: number
+}> {
+  const [result] = await db
+    .select({
+      unpaidCount: sql<number>`COUNT(*) FILTER (WHERE ${participation.payment} != 'paid')::int`,
+      paidCount: sql<number>`COUNT(*) FILTER (WHERE ${participation.payment} = 'paid')::int`,
+      totalWithPayment: sql<number>`COUNT(*)::int`,
+    })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        eq(participation.userId, userId),
+        eq(eventSession.organizationId, organizationId),
+        eq(participation.attendance, "show"),
+        sql`${eventSession.price} IS NOT NULL`
+      )
+    )
+
+  return {
+    unpaidCount: result?.unpaidCount ?? 0,
+    paidCount: result?.paidCount ?? 0,
+    totalWithPayment: result?.totalWithPayment ?? 0,
+  }
+}
+
+export async function getMemberCancellationStats(
+  userId: string,
+  organizationId: string
+): Promise<{
+  cancelledCount: number
+  waitlistedCount: number
+}> {
+  const [result] = await db
+    .select({
+      cancelledCount: sql<number>`COUNT(*) FILTER (WHERE ${participation.status} = 'cancelled')::int`,
+      waitlistedCount: sql<number>`COUNT(*) FILTER (WHERE ${participation.status} = 'waitlisted')::int`,
+    })
+    .from(participation)
+    .innerJoin(eventSession, eq(participation.sessionId, eventSession.id))
+    .where(
+      and(
+        eq(participation.userId, userId),
+        eq(eventSession.organizationId, organizationId)
+      )
+    )
+
+  return {
+    cancelledCount: result?.cancelledCount ?? 0,
+    waitlistedCount: result?.waitlistedCount ?? 0,
+  }
+}
+
+export async function getMemberActivityEngagementDepth(
+  userId: string,
+  organizationId: string
+): Promise<Array<{
+  activityId: string
+  activityName: string
+  sessionsLast30Days: number
+}>> {
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  return db
+    .select({
+      activityId: activity.id,
+      activityName: activity.name,
+      sessionsLast30Days: sql<number>`
+        COUNT(${participation.id}) FILTER (
+          WHERE ${participation.attendance} = 'show'
+            AND ${eventSession.dateTime} > ${thirtyDaysAgo}
+        )::int
+      `,
+    })
+    .from(activityMember)
+    .innerJoin(activity, eq(activityMember.activityId, activity.id))
+    .leftJoin(
+      eventSession,
+      and(
+        eq(eventSession.activityId, activity.id),
+        eq(eventSession.organizationId, organizationId)
+      )
+    )
+    .leftJoin(
+      participation,
+      and(
+        eq(participation.sessionId, eventSession.id),
+        eq(participation.userId, userId)
+      )
+    )
+    .where(
+      and(
+        eq(activityMember.userId, userId),
+        eq(activity.organizationId, organizationId),
+        ne(activityMember.status, "rejected")
+      )
+    )
+    .groupBy(activity.id, activity.name)
 }
